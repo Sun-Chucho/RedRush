@@ -1,6 +1,5 @@
 import React, { createContext, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import {
@@ -69,7 +68,6 @@ function defaultNameForRole(role: UserRole) {
 
 function profileFromFirebaseUser(firebaseUser: FirebaseUser, profile?: Partial<AuthUser>): AuthUser {
   const role = profile?.role || 'customer';
-
   return {
     id: firebaseUser.uid,
     name: profile?.name || firebaseUser.displayName || defaultNameForRole(role),
@@ -87,15 +85,11 @@ function getAuthErrorMessage(error: unknown) {
 
   if (code.includes('auth/email-already-in-use')) return 'That email is already registered. Please sign in instead.';
   if (code.includes('auth/invalid-email')) return 'Please enter a valid email address.';
-  if (code.includes('auth/invalid-credential') || code.includes('auth/wrong-password')) {
-    return 'The email or password is incorrect.';
-  }
+  if (code.includes('auth/invalid-credential') || code.includes('auth/wrong-password')) return 'The email or password is incorrect.';
   if (code.includes('auth/user-not-found')) return 'No account exists for that email.';
   if (code.includes('auth/weak-password')) return 'Password must be at least 6 characters.';
   if (code.includes('auth/network-request-failed')) return 'Network error. Check your connection and try again.';
-  if (code.includes('auth/popup-closed-by-user') || code.includes('auth/cancelled-popup-request')) {
-    return 'Sign-in was cancelled.';
-  }
+  if (code.includes('auth/popup-closed-by-user') || code.includes('auth/cancelled-popup-request')) return 'Sign-in was cancelled.';
 
   return message;
 }
@@ -107,11 +101,7 @@ async function ensureUserProfile(firebaseUser: FirebaseUser, data: Partial<AuthU
     ? (snapshot.data() as Partial<AuthUser> & { status?: string; createdAt?: unknown })
     : {};
   const nextRole = forceRole || !existing.role ? data.role || 'customer' : existing.role;
-  const profile = profileFromFirebaseUser(firebaseUser, {
-    ...existing,
-    ...data,
-    role: nextRole,
-  });
+  const profile = profileFromFirebaseUser(firebaseUser, { ...existing, ...data, role: nextRole });
 
   await setDoc(
     userRef,
@@ -145,11 +135,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
         return;
       }
-
       try {
         const userRef = doc(db, 'users', currentUser.uid);
         const snapshot = await getDoc(userRef);
-
         if (snapshot.exists()) {
           setUser(profileFromFirebaseUser(currentUser, snapshot.data() as Partial<AuthUser>));
         } else {
@@ -161,7 +149,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     });
-
     return unsubscribe;
   }, []);
 
@@ -179,20 +166,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const email = (data.email || '').trim();
       const credential = await createUserWithEmailAndPassword(auth, email, data.password);
-
       if (data.name) {
         await updateFirebaseProfile(credential.user, { displayName: data.name });
       }
-
       const profile = await ensureUserProfile(
         credential.user,
-        {
-          name: data.name,
-          email,
-          phone: data.phone,
-          role: data.role || 'customer',
-          address: data.address,
-        },
+        { name: data.name, email, phone: data.phone, role: data.role || 'customer', address: data.address },
         true
       );
       setUser(profile);
@@ -203,24 +182,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = async (role: UserRole) => {
     if (!isGoogleConfigured) {
-      throw new Error(
-        'Google Sign-In needs OAuth client IDs. Add EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID from Firebase Authentication.'
-      );
+      throw new Error('Google Sign-In needs OAuth client IDs. Add EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID from Firebase Authentication.');
     }
-
     try {
       const result = await promptGoogleAsync();
-
-      if (result.type !== 'success') {
-        throw new Error('Google Sign-In was cancelled.');
-      }
-
+      if (result.type !== 'success') throw new Error('Google Sign-In was cancelled.');
       const idToken = result.params?.id_token;
-
-      if (!idToken) {
-        throw new Error('Google did not return an identity token. Check your Firebase OAuth client configuration.');
-      }
-
+      if (!idToken) throw new Error('Google did not return an identity token.');
       const credential = GoogleAuthProvider.credential(idToken);
       const firebaseCredential = await signInWithCredential(auth, credential);
       const profile = await ensureUserProfile(firebaseCredential.user, { role });
@@ -231,15 +199,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithApple = async (role: UserRole) => {
+    // Apple Sign-In is only available natively on iOS
+    if (Platform.OS !== 'ios') {
+      throw new Error(
+        Platform.OS === 'android'
+          ? 'Apple Sign-In requires an iOS device.'
+          : 'Apple Sign-In is not available on web. Please use email or Google sign-in.'
+      );
+    }
+
     try {
+      // Dynamically import to avoid web bundling issues
+      const AppleAuthentication = await import('expo-apple-authentication');
       const isAvailable = await AppleAuthentication.isAvailableAsync();
 
       if (!isAvailable) {
-        throw new Error(
-          Platform.OS === 'ios'
-            ? 'Apple Sign-In is not available on this device.'
-            : 'Apple Sign-In requires an iOS native build. Configure Apple web OAuth before enabling it on Android.'
-        );
+        throw new Error('Apple Sign-In is not available on this device.');
       }
 
       const appleCredential = await AppleAuthentication.signInAsync({
@@ -249,14 +224,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ],
       });
 
-      if (!appleCredential.identityToken) {
-        throw new Error('Apple did not return an identity token.');
-      }
+      if (!appleCredential.identityToken) throw new Error('Apple did not return an identity token.');
 
       const provider = new OAuthProvider('apple.com');
-      const firebaseCredential = provider.credential({
-        idToken: appleCredential.identityToken,
-      });
+      const firebaseCredential = provider.credential({ idToken: appleCredential.identityToken });
       const userCredential = await signInWithCredential(auth, firebaseCredential);
       const fullName = appleCredential.fullName
         ? [appleCredential.fullName.givenName, appleCredential.fullName.familyName].filter(Boolean).join(' ')
@@ -279,14 +250,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (data: Partial<AuthUser>) => {
     if (!user) return;
-
     const nextUser = { ...user, ...data };
     setUser(nextUser);
-
     if (auth.currentUser && data.name) {
       await updateFirebaseProfile(auth.currentUser, { displayName: data.name });
     }
-
     await updateDoc(
       doc(db, 'users', user.id),
       cleanPayload({
@@ -300,23 +268,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo(
-    () => ({
-      user,
-      isAuthenticated: !!user,
-      isLoading,
-      login,
-      register,
-      loginWithGoogle,
-      loginWithApple,
-      logout,
-      updateProfile,
-    }),
+    () => ({ user, isAuthenticated: !!user, isLoading, login, register, loginWithGoogle, loginWithApple, logout, updateProfile }),
     [user, isLoading]
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
