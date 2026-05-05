@@ -56,6 +56,7 @@ export interface Order {
   items: OrderItem[];
   total: number;
   deliveryFee: number;
+  serviceCharge?: number;
   status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'picked_up' | 'delivered' | 'cancelled';
   paymentMethod: string;
   address: string;

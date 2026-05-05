@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { MOCK_RESTAURANTS, CUISINES } from '@/constants/mockData';
+import { useCurrency } from '@/hooks/useCurrency';
 
 const SORT_OPTIONS = ['Relevance', 'Rating', 'Delivery Time', 'Price'];
 
@@ -15,6 +16,7 @@ export default function SearchScreen() {
   const [sortBy, setSortBy] = useState('Relevance');
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { formatMoney } = useCurrency();
 
   const results = MOCK_RESTAURANTS.filter(r => {
     const matchQ = !query || r.name.toLowerCase().includes(query.toLowerCase()) || r.cuisine.toLowerCase().includes(query.toLowerCase());
@@ -92,7 +94,7 @@ export default function SearchScreen() {
                 <MaterialIcons name="star" size={12} color={Colors.gold} />
                 <Text style={styles.metaText}> {item.rating}  •  {item.deliveryTime}</Text>
               </View>
-              <Text style={styles.deliveryFee}>Delivery: ₦{item.deliveryFee.toLocaleString()}</Text>
+              <Text style={styles.deliveryFee}>Delivery: {formatMoney(item.deliveryFee)}</Text>
             </View>
             {!item.isOpen ? (
               <View style={styles.closedOverlay}>

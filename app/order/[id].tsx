@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
 const STEPS = [
@@ -16,12 +18,19 @@ const STEPS = [
   { key: 'delivered', label: 'Delivered', icon: 'home', desc: 'Enjoy your meal!' },
 ];
 
+const DELIVERY_ROUTE = {
+  restaurant: { latitude: -1.2833, longitude: 36.8172, label: 'Restaurant' },
+  rider: { latitude: -1.2868, longitude: 36.8219, label: 'Rider' },
+  customer: { latitude: -1.2921, longitude: 36.8219, label: 'Delivery' },
+};
+
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getOrderById } = useOrders();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { showAlert } = useAlert();
+  const { formatMoney } = useCurrency();
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -61,17 +70,31 @@ export default function OrderTrackingScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Map Placeholder */}
-        <View style={styles.mapPlaceholder}>
-          <MaterialIcons name="map" size={48} color={Colors.textMuted} />
-          <Text style={styles.mapText}>Live Tracking Map</Text>
-          <Text style={styles.mapSubText}>Real-time GPS tracking available with OnSpace Cloud</Text>
-          {/* Mock rider position dots */}
-          <View style={styles.riderDot}>
-            <MaterialIcons name="delivery-dining" size={20} color={Colors.primary} />
-          </View>
-          <View style={styles.destDot}>
-            <MaterialIcons name="home" size={16} color={Colors.success} />
+        <View style={styles.mapShell}>
+          <MapView
+            style={styles.map}
+            initialRegion={{
+              latitude: DELIVERY_ROUTE.rider.latitude,
+              longitude: DELIVERY_ROUTE.rider.longitude,
+              latitudeDelta: 0.026,
+              longitudeDelta: 0.026,
+            }}
+          >
+            <Polyline
+              coordinates={[DELIVERY_ROUTE.restaurant, DELIVERY_ROUTE.rider, DELIVERY_ROUTE.customer]}
+              strokeColor={Colors.primary}
+              strokeWidth={4}
+            />
+            <Marker coordinate={DELIVERY_ROUTE.restaurant} title={order.restaurantName} />
+            <Marker coordinate={DELIVERY_ROUTE.rider} title={order.riderName || 'Rider'}>
+              <View style={styles.riderMarker}>
+                <MaterialIcons name="delivery-dining" size={18} color={Colors.text} />
+              </View>
+            </Marker>
+            <Marker coordinate={DELIVERY_ROUTE.customer} title="Delivery address" />
+          </MapView>
+          <View style={styles.mapBadge}>
+            <Text style={styles.mapBadgeText}>Live map</Text>
           </View>
         </View>
 
@@ -146,12 +169,12 @@ export default function OrderTrackingScreen() {
             <View key={i} style={styles.itemRow}>
               <Text style={styles.itemQty}>{item.quantity}x</Text>
               <Text style={styles.itemName}>{item.menuItem.name}</Text>
-              <Text style={styles.itemPrice}>₦{(item.menuItem.price * item.quantity).toLocaleString()}</Text>
+              <Text style={styles.itemPrice}>{formatMoney(item.menuItem.price * item.quantity)}</Text>
             </View>
           ))}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total Paid</Text>
-            <Text style={styles.totalValue}>₦{order.total.toLocaleString()}</Text>
+            <Text style={styles.totalValue}>{formatMoney(order.total)}</Text>
           </View>
         </View>
 
@@ -175,11 +198,11 @@ const styles = StyleSheet.create({
   backLink: { color: Colors.primary, marginTop: Spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
   headerTitle: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
-  mapPlaceholder: { height: 200, backgroundColor: Colors.surfaceElevated, margin: Spacing.md, borderRadius: BorderRadius.lg, alignItems: 'center', justifyContent: 'center', position: 'relative', borderWidth: 1, borderColor: Colors.border },
-  mapText: { color: Colors.textSecondary, fontSize: FontSize.body, fontWeight: FontWeight.semibold, marginTop: Spacing.sm },
-  mapSubText: { color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'center', paddingHorizontal: Spacing.lg, marginTop: Spacing.xs },
-  riderDot: { position: 'absolute', top: '40%', left: '35%', width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(204,0,0,0.2)', borderWidth: 2, borderColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
-  destDot: { position: 'absolute', bottom: '25%', right: '25%', width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(34,197,94,0.2)', borderWidth: 2, borderColor: Colors.success, justifyContent: 'center', alignItems: 'center' },
+  mapShell: { height: 220, margin: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.md },
+  map: { flex: 1 },
+  mapBadge: { position: 'absolute', left: 12, top: 12, backgroundColor: Colors.surface, borderRadius: BorderRadius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
+  mapBadgeText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+  riderMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.text, alignItems: 'center', justifyContent: 'center' },
   orderCard: { backgroundColor: Colors.surfaceCard, marginHorizontal: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, ...Shadow.md },
   orderCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
   orderId: { color: Colors.textMuted, fontSize: FontSize.xs },

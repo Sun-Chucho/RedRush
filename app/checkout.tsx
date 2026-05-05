@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useCart } from '@/hooks/useCart';
 import { useOrders } from '@/hooks/useOrders';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
 const PAYMENT_METHODS = [
@@ -27,6 +28,7 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const { items, total, clearCart, restaurantId, restaurantName } = useCart();
   const { placeOrder } = useOrders();
+  const { formatMoney, refreshLocationCurrency, locationLabel } = useCurrency();
   const { showAlert } = useAlert();
 
   const deliveryFee = 500;
@@ -43,7 +45,7 @@ export default function CheckoutScreen() {
     setLoading(true);
     try {
       const paymentLabel = PAYMENT_METHODS.find(p => p.id === selectedPayment)?.label || 'Cash';
-      const order = await placeOrder(items, restaurantId, restaurantName, address, paymentLabel, deliveryFee);
+      const order = await placeOrder(items, restaurantId, restaurantName, address, paymentLabel, deliveryFee, serviceCharge);
       clearCart();
       router.replace(`/order/${order.id}`);
     } catch (e) {
@@ -79,7 +81,14 @@ export default function CheckoutScreen() {
             multiline
             numberOfLines={2}
           />
-          <TouchableOpacity style={styles.locationBtn}>
+          <TouchableOpacity
+            style={styles.locationBtn}
+            onPress={() => {
+              refreshLocationCurrency()
+                .then(() => setAddress(locationLabel))
+                .catch(() => showAlert('Location', 'Unable to read your current location.'));
+            }}
+          >
             <MaterialIcons name="my-location" size={16} color={Colors.primary} />
             <Text style={styles.locationBtnText}>Use current location</Text>
           </TouchableOpacity>
@@ -94,21 +103,21 @@ export default function CheckoutScreen() {
           {items.map(item => (
             <View key={item.menuItem.id} style={styles.orderItem}>
               <Text style={styles.orderItemName}>{item.quantity}x {item.menuItem.name}</Text>
-              <Text style={styles.orderItemPrice}>₦{(item.menuItem.price * item.quantity).toLocaleString()}</Text>
+              <Text style={styles.orderItemPrice}>{formatMoney(item.menuItem.price * item.quantity)}</Text>
             </View>
           ))}
           <View style={styles.divider} />
           <View style={styles.orderItem}>
             <Text style={styles.orderLabel}>Delivery Fee</Text>
-            <Text style={styles.orderValue}>₦{deliveryFee.toLocaleString()}</Text>
+            <Text style={styles.orderValue}>{formatMoney(deliveryFee)}</Text>
           </View>
           <View style={styles.orderItem}>
             <Text style={styles.orderLabel}>Service Charge</Text>
-            <Text style={styles.orderValue}>₦{serviceCharge.toLocaleString()}</Text>
+            <Text style={styles.orderValue}>{formatMoney(serviceCharge)}</Text>
           </View>
           <View style={[styles.orderItem, styles.totalItem]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₦{grandTotal.toLocaleString()}</Text>
+            <Text style={styles.totalValue}>{formatMoney(grandTotal)}</Text>
           </View>
         </View>
 
@@ -161,7 +170,7 @@ export default function CheckoutScreen() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + 8 }]}>
         <View style={styles.footerTotal}>
           <Text style={styles.footerTotalLabel}>Grand Total</Text>
-          <Text style={styles.footerTotalValue}>₦{grandTotal.toLocaleString()}</Text>
+          <Text style={styles.footerTotalValue}>{formatMoney(grandTotal)}</Text>
         </View>
         <TouchableOpacity
           style={[styles.placeOrderBtn, loading && { opacity: 0.7 }]}

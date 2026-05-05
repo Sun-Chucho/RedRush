@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { UserRole } from '@/constants/mockData';
+import { db } from '@/services/firebase';
 import { useAlert } from '@/template';
 
 const ROLE_TABS = ['All', 'Customers', 'Vendors', 'Riders'];
@@ -16,25 +19,71 @@ const MOCK_USERS = [
   { id: 'u6', name: 'Tunde Balogun', email: 'tunde@example.com', role: 'rider', status: 'active', joined: 'Mar 2026', orders: 89 },
 ];
 
+type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: string;
+  joined: string;
+  orders: number;
+};
+
 const ROLE_COLOR: Record<string, string> = {
   customer: Colors.info,
   vendor: Colors.warning,
   rider: Colors.success,
+  admin: Colors.primary,
 };
 
 export default function AdminUsers() {
   const [tab, setTab] = useState('All');
   const [search, setSearch] = useState('');
+  const [users, setUsers] = useState<AdminUser[]>(MOCK_USERS as AdminUser[]);
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
 
-  const filtered = MOCK_USERS.filter(u => {
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'users'),
+      snapshot => {
+        if (snapshot.empty) return;
+
+        setUsers(snapshot.docs.map(userDoc => {
+          const data = userDoc.data() as Partial<AdminUser> & { createdAt?: { toDate?: () => Date } };
+          const createdAt = data.createdAt?.toDate?.();
+
+          return {
+            id: userDoc.id,
+            name: data.name || 'Unnamed user',
+            email: data.email || '',
+            role: data.role || 'customer',
+            status: data.status || 'active',
+            joined: createdAt ? createdAt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'New',
+            orders: Number(data.orders || 0),
+          };
+        }));
+      },
+      () => undefined
+    );
+
+    return unsubscribe;
+  }, []);
+
+  const filtered = users.filter(u => {
     const matchTab = tab === 'All' || u.role === tab.toLowerCase().slice(0, -1);
     const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
     return matchTab && matchSearch;
   });
 
-  const handleAction = (user: typeof MOCK_USERS[0], action: string) => {
+  const handleAction = (user: AdminUser, action: string) => {
+    if (action === 'Suspend') {
+      updateDoc(doc(db, 'users', user.id), {
+        status: 'suspended',
+        updatedAt: serverTimestamp(),
+      }).catch(() => undefined);
+    }
+
     showAlert(`${action} User`, `${action} action for ${user.name} — management features coming with OnSpace Cloud!`);
   };
 
@@ -65,7 +114,7 @@ export default function AdminUsers() {
         renderItem={({ item }) => (
           <View style={styles.userCard}>
             <View style={[styles.userAvatar, { backgroundColor: ROLE_COLOR[item.role] + '22' }]}>
-              <MaterialIcons name={item.role === 'customer' ? 'person' : item.role === 'vendor' ? 'restaurant' : 'delivery-dining'} size={22} color={ROLE_COLOR[item.role]} />
+              <MaterialIcons name={item.role === 'customer' ? 'person' : item.role === 'vendor' ? 'restaurant' : item.role === 'admin' ? 'admin-panel-settings' : 'delivery-dining'} size={22} color={ROLE_COLOR[item.role]} />
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{item.name}</Text>

@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 import { Order } from '@/constants/mockData';
 
@@ -18,6 +19,7 @@ export default function VendorOrders() {
   const insets = useSafeAreaInsets();
   const { orders, updateOrderStatus } = useOrders();
   const { showAlert } = useAlert();
+  const { formatMoney } = useCurrency();
 
   const filtered = orders.filter(o => {
     if (tab === 'All') return true;
@@ -81,7 +83,7 @@ export default function VendorOrders() {
               <Text key={idx} style={styles.orderItem}>{i.quantity}x {i.menuItem.name}</Text>
             ))}
             <View style={styles.orderFoot}>
-              <Text style={styles.orderTotal}>₦{item.total.toLocaleString()}</Text>
+              <Text style={styles.orderTotal}>{formatMoney(item.total)}</Text>
               <Text style={styles.payMethod}>{item.paymentMethod}</Text>
             </View>
             <View style={styles.actions}>

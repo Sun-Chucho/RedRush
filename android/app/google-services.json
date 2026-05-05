@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "276964904825",
+    "project_id": "redrush-ebc04",
+    "storage_bucket": "redrush-ebc04.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:276964904825:android:324cefbaace79e45dfe9a8",
+        "android_client_info": {
+          "package_name": "com.redrush.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQ0Ra_sfrPq0K3LcvZ-zxGZmCUDzYPdTw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

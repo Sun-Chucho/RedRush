@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -16,6 +17,7 @@ export default function AdminOrders() {
   const insets = useSafeAreaInsets();
   const { orders } = useOrders();
   const { showAlert } = useAlert();
+  const { formatMoney } = useCurrency();
 
   const filtered = filter === 'All' ? orders : orders.filter(o => o.status === filter.toLowerCase().replace(' ', '_'));
 
@@ -30,7 +32,7 @@ export default function AdminOrders() {
       {/* Stats */}
       <View style={styles.statsRow}>
         {[
-          { label: 'Total Revenue', value: `₦${total.toLocaleString()}`, color: Colors.success },
+          { label: 'Total Revenue', value: formatMoney(total), color: Colors.success },
           { label: 'Active', value: active.toString(), color: Colors.primary },
           { label: 'Delivered', value: delivered.toString(), color: Colors.success },
           { label: 'Total', value: orders.length.toString(), color: Colors.info },
@@ -70,7 +72,7 @@ export default function AdminOrders() {
               <Text style={styles.rider}>Rider: {item.riderName}</Text>
             ) : null}
             <View style={styles.orderFoot}>
-              <Text style={styles.total}>₦{item.total.toLocaleString()}</Text>
+              <Text style={styles.total}>{formatMoney(item.total)}</Text>
               <Text style={styles.payment}>{item.paymentMethod}</Text>
               <TouchableOpacity onPress={() => showAlert('Order Action', 'Detailed order management with OnSpace Cloud!')}>
                 <MaterialIcons name="more-horiz" size={20} color={Colors.textMuted} />
@@ -105,7 +107,7 @@ const styles = StyleSheet.create({
   orderCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, borderLeftWidth: 4, ...Shadow.md },
   orderTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   orderId: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-  statusBadge: { borderRadius: BorderRadius.xs, paddingHorizontal: 8, paddingVertical: 2 },
+  statusBadge: { borderRadius: BorderRadius.sm, paddingHorizontal: 8, paddingVertical: 2 },
   statusText: { fontSize: 9, fontWeight: FontWeight.extrabold },
   restaurantName: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   address: { color: Colors.textMuted, fontSize: FontSize.xs },

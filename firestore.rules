@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(roles) {
+      return signedIn() && profile().role in roles;
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow read: if signedIn() && (request.auth.uid == userId || hasRole(['admin']));
+      allow list: if hasRole(['admin']);
+      allow update: if signedIn() && (
+        request.auth.uid == userId ||
+        hasRole(['admin'])
+      );
+    }
+
+    match /orders/{orderId} {
+      allow create: if signedIn() && request.resource.data.customerId == request.auth.uid;
+      allow read: if signedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        hasRole(['admin', 'vendor', 'rider'])
+      );
+      allow update: if signedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        hasRole(['admin', 'vendor', 'rider'])
+      );
+    }
+
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow write: if hasRole(['admin', 'vendor']);
+
+      match /menu/{itemId} {
+        allow read: if true;
+        allow write: if hasRole(['admin', 'vendor']);
+      }
+    }
+  }
+}

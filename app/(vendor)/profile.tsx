@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
 export default function VendorProfile() {
@@ -14,6 +15,7 @@ export default function VendorProfile() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
+  const { formatMoney } = useCurrency();
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
@@ -62,7 +64,7 @@ export default function VendorProfile() {
           { label: 'Address', value: '12 Allen Avenue, Ikeja' },
           { label: 'Phone', value: '+234 801 234 5678' },
           { label: 'Opening Hours', value: '8:00 AM - 10:00 PM' },
-          { label: 'Min Order', value: '₦2,000' },
+          { label: 'Min Order', value: formatMoney(2000) },
           { label: 'Delivery Radius', value: '5 km' },
         ].map(d => (
           <View key={d.label} style={styles.detailRow}>

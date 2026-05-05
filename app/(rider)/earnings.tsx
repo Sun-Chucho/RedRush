@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { MOCK_RIDER_EARNINGS } from '@/constants/mockData';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
 const PERIODS = ['Week', 'Month', 'Year'];
@@ -12,6 +13,7 @@ export default function RiderEarnings() {
   const [period, setPeriod] = useState('Week');
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
+  const { formatMoney } = useCurrency();
 
   const totalEarnings = MOCK_RIDER_EARNINGS.reduce((s, d) => s + d.earnings, 0);
   const totalDeliveries = MOCK_RIDER_EARNINGS.reduce((s, d) => s + d.deliveries, 0);
@@ -33,7 +35,7 @@ export default function RiderEarnings() {
       {/* Total Card */}
       <View style={styles.totalCard}>
         <Text style={styles.totalLabel}>Total Earnings ({period})</Text>
-        <Text style={styles.totalValue}>₦{totalEarnings.toLocaleString()}</Text>
+        <Text style={styles.totalValue}>{formatMoney(totalEarnings)}</Text>
         <View style={styles.totalStats}>
           <View style={styles.totalStat}>
             <Text style={styles.totalStatValue}>{totalDeliveries}</Text>
@@ -41,7 +43,7 @@ export default function RiderEarnings() {
           </View>
           <View style={styles.totalStatDivider} />
           <View style={styles.totalStat}>
-            <Text style={styles.totalStatValue}>₦{Math.round(totalEarnings / totalDeliveries).toLocaleString()}</Text>
+            <Text style={styles.totalStatValue}>{formatMoney(Math.round(totalEarnings / totalDeliveries))}</Text>
             <Text style={styles.totalStatLabel}>Avg per trip</Text>
           </View>
           <View style={styles.totalStatDivider} />
@@ -60,7 +62,7 @@ export default function RiderEarnings() {
             const height = Math.max(8, (d.earnings / maxEarnings) * 100);
             return (
               <View key={d.date} style={styles.barCol}>
-                <Text style={styles.barVal}>₦{Math.round(d.earnings / 1000)}k</Text>
+                <Text style={styles.barVal}>{formatMoney(Math.round(d.earnings / 1000) * 1000).replace(',000', 'k')}</Text>
                 <View style={styles.barTrack}>
                   <View style={[styles.bar, { height, backgroundColor: i === 5 ? Colors.primary : Colors.primary + '55' }]} />
                 </View>
@@ -79,7 +81,7 @@ export default function RiderEarnings() {
           <MaterialIcons name="account-balance-wallet" size={22} color={Colors.primary} />
           <Text style={styles.payoutTitle}>Payout Balance</Text>
         </View>
-        <Text style={styles.payoutBalance}>₦137,300</Text>
+        <Text style={styles.payoutBalance}>{formatMoney(137300)}</Text>
         <Text style={styles.payoutNote}>Available for withdrawal</Text>
         <TouchableOpacity style={styles.withdrawBtn} onPress={() => showAlert('Withdrawal', 'Withdraw to your Mobile Money account. Feature coming with OnSpace Cloud!')}>
           <MaterialIcons name="phone-android" size={18} color={Colors.text} />
@@ -92,7 +94,7 @@ export default function RiderEarnings() {
         <MaterialIcons name="local-fire-department" size={28} color={Colors.warning} />
         <View style={styles.bonusInfo}>
           <Text style={styles.bonusTitle}>Weekend Bonus Active 🔥</Text>
-          <Text style={styles.bonusDesc}>Complete 5 more deliveries to earn ₦3,000 bonus</Text>
+          <Text style={styles.bonusDesc}>Complete 5 more deliveries to earn {formatMoney(3000)} bonus</Text>
           <View style={styles.bonusProgress}>
             <View style={[styles.bonusFill, { width: '60%' }]} />
           </View>

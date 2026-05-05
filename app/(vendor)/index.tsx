@@ -4,23 +4,24 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
 import { MOCK_ORDERS } from '@/constants/mockData';
 import { useAlert } from '@/template';
-
-const VENDOR_STATS = [
-  { label: "Today's Revenue", value: '₦47,500', icon: 'attach-money', color: Colors.success, change: '+12%' },
-  { label: 'Total Orders', value: '23', icon: 'receipt-long', color: Colors.primary, change: '+5' },
-  { label: 'Avg Rating', value: '4.8', icon: 'star', color: Colors.gold, change: '+0.1' },
-  { label: 'Active Menu', value: '18', icon: 'restaurant-menu', color: Colors.info, change: '2 off' },
-];
 
 export default function VendorDashboard() {
   const [isOpen, setIsOpen] = useState(true);
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { formatMoney } = useCurrency();
   const { showAlert } = useAlert();
 
   const incomingOrders = MOCK_ORDERS.filter(o => o.status === 'pending');
+  const vendorStats = [
+    { label: "Today's Revenue", value: formatMoney(47500), icon: 'attach-money', color: Colors.success, change: '+12%' },
+    { label: 'Total Orders', value: '23', icon: 'receipt-long', color: Colors.primary, change: '+5' },
+    { label: 'Avg Rating', value: '4.8', icon: 'star', color: Colors.gold, change: '+0.1' },
+    { label: 'Active Menu', value: '18', icon: 'restaurant-menu', color: Colors.info, change: '2 off' },
+  ];
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
@@ -46,7 +47,7 @@ export default function VendorDashboard() {
 
       {/* Stats Grid */}
       <View style={styles.statsGrid}>
-        {VENDOR_STATS.map(s => (
+        {vendorStats.map(s => (
           <View key={s.label} style={styles.statCard}>
             <View style={[styles.statIconBox, { backgroundColor: s.color + '22' }]}>
               <MaterialIcons name={s.icon as any} size={20} color={s.color} />
@@ -83,7 +84,7 @@ export default function VendorDashboard() {
             {order.items.map((item, i) => (
               <Text key={i} style={styles.orderItem}>{item.quantity}x {item.menuItem.name}</Text>
             ))}
-            <Text style={styles.orderTotal}>₦{order.total.toLocaleString()} — {order.paymentMethod}</Text>
+            <Text style={styles.orderTotal}>{formatMoney(order.total)} - {order.paymentMethod}</Text>
             <View style={styles.orderActions}>
               <TouchableOpacity style={styles.rejectBtn} onPress={() => showAlert('Order Rejected', 'Order has been rejected.')}>
                 <MaterialIcons name="close" size={18} color={Colors.error} />

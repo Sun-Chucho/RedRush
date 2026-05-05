@@ -9,6 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { MOCK_RESTAURANTS, MenuItem } from '@/constants/mockData';
 import { useCart } from '@/hooks/useCart';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
 export default function RestaurantScreen() {
@@ -16,6 +17,7 @@ export default function RestaurantScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { addItem, items, itemCount } = useCart();
+  const { formatMoney } = useCurrency();
   const { showAlert } = useAlert();
 
   const restaurant = MOCK_RESTAURANTS.find(r => r.id === id);
@@ -89,7 +91,7 @@ export default function RestaurantScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <MaterialIcons name="delivery-dining" size={16} color={Colors.textSecondary} />
-              <Text style={styles.statValue}>₦{restaurant.deliveryFee.toLocaleString()}</Text>
+              <Text style={styles.statValue}>{formatMoney(restaurant.deliveryFee)}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -124,7 +126,7 @@ export default function RestaurantScreen() {
                 <Text style={styles.menuItemName}>{item.name}</Text>
                 <Text style={styles.menuItemDesc} numberOfLines={2}>{item.description}</Text>
                 <View style={styles.menuItemFoot}>
-                  <Text style={styles.menuItemPrice}>₦{item.price.toLocaleString()}</Text>
+                  <Text style={styles.menuItemPrice}>{formatMoney(item.price)}</Text>
                   <View style={styles.prepTime}>
                     <MaterialIcons name="access-time" size={12} color={Colors.textMuted} />
                     <Text style={styles.prepTimeText}> {item.preparationTime} min</Text>

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
+import { useCurrency } from '@/hooks/useCurrency';
 import { Order } from '@/constants/mockData';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -32,6 +33,7 @@ export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { orders } = useOrders();
+  const { formatMoney } = useCurrency();
 
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
   const history = orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
@@ -56,7 +58,7 @@ export default function OrdersScreen() {
       <FlatList
         data={displayed}
         keyExtractor={o => o.id}
-        renderItem={({ item }) => <OrderCard order={item} onPress={() => router.push(`/order/${item.id}`)} />}
+        renderItem={({ item }) => <OrderCard order={item} formatMoney={formatMoney} onPress={() => router.push(`/order/${item.id}`)} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
@@ -73,9 +75,8 @@ export default function OrdersScreen() {
   );
 }
 
-function OrderCard({ order, onPress }: { order: Order; onPress: () => void }) {
+function OrderCard({ order, formatMoney, onPress }: { order: Order; formatMoney: (amount: number) => string; onPress: () => void }) {
   const statusColor = STATUS_COLORS[order.status] || Colors.textMuted;
-  const total = order.items.reduce((s, i) => s + i.menuItem.price * i.quantity, 0);
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
@@ -109,7 +110,7 @@ function OrderCard({ order, onPress }: { order: Order; onPress: () => void }) {
             </>
           ) : null}
         </View>
-        <Text style={styles.totalText}>₦{order.total.toLocaleString()}</Text>
+        <Text style={styles.totalText}>{formatMoney(order.total)}</Text>
       </View>
 
       {!['delivered', 'cancelled'].includes(order.status) ? (
@@ -132,6 +133,9 @@ const styles = StyleSheet.create({
   tabText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   tabTextActive: { color: Colors.text },
   list: { paddingHorizontal: Spacing.md, paddingBottom: 80 },
+  empty: { alignItems: 'center', paddingVertical: 80, paddingHorizontal: Spacing.md },
+  emptyTitle: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.bold, marginTop: Spacing.md },
+  emptySubtitle: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.xs, textAlign: 'center' },
   card: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginBottom: Spacing.md, padding: Spacing.md, ...Shadow.md },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
   cardLeft: {},

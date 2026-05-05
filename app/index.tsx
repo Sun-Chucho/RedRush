@@ -1,9 +1,18 @@
-import { useEffect } from 'react';
 import { Redirect } from 'expo-router';
+import { ActivityIndicator, View } from 'react-native';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Index() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
+        <ActivityIndicator color={Colors.primary} />
+      </View>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Redirect href="/onboarding" />;

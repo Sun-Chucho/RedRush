@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, StatusBar,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,14 +21,14 @@ const ROLES: { value: UserRole; label: string; icon: string; desc: string }[] = 
 export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [selectedRole, setSelectedRole] = useState<UserRole>('customer');
-  const [email, setEmail] = useState('test@example.com');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login, register } = useAuth();
+  const { login, register, loginWithGoogle, loginWithApple } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
 
@@ -50,7 +51,23 @@ export default function AuthScreen() {
       }
       router.replace('/');
     } catch (e) {
-      showAlert('Error', 'Authentication failed. Please try again.');
+      showAlert('Authentication Failed', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialLogin = async (provider: 'Google' | 'Apple') => {
+    setLoading(true);
+    try {
+      if (provider === 'Google') {
+        await loginWithGoogle(selectedRole);
+      } else {
+        await loginWithApple(selectedRole);
+      }
+      router.replace('/');
+    } catch (e) {
+      showAlert(`${provider} Sign-In`, e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setLoading(false);
     }
@@ -63,9 +80,7 @@ export default function AuthScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoRow}>
-            <View style={styles.logoIcon}>
-              <Text style={styles.logoText}>R</Text>
-            </View>
+            <Image source={require('@/assets/images/logo.png')} style={styles.logoIcon} contentFit="contain" />
             <Text style={styles.logoName}>RedRush</Text>
           </View>
           <Text style={styles.subtitle}>Food delivery made fast</Text>
@@ -171,8 +186,8 @@ export default function AuthScreen() {
         {/* Social */}
         <Text style={styles.orText}>or continue with</Text>
         <View style={styles.socialRow}>
-          {['Google', 'Apple'].map(s => (
-            <TouchableOpacity key={s} style={styles.socialBtn} onPress={() => showAlert('Coming Soon', `${s} login will be available in the next release.`)}>
+          {(['Google', 'Apple'] as const).map(s => (
+            <TouchableOpacity key={s} style={styles.socialBtn} onPress={() => handleSocialLogin(s)} disabled={loading}>
               <MaterialIcons name={s === 'Google' ? 'g-mobiledata' : 'apple'} size={22} color={Colors.text} />
               <Text style={styles.socialText}>{s}</Text>
             </TouchableOpacity>
@@ -180,7 +195,7 @@ export default function AuthScreen() {
         </View>
 
         {/* OTP */}
-        <TouchableOpacity style={styles.otpBtn} onPress={() => showAlert('OTP Verification', 'An OTP has been sent to your phone number. (mocked)')}>
+        <TouchableOpacity style={styles.otpBtn} onPress={() => showAlert('OTP Verification', 'Phone OTP requires Firebase phone auth and reCAPTCHA verifier setup for the release build.')}>
           <MaterialIcons name="sms" size={16} color={Colors.primary} />
           <Text style={styles.otpText}>  Verify with OTP instead</Text>
         </TouchableOpacity>
@@ -194,11 +209,10 @@ const styles = StyleSheet.create({
   scroll: { padding: Spacing.md, paddingBottom: Spacing.xxl },
   header: { alignItems: 'center', paddingVertical: Spacing.xl },
   logoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
-  logoIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
-  logoText: { color: Colors.text, fontSize: 24, fontWeight: FontWeight.extrabold },
+  logoIcon: { width: 52, height: 52 },
   logoName: { color: Colors.text, fontSize: 28, fontWeight: FontWeight.extrabold, marginLeft: 10 },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, fontWeight: FontWeight.regular },
-  mockTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: BorderRadius.sm, padding: Spacing.sm, marginBottom: Spacing.md, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
+  mockTag: { display: 'none', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: BorderRadius.sm, padding: Spacing.sm, marginBottom: Spacing.md, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
   mockText: { color: Colors.warning, fontSize: FontSize.xs, fontWeight: FontWeight.medium },
   modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.lg },
   modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: BorderRadius.sm },

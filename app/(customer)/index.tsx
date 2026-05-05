@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { MOCK_RESTAURANTS, CUISINES, Restaurant } from '@/constants/mockData';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
 
 const PROMO_BANNERS = [
   { id: '1', title: 'Free Delivery', subtitle: 'On your first 3 orders', bg: Colors.primary, icon: 'delivery-dining' },
@@ -23,6 +24,7 @@ export default function CustomerHome() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const { formatMoney, locationLabel } = useCurrency();
 
   const filtered = MOCK_RESTAURANTS.filter(r => {
     const matchCuisine = selectedCuisine === 'All' || r.cuisine === selectedCuisine;
@@ -41,7 +43,7 @@ export default function CustomerHome() {
           <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
           <View style={styles.locationRow}>
             <MaterialIcons name="location-on" size={14} color={Colors.primary} />
-            <Text style={styles.locationText}>Ikeja, Lagos  </Text>
+            <Text style={styles.locationText}>{locationLabel}  </Text>
             <MaterialIcons name="keyboard-arrow-down" size={16} color={Colors.textSecondary} />
           </View>
         </View>
@@ -106,7 +108,7 @@ export default function CustomerHome() {
         {/* All Restaurants */}
         <Text style={styles.sectionTitle2}>All Restaurants</Text>
         {filtered.map(r => (
-          <RestaurantCard key={r.id} restaurant={r} onPress={() => router.push(`/restaurant/${r.id}`)} />
+          <RestaurantCard key={r.id} restaurant={r} formatMoney={formatMoney} onPress={() => router.push(`/restaurant/${r.id}`)} />
         ))}
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -136,7 +138,7 @@ function FeaturedCard({ restaurant, onPress }: { restaurant: Restaurant; onPress
   );
 }
 
-function RestaurantCard({ restaurant, onPress }: { restaurant: Restaurant; onPress: () => void }) {
+function RestaurantCard({ restaurant, formatMoney, onPress }: { restaurant: Restaurant; formatMoney: (amount: number) => string; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.restaurantCard} onPress={onPress} activeOpacity={0.85}>
       <Image source={{ uri: restaurant.image }} style={styles.restaurantImg} contentFit="cover" />
@@ -154,7 +156,7 @@ function RestaurantCard({ restaurant, onPress }: { restaurant: Restaurant; onPre
           <Text style={styles.metaText}> {restaurant.deliveryTime}</Text>
         </View>
         <View style={styles.restaurantFoot}>
-          <Text style={styles.deliveryFee}>Delivery: ₦{restaurant.deliveryFee.toLocaleString()}</Text>
+          <Text style={styles.deliveryFee}>Delivery: {formatMoney(restaurant.deliveryFee)}</Text>
           {restaurant.promo ? <View style={styles.promoTag}><Text style={styles.promoTagText}>{restaurant.promo}</Text></View> : null}
         </View>
       </View>

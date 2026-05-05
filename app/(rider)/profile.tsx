@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
 export default function RiderProfile() {
@@ -12,6 +13,7 @@ export default function RiderProfile() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
+  const { formatMoney } = useCurrency();
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
@@ -32,7 +34,7 @@ export default function RiderProfile() {
 
       {/* Stats */}
       <View style={styles.statsRow}>
-        {[{ l: 'Trips', v: '312' }, { l: 'This Month', v: '₦137k' }, { l: 'Acceptance', v: '94%' }].map(s => (
+        {[{ l: 'Trips', v: '312' }, { l: 'This Month', v: `${formatMoney(137000).replace(',000', 'k')}` }, { l: 'Acceptance', v: '94%' }].map(s => (
           <View key={s.l} style={styles.statCard}>
             <Text style={styles.statVal}>{s.v}</Text>
             <Text style={styles.statLbl}>{s.l}</Text>

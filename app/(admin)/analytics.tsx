@@ -3,22 +3,24 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { useCurrency } from '@/hooks/useCurrency';
 
 const MONTHLY_REVENUE = [1.2, 1.8, 2.1, 1.6, 2.8, 3.4, 2.9, 3.8, 4.2, 3.6, 4.5, 4.2];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MAX_REV = Math.max(...MONTHLY_REVENUE);
 
 const TOP_RESTAURANTS = [
-  { name: 'Chicken Republic', revenue: '₦890K', orders: 342, growth: '+18%' },
-  { name: 'Mama Put Kitchen', revenue: '₦634K', orders: 287, growth: '+12%' },
-  { name: 'Grillmaster BBQ', revenue: '₦521K', orders: 198, growth: '+22%' },
-  { name: 'Pizza Palace', revenue: '₦478K', orders: 167, growth: '+9%' },
-  { name: 'Sushi & More', revenue: '₦312K', orders: 98, growth: '+31%' },
+  { name: 'Chicken Republic', revenue: 890000, orders: 342, growth: '+18%' },
+  { name: 'Mama Put Kitchen', revenue: 634000, orders: 287, growth: '+12%' },
+  { name: 'Grillmaster BBQ', revenue: 521000, orders: 198, growth: '+22%' },
+  { name: 'Pizza Palace', revenue: 478000, orders: 167, growth: '+9%' },
+  { name: 'Sushi & More', revenue: 312000, orders: 98, growth: '+31%' },
 ];
 
 export default function AdminAnalytics() {
   const [period, setPeriod] = useState('Month');
   const insets = useSafeAreaInsets();
+  const { currency, formatMoney } = useCurrency();
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
@@ -35,7 +37,7 @@ export default function AdminAnalytics() {
 
       {/* Revenue Chart */}
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Monthly Revenue (₦M)</Text>
+        <Text style={styles.chartTitle}>Monthly Revenue ({currency}M)</Text>
         <View style={styles.chart}>
           {MONTHLY_REVENUE.map((val, i) => {
             const height = Math.max(8, (val / MAX_REV) * 100);
@@ -56,9 +58,9 @@ export default function AdminAnalytics() {
       {/* KPIs */}
       <View style={styles.kpiGrid}>
         {[
-          { label: 'GMV (Year)', value: '₦34.2M', icon: 'trending-up', color: Colors.success, change: '+67% YoY' },
-          { label: 'Platform Fee', value: '₦3.4M', icon: 'account-balance', color: Colors.primary, change: '10% of GMV' },
-          { label: 'Avg Order Value', value: '₦3,240', icon: 'shopping-cart', color: Colors.info, change: '+8% vs last yr' },
+          { label: 'GMV (Year)', value: formatMoney(34200000).replace(',200,000', '.2M'), icon: 'trending-up', color: Colors.success, change: '+67% YoY' },
+          { label: 'Platform Fee', value: formatMoney(3400000).replace(',400,000', '.4M'), icon: 'account-balance', color: Colors.primary, change: '10% of GMV' },
+          { label: 'Avg Order Value', value: formatMoney(3240), icon: 'shopping-cart', color: Colors.info, change: '+8% vs last yr' },
           { label: 'User Retention', value: '68%', icon: 'people', color: Colors.gold, change: '+5% MoM' },
         ].map(k => (
           <View key={k.label} style={styles.kpiCard}>
@@ -81,7 +83,7 @@ export default function AdminAnalytics() {
               <Text style={styles.topOrders}>{r.orders} orders</Text>
             </View>
             <View style={styles.topRight}>
-              <Text style={styles.topRevenue}>{r.revenue}</Text>
+              <Text style={styles.topRevenue}>{formatMoney(r.revenue).replace(',000', 'K')}</Text>
               <Text style={styles.topGrowth}>{r.growth}</Text>
             </View>
           </View>

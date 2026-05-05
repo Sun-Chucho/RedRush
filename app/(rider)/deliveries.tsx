@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { useCurrency } from '@/hooks/useCurrency';
 
 const DELIVERY_HISTORY = [
   { id: 'd1', restaurant: 'Chicken Republic', customer: 'Adaeze O.', address: '45 Saka Tinubu St', distance: '3.2 km', earnings: 1200, status: 'completed', time: '2:45 PM', date: 'Today' },
@@ -15,6 +16,7 @@ const DELIVERY_HISTORY = [
 export default function RiderDeliveries() {
   const [filter, setFilter] = useState('All');
   const insets = useSafeAreaInsets();
+  const { formatMoney } = useCurrency();
 
   const filtered = DELIVERY_HISTORY.filter(d => filter === 'All' || d.status === filter.toLowerCase());
 
@@ -59,7 +61,7 @@ export default function RiderDeliveries() {
               </View>
               <View style={styles.cardRight}>
                 <Text style={[styles.earning, { color: item.status === 'completed' ? Colors.success : Colors.textMuted }]}>
-                  {item.status === 'completed' ? `+₦${item.earnings.toLocaleString()}` : 'Cancelled'}
+                  {item.status === 'completed' ? `+${formatMoney(item.earnings)}` : 'Cancelled'}
                 </Text>
                 <Text style={styles.cardTime}>{item.date}  {item.time}</Text>
               </View>

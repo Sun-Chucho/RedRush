@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { MOCK_RIDER_EARNINGS } from '@/constants/mockData';
+import { useCurrency } from '@/hooks/useCurrency';
 
 const PERIODS = ['Week', 'Month', 'Year'];
 
@@ -11,16 +11,17 @@ const WEEKLY_REVENUE = [38000, 52000, 41000, 67000, 88000, 71000, 47500];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const TOP_ITEMS = [
-  { name: 'Mighty Burger', orders: 67, revenue: '₦301,500', trend: '+12%' },
-  { name: 'Spicy Wings', orders: 54, revenue: '₦172,800', trend: '+8%' },
-  { name: 'Jollof Rice', orders: 48, revenue: '₦134,400', trend: '-2%' },
-  { name: 'Mega Shawarma', orders: 42, revenue: '₦147,000', trend: '+15%' },
-  { name: 'Zobo Drink', orders: 38, revenue: '₦30,400', trend: '+3%' },
+  { name: 'Mighty Burger', orders: 67, revenue: 301500, trend: '+12%' },
+  { name: 'Spicy Wings', orders: 54, revenue: 172800, trend: '+8%' },
+  { name: 'Jollof Rice', orders: 48, revenue: 134400, trend: '-2%' },
+  { name: 'Mega Shawarma', orders: 42, revenue: 147000, trend: '+15%' },
+  { name: 'Zobo Drink', orders: 38, revenue: 30400, trend: '+3%' },
 ];
 
 export default function VendorAnalytics() {
   const [period, setPeriod] = useState('Week');
   const insets = useSafeAreaInsets();
+  const { formatMoney } = useCurrency();
   const maxRevenue = Math.max(...WEEKLY_REVENUE);
 
   return (
@@ -39,7 +40,7 @@ export default function VendorAnalytics() {
       {/* Revenue Summary */}
       <View style={styles.revenueCard}>
         <Text style={styles.revenueLabel}>Total Revenue ({period})</Text>
-        <Text style={styles.revenueValue}>₦405,000</Text>
+        <Text style={styles.revenueValue}>{formatMoney(405000)}</Text>
         <View style={styles.revenueChange}>
           <MaterialIcons name="trending-up" size={16} color={Colors.success} />
           <Text style={styles.revenueChangeText}> +18% vs last {period.toLowerCase()}</Text>
@@ -50,7 +51,7 @@ export default function VendorAnalytics() {
       <View style={styles.statsGrid}>
         {[
           { label: 'Orders', value: '156', icon: 'receipt-long', color: Colors.primary },
-          { label: 'Avg Order', value: '₦2,596', icon: 'trending-up', color: Colors.success },
+          { label: 'Avg Order', value: formatMoney(2596), icon: 'trending-up', color: Colors.success },
           { label: 'Customers', value: '89', icon: 'people', color: Colors.info },
           { label: 'Rating', value: '4.8 ⭐', icon: 'star', color: Colors.gold },
         ].map(s => (
@@ -71,7 +72,7 @@ export default function VendorAnalytics() {
             const isToday = i === 6;
             return (
               <View key={i} style={styles.barCol}>
-                <Text style={styles.barValue}>₦{Math.round(val / 1000)}k</Text>
+                <Text style={styles.barValue}>{formatMoney(Math.round(val / 1000) * 1000).replace(',000', 'k')}</Text>
                 <View style={styles.barTrack}>
                   <View style={[styles.bar, { height, backgroundColor: isToday ? Colors.primary : Colors.primary + '55' }]} />
                 </View>
@@ -95,7 +96,7 @@ export default function VendorAnalytics() {
               <Text style={styles.topItemOrders}>{item.orders} orders</Text>
             </View>
             <View style={styles.topItemRight}>
-              <Text style={styles.topItemRevenue}>{item.revenue}</Text>
+              <Text style={styles.topItemRevenue}>{formatMoney(item.revenue)}</Text>
               <Text style={[styles.topItemTrend, { color: item.trend.startsWith('+') ? Colors.success : Colors.error }]}>{item.trend}</Text>
             </View>
           </View>

@@ -53,9 +53,7 @@ export default function OnboardingScreen() {
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <View style={styles.logoIcon}>
-          <Text style={styles.logoText}>R</Text>
-        </View>
+        <Image source={require('@/assets/images/logo.png')} style={styles.logoIcon} contentFit="contain" />
         <Text style={styles.logoName}>RedRush</Text>
       </View>
 
@@ -109,10 +107,8 @@ const styles = StyleSheet.create({
     left: Spacing.md, flexDirection: 'row', alignItems: 'center', zIndex: 10,
   },
   logoIcon: {
-    width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primary,
-    justifyContent: 'center', alignItems: 'center',
+    width: 44, height: 44,
   },
-  logoText: { color: Colors.text, fontSize: 20, fontWeight: FontWeight.extrabold },
   logoName: { color: Colors.text, fontSize: 22, fontWeight: FontWeight.bold, marginLeft: 8 },
   skipBtn: {
     position: 'absolute', top: Platform.OS === 'ios' ? 66 : 46,

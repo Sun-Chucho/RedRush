@@ -6,11 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useCart } from '@/hooks/useCart';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function CartScreen() {
   const { items, total, itemCount, updateQuantity, removeItem, restaurantName, clearCart } = useCart();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { formatMoney } = useCurrency();
 
   const deliveryFee = 500;
   const serviceCharge = Math.round(total * 0.03);
@@ -55,7 +57,7 @@ export default function CartScreen() {
             <Image source={{ uri: item.menuItem.image }} style={styles.itemImg} contentFit="cover" />
             <View style={styles.itemInfo}>
               <Text style={styles.itemName}>{item.menuItem.name}</Text>
-              <Text style={styles.itemPrice}>₦{item.menuItem.price.toLocaleString()}</Text>
+              <Text style={styles.itemPrice}>{formatMoney(item.menuItem.price)}</Text>
             </View>
             <View style={styles.qtyRow}>
               <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQuantity(item.menuItem.id, item.quantity - 1)}>
@@ -77,19 +79,19 @@ export default function CartScreen() {
       <View style={[styles.summary, { paddingBottom: insets.bottom + Spacing.md }]}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal</Text>
-          <Text style={styles.summaryValue}>₦{total.toLocaleString()}</Text>
+          <Text style={styles.summaryValue}>{formatMoney(total)}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Delivery Fee</Text>
-          <Text style={styles.summaryValue}>₦{deliveryFee.toLocaleString()}</Text>
+          <Text style={styles.summaryValue}>{formatMoney(deliveryFee)}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Service Charge (3%)</Text>
-          <Text style={styles.summaryValue}>₦{serviceCharge.toLocaleString()}</Text>
+          <Text style={styles.summaryValue}>{formatMoney(serviceCharge)}</Text>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>₦{grandTotal.toLocaleString()}</Text>
+          <Text style={styles.totalValue}>{formatMoney(grandTotal)}</Text>
         </View>
         <TouchableOpacity style={styles.checkoutBtn} onPress={() => router.push('/checkout')}>
           <Text style={styles.checkoutText}>Proceed to Checkout</Text>

@@ -11,6 +11,10 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
 *.orig.*
 *.jks
 *.p8
@@ -22,6 +26,7 @@ expo-env.d.ts
 .metro-health-check*
 
 # debug
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*

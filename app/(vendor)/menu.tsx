@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { MOCK_RESTAURANTS, MenuItem } from '@/constants/mockData';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
 export default function VendorMenu() {
@@ -13,6 +14,7 @@ export default function VendorMenu() {
   const [showModal, setShowModal] = useState(false);
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
+  const { formatMoney, currency } = useCurrency();
 
   const filtered = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -70,7 +72,7 @@ export default function VendorMenu() {
             <View style={styles.menuInfo}>
               <Text style={styles.menuName}>{item.name}</Text>
               <Text style={styles.menuCategory}>{item.category}</Text>
-              <Text style={styles.menuPrice}>₦{item.price.toLocaleString()}</Text>
+              <Text style={styles.menuPrice}>{formatMoney(item.price)}</Text>
               <Text style={styles.menuPrepTime}>{item.preparationTime} min prep</Text>
             </View>
             <View style={styles.menuActions}>
@@ -105,7 +107,7 @@ export default function VendorMenu() {
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {['Item Name', 'Description', 'Price (₦)', 'Category', 'Preparation Time (min)'].map(field => (
+              {['Item Name', 'Description', `Price (${currency})`, 'Category', 'Preparation Time (min)'].map(field => (
                 <View key={field} style={styles.formField}>
                   <Text style={styles.fieldLabel}>{field}</Text>
                   <TextInput

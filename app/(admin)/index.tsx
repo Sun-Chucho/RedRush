@@ -5,17 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 import { MOCK_ORDERS } from '@/constants/mockData';
-
-const PLATFORM_STATS = [
-  { label: 'Total Revenue', value: '₦4.2M', icon: 'attach-money', color: Colors.success, change: '+23%' },
-  { label: 'Active Orders', value: '47', icon: 'receipt-long', color: Colors.primary, change: 'Live' },
-  { label: 'Total Users', value: '12,483', icon: 'people', color: Colors.info, change: '+156 today' },
-  { label: 'Active Riders', value: '89', icon: 'delivery-dining', color: Colors.warning, change: '67 online' },
-  { label: 'Restaurants', value: '234', icon: 'restaurant', color: Colors.gold, change: '+5 pending' },
-  { label: 'Disputes', value: '3', icon: 'report-problem', color: Colors.error, change: 'Needs review' },
-];
 
 const PENDING_APPROVALS = [
   { id: 'p1', name: 'Delicious Kitchen', type: 'Restaurant', submitted: '2 hours ago' },
@@ -28,6 +20,15 @@ export default function AdminOverview() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
+  const { formatMoney } = useCurrency();
+  const platformStats = [
+    { label: 'Total Revenue', value: `${formatMoney(4200000).replace(',000,000', '.2M')}`, icon: 'attach-money', color: Colors.success, change: '+23%' },
+    { label: 'Active Orders', value: '47', icon: 'receipt-long', color: Colors.primary, change: 'Live' },
+    { label: 'Total Users', value: '12,483', icon: 'people', color: Colors.info, change: '+156 today' },
+    { label: 'Active Riders', value: '89', icon: 'delivery-dining', color: Colors.warning, change: '67 online' },
+    { label: 'Restaurants', value: '234', icon: 'restaurant', color: Colors.gold, change: '+5 pending' },
+    { label: 'Disputes', value: '3', icon: 'report-problem', color: Colors.error, change: 'Needs review' },
+  ];
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
@@ -51,7 +52,7 @@ export default function AdminOverview() {
 
       {/* Stats Grid */}
       <View style={styles.statsGrid}>
-        {PLATFORM_STATS.map(s => (
+        {platformStats.map(s => (
           <View key={s.label} style={styles.statCard}>
             <View style={[styles.statIcon, { backgroundColor: s.color + '22' }]}>
               <MaterialIcons name={s.icon as any} size={20} color={s.color} />
@@ -100,7 +101,7 @@ export default function AdminOverview() {
               <Text style={styles.orderId}>#{order.id.slice(-6).toUpperCase()}</Text>
             </View>
             <View style={styles.orderRight}>
-              <Text style={styles.orderTotal}>₦{order.total.toLocaleString()}</Text>
+              <Text style={styles.orderTotal}>{formatMoney(order.total)}</Text>
               <View style={[styles.statusDot, { backgroundColor: order.status === 'delivered' ? Colors.success : Colors.warning }]}>
                 <Text style={styles.statusText}>{order.status}</Text>
               </View>
