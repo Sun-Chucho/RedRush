@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Animated } from 'react-native';
 import { MapView, Marker, Polyline } from '@/components/MapViewCompat';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,33 +8,27 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 import { useAlert } from '@/template';
+import { startRiderTracking, stopRiderTracking, setRiderOffline } from '@/services/riderLocation';
+import { sendRiderRequestNotification } from '@/services/notifications';
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { db } from '@/services/firebase';
+import * as Location from 'expo-location';
 
-const MOCK_REQUEST = {
-  id: 'req001',
-  restaurant: 'Chicken Republic',
-  restaurantAddress: '12 Allen Avenue, Ikeja',
-  customerAddress: '45 Saka Tinubu Street, VI',
-  distance: '3.2 km',
-  estimatedTime: '18 min',
-  earnings: 1200,
-  items: 3,
-  paymentMethod: 'MTN Mobile Money',
-};
-
-const RIDER_ROUTE = {
-  restaurant: { latitude: -1.2833, longitude: 36.8172 },
-  rider: { latitude: -1.2868, longitude: 36.8219 },
-  customer: { latitude: -1.2921, longitude: 36.8219 },
-};
+const NAIROBI = { latitude: 6.4541, longitude: 3.3947 };
 
 export default function RiderHome() {
   const [isOnline, setIsOnline] = useState(false);
   const [hasRequest, setHasRequest] = useState(false);
+  const [myCoords, setMyCoords] = useState(NAIROBI);
+  const [locationGranted, setLocationGranted] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { formatMoney } = useCurrency();
   const { orders, updateOrderStatus } = useOrders();
   const { showAlert } = useAlert();
+
   const readyOrder = orders.find(order => order.status === 'ready');
   const request = readyOrder
     ? {
@@ -47,22 +41,108 @@ export default function RiderHome() {
         earnings: Math.max(900, Math.round(readyOrder.deliveryFee * 0.8)),
         items: readyOrder.items.reduce((sum, item) => sum + item.quantity, 0),
         paymentMethod: readyOrder.paymentMethod,
+        orderId: readyOrder.id,
       }
-    : MOCK_REQUEST;
+    : null;
 
-  const handleToggle = (val: boolean) => {
+  // Pulse animation for online dot
+  useEffect(() => {
+    if (!isOnline) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.6, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [isOnline]);
+
+  // Request location on mount
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        setLocationGranted(true);
+        const loc = await Location.getCurrentPositionAsync({});
+        setMyCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      }
+    })();
+    return () => {
+      stopRiderTracking();
+    };
+  }, []);
+
+  // Notify rider when new ready order appears while online
+  useEffect(() => {
+    if (isOnline && readyOrder && !hasRequest) {
+      setHasRequest(true);
+      sendRiderRequestNotification(readyOrder.restaurantName, Math.max(900, Math.round(readyOrder.deliveryFee * 0.8)));
+    }
+  }, [readyOrder?.id, isOnline]);
+
+  const handleToggle = async (val: boolean) => {
     setIsOnline(val);
     if (val) {
-      if (readyOrder) {
-        setHasRequest(true);
-      } else {
-        setTimeout(() => setHasRequest(true), 2000);
+      // Go online: start GPS publishing
+      if (user?.id) {
+        const started = await startRiderTracking(user.id);
+        if (!started) {
+          showAlert('Location Required', 'Please grant location permission to go online and receive deliveries.');
+          setIsOnline(false);
+          return;
+        }
+        // Update Firestore rider status
+        await updateDoc(doc(db, 'users', user.id), {
+          isOnline: true,
+          updatedAt: serverTimestamp(),
+        }).catch(() => undefined);
       }
-      showAlert('You are Online', 'You will now receive delivery requests.');
+      // Check for existing ready orders
+      if (readyOrder) setHasRequest(true);
+      showAlert('You are Online!', 'You will now receive delivery requests and your location is being tracked.');
     } else {
+      // Go offline: stop GPS publishing
+      stopRiderTracking();
+      if (user?.id) {
+        setRiderOffline(user.id);
+        await updateDoc(doc(db, 'users', user.id), {
+          isOnline: false,
+          updatedAt: serverTimestamp(),
+        }).catch(() => undefined);
+      }
       setHasRequest(false);
-      showAlert('You are Offline', 'You will not receive delivery requests.');
+      showAlert('You are Offline', 'Location tracking stopped. You will not receive new requests.');
     }
+  };
+
+  const handleAccept = async () => {
+    if (!request) return;
+    updateOrderStatus(request.orderId, 'picked_up');
+    setHasRequest(false);
+    // Assign this rider to the order in Firestore
+    if (user?.id) {
+      await updateDoc(doc(db, 'orders', request.orderId), {
+        riderId: user.id,
+        riderName: user.name,
+        status: 'picked_up',
+        updatedAt: serverTimestamp(),
+      }).catch(() => undefined);
+    }
+    showAlert('Delivery Accepted!', `Head to ${request.restaurant} to pick up the order. Navigation coming soon!`);
+  };
+
+  const handleDecline = () => {
+    setHasRequest(false);
+    // Simulate next request in 30 seconds
+    setTimeout(() => { if (isOnline) setHasRequest(true); }, 30000);
+  };
+
+  const mapRegion = {
+    latitude: myCoords.latitude,
+    longitude: myCoords.longitude,
+    latitudeDelta: 0.03,
+    longitudeDelta: 0.03,
   };
 
   return (
@@ -70,10 +150,10 @@ export default function RiderHome() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hi, {user?.name?.split(' ')[0]} 👋</Text>
+          <Text style={styles.greeting}>Hi, {user?.name?.split(' ')[0] || 'Rider'} 👋</Text>
           <Text style={styles.subGreeting}>Ready to deliver?</Text>
         </View>
-        <View style={styles.onlineToggle}>
+        <View style={styles.onlineRow}>
           <Text style={[styles.onlineLabel, { color: isOnline ? Colors.success : Colors.textMuted }]}>
             {isOnline ? 'ONLINE' : 'OFFLINE'}
           </Text>
@@ -88,63 +168,74 @@ export default function RiderHome() {
 
       {/* Status Card */}
       <View style={[styles.statusCard, { borderColor: isOnline ? Colors.success : Colors.border }]}>
-        <View style={styles.statusIconRow}>
-          <View style={[styles.statusDot, { backgroundColor: isOnline ? Colors.success : Colors.textMuted }]} />
+        <View style={styles.statusRow}>
+          {isOnline ? (
+            <Animated.View style={[styles.statusDot, { transform: [{ scale: pulseAnim }] }]} />
+          ) : (
+            <View style={[styles.statusDot, { backgroundColor: Colors.textMuted }]} />
+          )}
           <Text style={[styles.statusText, { color: isOnline ? Colors.success : Colors.textMuted }]}>
-            {isOnline ? 'You are online — waiting for requests...' : 'Toggle online to start receiving orders'}
+            {isOnline
+              ? locationGranted
+                ? 'Online — GPS active, waiting for requests...'
+                : 'Online — Enable location for full tracking'
+              : 'Toggle online to start receiving orders'}
           </Text>
         </View>
-        <View style={styles.statusStats}>
+        <View style={styles.statsRow}>
           {[
-            { label: "Today's Trips", value: '7' },
+            { label: "Today's Trips", value: orders.filter(o => o.status === 'delivered').length.toString() },
             { label: 'Hours Online', value: '4.5h' },
             { label: 'Distance', value: '38 km' },
           ].map(s => (
-            <View key={s.label} style={styles.statusStat}>
-              <Text style={styles.statusStatValue}>{s.value}</Text>
-              <Text style={styles.statusStatLabel}>{s.label}</Text>
+            <View key={s.label} style={styles.statItem}>
+              <Text style={styles.statValue}>{s.value}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      {/* Incoming Request */}
-      {hasRequest ? (
+      {/* Delivery Request Card */}
+      {hasRequest && request ? (
         <View style={styles.requestCard}>
           <View style={styles.requestHeader}>
             <MaterialIcons name="notifications-active" size={22} color={Colors.primary} />
             <Text style={styles.requestTitle}>New Delivery Request!</Text>
-            <View style={styles.requestBadge}><Text style={styles.requestBadgeText}>NEW</Text></View>
+            <View style={styles.newBadge}><Text style={styles.newBadgeText}>NEW</Text></View>
           </View>
 
-          <View style={styles.routeRow}>
+          <View style={styles.routeCard}>
             <View style={styles.routePoint}>
-              <MaterialIcons name="restaurant" size={16} color={Colors.warning} />
+              <View style={[styles.routeIcon, { backgroundColor: Colors.warning + '22' }]}>
+                <MaterialIcons name="restaurant" size={14} color={Colors.warning} />
+              </View>
               <View>
                 <Text style={styles.routeRestaurant}>{request.restaurant}</Text>
-                <Text style={styles.routeAddress}>{request.restaurantAddress}</Text>
+                <Text style={styles.routeAddr}>{request.restaurantAddress}</Text>
               </View>
             </View>
-            <View style={styles.routeDivider} />
+            <View style={styles.routeDash} />
             <View style={styles.routePoint}>
-              <MaterialIcons name="home" size={16} color={Colors.success} />
+              <View style={[styles.routeIcon, { backgroundColor: Colors.success + '22' }]}>
+                <MaterialIcons name="home" size={14} color={Colors.success} />
+              </View>
               <View>
-                <Text style={styles.routeLabel}>Customer</Text>
-                <Text style={styles.routeAddress}>{request.customerAddress}</Text>
+                <Text style={styles.routeRestaurant}>Customer</Text>
+                <Text style={styles.routeAddr} numberOfLines={1}>{request.customerAddress}</Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.requestMeta}>
+          <View style={styles.metaRow}>
             {[
               { icon: 'straighten', val: request.distance },
               { icon: 'access-time', val: request.estimatedTime },
               { icon: 'shopping-bag', val: `${request.items} items` },
-              { icon: 'phone-android', val: request.paymentMethod },
             ].map(m => (
-              <View key={m.val} style={styles.metaItem}>
-                <MaterialIcons name={m.icon as any} size={14} color={Colors.textMuted} />
-                <Text style={styles.metaText}> {m.val}</Text>
+              <View key={m.val} style={styles.metaChip}>
+                <MaterialIcons name={m.icon as any} size={13} color={Colors.textMuted} />
+                <Text style={styles.metaChipText}>{m.val}</Text>
               </View>
             ))}
           </View>
@@ -155,69 +246,62 @@ export default function RiderHome() {
           </View>
 
           <View style={styles.requestActions}>
-            <TouchableOpacity style={styles.rejectBtn} onPress={() => { setHasRequest(false); }}>
-              <MaterialIcons name="close" size={18} color={Colors.error} />
-              <Text style={styles.rejectText}>Decline</Text>
+            <TouchableOpacity style={styles.declineBtn} onPress={handleDecline}>
+              <MaterialIcons name="close" size={16} color={Colors.error} />
+              <Text style={styles.declineBtnText}>Decline</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.acceptBtn} onPress={() => {
-              if (readyOrder) {
-                updateOrderStatus(readyOrder.id, 'picked_up');
-              }
-              setHasRequest(false);
-              showAlert('Delivery Accepted!', `Head to ${request.restaurant} to pick up the order.`);
-            }}>
-              <MaterialIcons name="check" size={18} color={Colors.text} />
-              <Text style={styles.acceptText}>Accept Delivery</Text>
+            <TouchableOpacity style={styles.acceptBtn} onPress={handleAccept}>
+              <MaterialIcons name="check" size={16} color={Colors.text} />
+              <Text style={styles.acceptBtnText}>Accept Delivery</Text>
             </TouchableOpacity>
           </View>
         </View>
       ) : null}
 
+      {/* Live Map */}
       <View style={styles.mapCard}>
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: RIDER_ROUTE.rider.latitude,
-            longitude: RIDER_ROUTE.rider.longitude,
-            latitudeDelta: 0.026,
-            longitudeDelta: 0.026,
-          }}
-        >
-          <Polyline
-            coordinates={[RIDER_ROUTE.restaurant, RIDER_ROUTE.rider, RIDER_ROUTE.customer]}
-            strokeColor={Colors.primary}
-            strokeWidth={4}
-          />
-          <Marker coordinate={RIDER_ROUTE.restaurant} title={request.restaurant} />
-          <Marker coordinate={RIDER_ROUTE.rider} title="You">
-            <View style={styles.riderMarker}>
+        <MapView style={styles.map} initialRegion={mapRegion}>
+          <Marker coordinate={myCoords} title="Your Location">
+            <View style={styles.myMarker}>
               <MaterialIcons name="delivery-dining" size={18} color={Colors.text} />
             </View>
           </Marker>
-          <Marker coordinate={RIDER_ROUTE.customer} title="Customer" />
+          {request ? (
+            <>
+              <Marker coordinate={{ latitude: myCoords.latitude + 0.01, longitude: myCoords.longitude + 0.01 }} title={request.restaurant} />
+              <Polyline
+                coordinates={[myCoords, { latitude: myCoords.latitude + 0.01, longitude: myCoords.longitude + 0.01 }]}
+                strokeColor={Colors.primary}
+                strokeWidth={3}
+              />
+            </>
+          ) : null}
         </MapView>
-        <View style={styles.mapBadge}>
-          <Text style={styles.mapBadgeText}>Live map</Text>
+        <View style={styles.mapOverlay}>
+          <View style={styles.mapBadge}>
+            {isOnline ? <View style={styles.mapDot} /> : null}
+            <Text style={styles.mapBadgeText}>{isOnline ? 'GPS Active' : 'Map View'}</Text>
+          </View>
         </View>
       </View>
 
       {/* Quick Stats */}
       <View style={styles.quickStats}>
         {[
-          { label: "Today's Earnings", value: formatMoney(8400), icon: 'account-balance-wallet', color: Colors.success },
-          { label: 'This Week', value: formatMoney(47200), icon: 'calendar-today', color: Colors.primary },
-          { label: 'Avg Rating', value: '4.9 ⭐', icon: 'star', color: Colors.gold },
-          { label: 'Total Trips', value: '312', icon: 'delivery-dining', color: Colors.info },
+          { label: "Today's Earnings", value: formatMoney(8400), icon: 'account-balance-wallet' as const, color: Colors.success },
+          { label: 'This Week', value: formatMoney(47200), icon: 'calendar-today' as const, color: Colors.primary },
+          { label: 'Avg Rating', value: '4.9 ⭐', icon: 'star' as const, color: Colors.gold },
+          { label: 'Total Trips', value: String(312 + orders.filter(o => o.status === 'delivered').length), icon: 'delivery-dining' as const, color: Colors.info },
         ].map(s => (
-          <View key={s.label} style={styles.quickStatCard}>
-            <MaterialIcons name={s.icon as any} size={20} color={s.color} />
-            <Text style={[styles.quickStatValue, { color: s.color }]}>{s.value}</Text>
-            <Text style={styles.quickStatLabel}>{s.label}</Text>
+          <View key={s.label} style={styles.quickCard}>
+            <MaterialIcons name={s.icon} size={20} color={s.color} />
+            <Text style={[styles.quickValue, { color: s.color }]}>{s.value}</Text>
+            <Text style={styles.quickLabel}>{s.label}</Text>
           </View>
         ))}
       </View>
 
-      <View style={{ height: 20 }} />
+      <View style={{ height: 30 }} />
     </ScrollView>
   );
 }
@@ -227,45 +311,51 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   greeting: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
   subGreeting: { color: Colors.textMuted, fontSize: FontSize.sm },
-  onlineToggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  onlineRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   onlineLabel: { fontSize: FontSize.xs, fontWeight: FontWeight.extrabold },
+
   statusCard: { marginHorizontal: Spacing.md, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1.5, ...Shadow.md },
-  statusIconRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
+  statusDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.success },
   statusText: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, flex: 1 },
-  statusStats: { flexDirection: 'row' },
-  statusStat: { flex: 1, alignItems: 'center' },
-  statusStatValue: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.extrabold },
-  statusStatLabel: { color: Colors.textMuted, fontSize: FontSize.xs },
+  statsRow: { flexDirection: 'row' },
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.extrabold },
+  statLabel: { color: Colors.textMuted, fontSize: FontSize.xs },
+
   requestCard: { marginHorizontal: Spacing.md, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.xl, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1.5, borderColor: Colors.primary, ...Shadow.lg },
   requestHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
   requestTitle: { flex: 1, color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-  requestBadge: { backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, paddingHorizontal: 8, paddingVertical: 3 },
-  requestBadgeText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.extrabold },
-  routeRow: { backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.md, gap: Spacing.sm },
+  newBadge: { backgroundColor: Colors.primary, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  newBadgeText: { color: Colors.text, fontSize: 10, fontWeight: FontWeight.extrabold },
+  routeCard: { backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.md, gap: Spacing.sm },
   routePoint: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  routeIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   routeRestaurant: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
-  routeLabel: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
-  routeAddress: { color: Colors.textMuted, fontSize: FontSize.xs },
-  routeDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },
-  requestMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm },
-  metaItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.sm, paddingHorizontal: 8, paddingVertical: 4 },
-  metaText: { color: Colors.textSecondary, fontSize: FontSize.xs },
+  routeAddr: { color: Colors.textMuted, fontSize: FontSize.xs },
+  routeDash: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm },
+  metaChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.sm, paddingHorizontal: 8, paddingVertical: 5, gap: 4 },
+  metaChipText: { color: Colors.textSecondary, fontSize: FontSize.xs },
   earningRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm, marginBottom: Spacing.md },
   earningLabel: { color: Colors.textSecondary, fontSize: FontSize.sm },
   earningValue: { color: Colors.success, fontSize: FontSize.xl, fontWeight: FontWeight.extrabold },
   requestActions: { flexDirection: 'row', gap: Spacing.sm },
-  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.md, borderWidth: 1.5, borderColor: Colors.error, paddingVertical: 12, gap: 6 },
-  rejectText: { color: Colors.error, fontWeight: FontWeight.semibold, fontSize: FontSize.sm },
+  declineBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.md, borderWidth: 1.5, borderColor: Colors.error, paddingVertical: 12, gap: 6 },
+  declineBtnText: { color: Colors.error, fontWeight: FontWeight.semibold, fontSize: FontSize.sm },
   acceptBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.md, backgroundColor: Colors.primary, paddingVertical: 12, gap: 6 },
-  acceptText: { color: Colors.text, fontWeight: FontWeight.bold, fontSize: FontSize.sm },
-  mapCard: { height: 190, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.md },
+  acceptBtnText: { color: Colors.text, fontWeight: FontWeight.bold, fontSize: FontSize.sm },
+
+  mapCard: { height: 200, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.md },
   map: { flex: 1 },
-  mapBadge: { position: 'absolute', left: 12, top: 12, backgroundColor: Colors.surface, borderRadius: BorderRadius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
+  mapOverlay: { position: 'absolute', top: 12, left: 12 },
+  mapBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(10,10,10,0.85)', borderRadius: BorderRadius.full, paddingHorizontal: 12, paddingVertical: 6, gap: 6 },
+  mapDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: Colors.success },
   mapBadgeText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
-  riderMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.text, alignItems: 'center', justifyContent: 'center' },
+  myMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.text, alignItems: 'center', justifyContent: 'center' },
+
   quickStats: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: Spacing.md, gap: Spacing.sm },
-  quickStatCard: { width: '47%', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: Colors.border },
-  quickStatValue: { fontSize: FontSize.lg, fontWeight: FontWeight.extrabold },
-  quickStatLabel: { color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'center' },
+  quickCard: { width: '47%', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: Colors.border },
+  quickValue: { fontSize: FontSize.lg, fontWeight: FontWeight.extrabold },
+  quickLabel: { color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'center' },
 });
