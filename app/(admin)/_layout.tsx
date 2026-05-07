@@ -27,6 +27,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="index" options={{ title: 'Overview', tabBarIcon: ({ color, size }) => <MaterialIcons name="dashboard" size={size} color={color} /> }} />
       <Tabs.Screen name="users" options={{ title: 'Users', tabBarIcon: ({ color, size }) => <MaterialIcons name="people" size={size} color={color} /> }} />
       <Tabs.Screen name="orders" options={{ title: 'Orders', tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt-long" size={size} color={color} /> }} />
+      <Tabs.Screen name="support" options={{ title: 'Support', tabBarIcon: ({ color, size }) => <MaterialIcons name="support-agent" size={size} color={color} /> }} />
       <Tabs.Screen name="analytics" options={{ title: 'Analytics', tabBarIcon: ({ color, size }) => <MaterialIcons name="bar-chart" size={size} color={color} /> }} />
     </Tabs>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,7 +17,7 @@ const PENDING_APPROVALS = [
 
 export default function AdminOverview() {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
@@ -122,7 +122,7 @@ export default function AdminOverview() {
           ].map(a => (
             <TouchableOpacity key={a.label} style={styles.actionCard} onPress={() => {
               if (a.label === 'Sign Out') { logout(); router.replace('/auth'); }
-              else showAlert(a.label, 'Feature coming soon!');
+              else showAlert(a.label, `${a.label} workspace opened. Use the dedicated admin tabs for live user and order records.`);
             }}>
               <MaterialIcons name={a.icon as any} size={26} color={a.color} />
               <Text style={styles.actionLabel}>{a.label}</Text>

@@ -8,7 +8,7 @@ import { db } from '@/services/firebase';
 interface OrderContextType {
   orders: Order[];
   activeOrder: Order | null;
-  placeOrder: (items: CartItem[], restaurantId: string, restaurantName: string, address: string, paymentMethod: string, deliveryFee: number, serviceCharge?: number) => Promise<Order>;
+  placeOrder: (items: CartItem[], restaurantId: string, restaurantName: string, address: string, paymentMethod: string, deliveryFee: number, serviceCharge?: number, discount?: number, promoCode?: string) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   getOrderById: (id: string) => Order | undefined;
 }
@@ -51,6 +51,16 @@ function orderFromDoc(id: string, data: Partial<Order> & Record<string, unknown>
   };
 }
 
+function uniqueOrdersById(orders: Order[]) {
+  const seen = new Set<string>();
+
+  return orders.filter(order => {
+    if (seen.has(order.id)) return false;
+    seen.add(order.id);
+    return true;
+  });
+}
+
 export function OrderProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -71,15 +81,15 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(
       ordersQuery,
       snapshot => {
-        const liveOrders = snapshot.docs
+        const liveOrders = uniqueOrdersById(snapshot.docs
           .map(orderDoc => orderFromDoc(orderDoc.id, orderDoc.data() as Partial<Order> & Record<string, unknown>))
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
 
         setOrders(liveOrders);
         setActiveOrder(prev => (prev ? liveOrders.find(order => order.id === prev.id) || prev : prev));
       },
       () => {
-        setOrders(MOCK_ORDERS);
+        setOrders(uniqueOrdersById(MOCK_ORDERS));
       }
     );
 
@@ -93,7 +103,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     address: string,
     paymentMethod: string,
     deliveryFee: number,
-    serviceCharge = 0
+    serviceCharge = 0,
+    discount = 0,
+    promoCode?: string
   ): Promise<Order> => {
     if (!user) {
       throw new Error('Please sign in before placing an order.');
@@ -109,9 +121,12 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       restaurantId,
       restaurantName,
       items: items.map(i => ({ menuItem: i.menuItem, quantity: i.quantity, restaurantId })),
-      total: total + deliveryFee + serviceCharge,
+      subtotal: total,
+      total: Math.max(0, total - discount) + deliveryFee + serviceCharge,
       deliveryFee,
       serviceCharge,
+      discount,
+      promoCode,
       status: 'pending',
       paymentMethod,
       address,
@@ -140,11 +155,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     try {
       const orderRef = await addDoc(collection(db, 'orders'), orderPayload);
       const savedOrder = { ...optimisticOrder, id: orderRef.id };
-      setOrders(prev => [savedOrder, ...prev.filter(order => order.id !== optimisticOrder.id)]);
+      setOrders(prev => uniqueOrdersById([savedOrder, ...prev.filter(order => order.id !== optimisticOrder.id && order.id !== savedOrder.id)]));
       setActiveOrder(savedOrder);
       return savedOrder;
     } catch {
-      setOrders(prev => [optimisticOrder, ...prev]);
+      setOrders(prev => uniqueOrdersById([optimisticOrder, ...prev.filter(order => order.id !== optimisticOrder.id)]));
       setActiveOrder(optimisticOrder);
       return optimisticOrder;
     }

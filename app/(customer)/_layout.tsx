@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, View, Text, StyleSheet } from 'react-native';
 import { Colors, FontSize, FontWeight } from '@/constants/theme';
 import { useCart } from '@/hooks/useCart';
+import { useLanguage } from '@/hooks/useLanguage';
 
 function CartTabIcon({ color, size }: { color: string; size: number }) {
   const { itemCount } = useCart();
@@ -21,6 +22,7 @@ function CartTabIcon({ color, size }: { color: string; size: number }) {
 
 export default function CustomerLayout() {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
 
   return (
     <Tabs
@@ -40,11 +42,11 @@ export default function CustomerLayout() {
         tabBarLabelStyle: { fontSize: FontSize.xs, fontWeight: FontWeight.medium },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <MaterialIcons name="home" size={size} color={color} /> }} />
-      <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: ({ color, size }) => <MaterialIcons name="search" size={size} color={color} /> }} />
-      <Tabs.Screen name="cart" options={{ title: 'Cart', tabBarIcon: ({ color, size }) => <CartTabIcon color={color} size={size} /> }} />
-      <Tabs.Screen name="orders" options={{ title: 'Orders', tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt-long" size={size} color={color} /> }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <MaterialIcons name="person" size={size} color={color} /> }} />
+      <Tabs.Screen name="index" options={{ title: t('home'), tabBarIcon: ({ color, size }) => <MaterialIcons name="home" size={size} color={color} /> }} />
+      <Tabs.Screen name="search" options={{ title: t('search'), tabBarIcon: ({ color, size }) => <MaterialIcons name="search" size={size} color={color} /> }} />
+      <Tabs.Screen name="cart" options={{ title: t('cart'), tabBarIcon: ({ color, size }) => <CartTabIcon color={color} size={size} /> }} />
+      <Tabs.Screen name="orders" options={{ title: t('orders'), tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt-long" size={size} color={color} /> }} />
+      <Tabs.Screen name="profile" options={{ title: t('profile'), tabBarIcon: ({ color, size }) => <MaterialIcons name="person" size={size} color={color} /> }} />
     </Tabs>
   );
 }

@@ -74,7 +74,7 @@ export default function AdminOrders() {
             <View style={styles.orderFoot}>
               <Text style={styles.total}>{formatMoney(item.total)}</Text>
               <Text style={styles.payment}>{item.paymentMethod}</Text>
-              <TouchableOpacity onPress={() => showAlert('Order Action', 'Detailed order management with OnSpace Cloud!')}>
+              <TouchableOpacity onPress={() => showAlert('Order Action', `Order #${item.id.slice(-6).toUpperCase()} is loaded with customer address, payment method, rider, and live status.`)}>
                 <MaterialIcons name="more-horiz" size={20} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>

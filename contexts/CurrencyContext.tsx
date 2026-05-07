@@ -13,7 +13,7 @@ interface CurrencyContextType {
   country: string;
   locationLabel: string;
   formatMoney: (amount: number) => string;
-  refreshLocationCurrency: () => Promise<void>;
+  refreshLocationCurrency: () => Promise<string>;
 }
 
 export const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -30,7 +30,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       setCurrency(DEFAULT_CURRENCY);
       setCountry('Kenya');
       setLocationLabel('Kenya');
-      return;
+      return 'Kenya';
     }
 
     const current = await Location.getCurrentPositionAsync({
@@ -44,10 +44,12 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
     setCurrency(nextCurrency);
     setCountry(nextCountry || (nextCurrency === 'TZS' ? 'Tanzania' : 'Kenya'));
-    setLocationLabel(
+    const nextLocationLabel =
       [place?.city, place?.region, nextCountry].filter(Boolean).join(', ') ||
-        (nextCurrency === 'TZS' ? 'Tanzania' : 'Kenya')
-    );
+      (nextCurrency === 'TZS' ? 'Tanzania' : 'Kenya');
+
+    setLocationLabel(nextLocationLabel);
+    return nextLocationLabel;
   };
 
   useEffect(() => {

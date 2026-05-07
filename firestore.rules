@@ -14,14 +14,20 @@ service cloud.firestore {
       return signedIn() && profile().role in roles;
     }
 
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
     match /users/{userId} {
-      allow create: if signedIn() && request.auth.uid == userId;
-      allow read: if signedIn() && (request.auth.uid == userId || hasRole(['admin']));
+      allow create: if isSelf(userId);
+      allow get: if isSelf(userId) || hasRole(['admin']);
+      allow read: if isSelf(userId) || hasRole(['admin']);
       allow list: if hasRole(['admin']);
-      allow update: if signedIn() && (
-        request.auth.uid == userId ||
-        hasRole(['admin'])
-      );
+      allow update: if isSelf(userId) || hasRole(['admin']);
+
+      match /profileData/{documentId} {
+        allow read, write: if isSelf(userId) || hasRole(['admin']);
+      }
     }
 
     match /orders/{orderId} {
@@ -43,6 +49,25 @@ service cloud.firestore {
       match /menu/{itemId} {
         allow read: if true;
         allow write: if hasRole(['admin', 'vendor']);
+      }
+    }
+
+    match /supportThreads/{threadId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        hasRole(['admin'])
+      );
+
+      match /messages/{messageId} {
+        allow create: if signedIn() && (
+          get(/databases/$(database)/documents/supportThreads/$(threadId)).data.userId == request.auth.uid ||
+          hasRole(['admin'])
+        );
+        allow read: if signedIn() && (
+          get(/databases/$(database)/documents/supportThreads/$(threadId)).data.userId == request.auth.uid ||
+          hasRole(['admin'])
+        );
       }
     }
   }

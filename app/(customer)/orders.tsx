@@ -7,6 +7,8 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Order } from '@/constants/mockData';
+import { useLanguage } from '@/hooks/useLanguage';
+import { TranslationKey } from '@/contexts/LanguageContext';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: Colors.warning,
@@ -18,14 +20,14 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: Colors.error,
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  accepted: 'Accepted',
-  preparing: 'Preparing',
-  ready: 'Ready',
-  picked_up: 'On the way',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
+const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+  pending: 'pending',
+  accepted: 'accepted',
+  preparing: 'preparing',
+  ready: 'ready',
+  picked_up: 'onTheWay',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
 };
 
 export default function OrdersScreen() {
@@ -34,22 +36,24 @@ export default function OrdersScreen() {
   const router = useRouter();
   const { orders } = useOrders();
   const { formatMoney } = useCurrency();
+  const { t } = useLanguage();
 
-  const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
-  const history = orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
+  const uniqueOrders = orders.filter((order, index, all) => all.findIndex(item => item.id === order.id) === index);
+  const activeOrders = uniqueOrders.filter(o => !['delivered', 'cancelled'].includes(o.status));
+  const history = uniqueOrders.filter(o => ['delivered', 'cancelled'].includes(o.status));
   const displayed = tab === 'active' ? activeOrders : history;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.headerTitle}>My Orders</Text>
+      <Text style={styles.headerTitle}>{t('myOrders')}</Text>
 
       {/* Tab */}
       <View style={styles.tabRow}>
-        {(['active', 'history'] as const).map(t => (
-          <TouchableOpacity key={t} style={[styles.tabBtn, tab === t && styles.tabBtnActive]} onPress={() => setTab(t)}>
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'active' ? 'Active' : 'History'}
-              {t === 'active' && activeOrders.length > 0 ? ` (${activeOrders.length})` : ''}
+        {(['active', 'history'] as const).map(tabKey => (
+          <TouchableOpacity key={tabKey} style={[styles.tabBtn, tab === tabKey && styles.tabBtnActive]} onPress={() => setTab(tabKey)}>
+            <Text style={[styles.tabText, tab === tabKey && styles.tabTextActive]}>
+              {tabKey === 'active' ? t('active') : t('history')}
+              {tabKey === 'active' && activeOrders.length > 0 ? ` (${activeOrders.length})` : ''}
             </Text>
           </TouchableOpacity>
         ))}
@@ -57,16 +61,16 @@ export default function OrdersScreen() {
 
       <FlatList
         data={displayed}
-        keyExtractor={o => o.id}
-        renderItem={({ item }) => <OrderCard order={item} formatMoney={formatMoney} onPress={() => router.push(`/order/${item.id}`)} />}
+        keyExtractor={(o, index) => `${o.id}-${index}`}
+        renderItem={({ item }) => <OrderCard order={item} statusLabel={t(STATUS_LABEL_KEYS[item.status] || 'pending')} trackLabel={t('trackYourOrder')} formatMoney={formatMoney} onPress={() => router.push(`/order/${item.id}`)} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>
             <MaterialIcons name="receipt-long" size={64} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>{tab === 'active' ? 'No active orders' : 'No order history'}</Text>
+            <Text style={styles.emptyTitle}>{tab === 'active' ? t('noActiveOrders') : t('noOrderHistory')}</Text>
             <Text style={styles.emptySubtitle}>
-              {tab === 'active' ? 'Place an order to see it here' : 'Your completed orders will appear here'}
+              {tab === 'active' ? t('placeOrderToSeeIt') : t('completedOrders')}
             </Text>
           </View>
         }
@@ -75,7 +79,7 @@ export default function OrdersScreen() {
   );
 }
 
-function OrderCard({ order, formatMoney, onPress }: { order: Order; formatMoney: (amount: number) => string; onPress: () => void }) {
+function OrderCard({ order, statusLabel, trackLabel, formatMoney, onPress }: { order: Order; statusLabel: string; trackLabel: string; formatMoney: (amount: number) => string; onPress: () => void }) {
   const statusColor = STATUS_COLORS[order.status] || Colors.textMuted;
 
   return (
@@ -86,13 +90,13 @@ function OrderCard({ order, formatMoney, onPress }: { order: Order; formatMoney:
           <Text style={styles.cardId}>#{order.id.slice(-6).toUpperCase()}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusColor + '22', borderColor: statusColor + '55' }]}>
-          <Text style={[styles.statusText, { color: statusColor }]}>{STATUS_LABELS[order.status]}</Text>
+          <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
         </View>
       </View>
 
       <View style={styles.cardItems}>
         {order.items.map((i, idx) => (
-          <Text key={idx} style={styles.itemText}>
+          <Text key={`${order.id}-${i.restaurantId}-${i.menuItem.id}-${idx}`} style={styles.itemText}>
             {i.quantity}x {i.menuItem.name}
           </Text>
         ))}
@@ -116,7 +120,7 @@ function OrderCard({ order, formatMoney, onPress }: { order: Order; formatMoney:
       {!['delivered', 'cancelled'].includes(order.status) ? (
         <View style={styles.trackRow}>
           <MaterialIcons name="location-on" size={14} color={Colors.primary} />
-          <Text style={styles.trackText}>Track your order</Text>
+          <Text style={styles.trackText}>{trackLabel}</Text>
           <MaterialIcons name="chevron-right" size={16} color={Colors.primary} />
         </View>
       ) : null}

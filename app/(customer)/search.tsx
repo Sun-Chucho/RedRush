@@ -7,8 +7,15 @@ import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { MOCK_RESTAURANTS, CUISINES } from '@/constants/mockData';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useLanguage } from '@/hooks/useLanguage';
+import { TranslationKey } from '@/contexts/LanguageContext';
 
-const SORT_OPTIONS = ['Relevance', 'Rating', 'Delivery Time', 'Price'];
+const SORT_OPTIONS: { value: 'Relevance' | 'Rating' | 'Delivery Time' | 'Price'; labelKey: TranslationKey }[] = [
+  { value: 'Relevance', labelKey: 'relevance' },
+  { value: 'Rating', labelKey: 'rating' },
+  { value: 'Delivery Time', labelKey: 'deliveryTime' },
+  { value: 'Price', labelKey: 'price' },
+];
 
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
@@ -17,6 +24,7 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { formatMoney } = useCurrency();
+  const { t } = useLanguage();
 
   const results = MOCK_RESTAURANTS.filter(r => {
     const matchQ = !query || r.name.toLowerCase().includes(query.toLowerCase()) || r.cuisine.toLowerCase().includes(query.toLowerCase());
@@ -40,7 +48,7 @@ export default function SearchScreen() {
           <MaterialIcons name="search" size={20} color={Colors.textMuted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search restaurants, cuisines..."
+            placeholder={t('searchRestaurantsCuisines')}
             placeholderTextColor={Colors.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -71,11 +79,11 @@ export default function SearchScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
         {SORT_OPTIONS.map(s => (
           <TouchableOpacity
-            key={s}
-            style={[styles.sortBtn, sortBy === s && styles.sortBtnActive]}
-            onPress={() => setSortBy(s)}
+            key={s.value}
+            style={[styles.sortBtn, sortBy === s.value && styles.sortBtnActive]}
+            onPress={() => setSortBy(s.value)}
           >
-            <Text style={[styles.sortText, sortBy === s && styles.sortTextActive]}>{s}</Text>
+            <Text style={[styles.sortText, sortBy === s.value && styles.sortTextActive]}>{t(s.labelKey)}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -94,11 +102,11 @@ export default function SearchScreen() {
                 <MaterialIcons name="star" size={12} color={Colors.gold} />
                 <Text style={styles.metaText}> {item.rating}  •  {item.deliveryTime}</Text>
               </View>
-              <Text style={styles.deliveryFee}>Delivery: {formatMoney(item.deliveryFee)}</Text>
+              <Text style={styles.deliveryFee}>{t('delivery')}: {formatMoney(item.deliveryFee)}</Text>
             </View>
             {!item.isOpen ? (
               <View style={styles.closedOverlay}>
-                <Text style={styles.closedText}>Closed</Text>
+                <Text style={styles.closedText}>{t('closed')}</Text>
               </View>
             ) : null}
           </TouchableOpacity>
@@ -106,8 +114,8 @@ export default function SearchScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <MaterialIcons name="search-off" size={64} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>No results found</Text>
-            <Text style={styles.emptySubtitle}>Try different keywords or filters</Text>
+            <Text style={styles.emptyTitle}>{t('noResultsFound')}</Text>
+            <Text style={styles.emptySubtitle}>{t('tryDifferentKeywords')}</Text>
           </View>
         }
         showsVerticalScrollIndicator={false}

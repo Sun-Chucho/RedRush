@@ -56,7 +56,7 @@ export default function RiderHome() {
     );
     anim.start();
     return () => anim.stop();
-  }, [isOnline]);
+  }, [isOnline, pulseAnim]);
 
   // Request location on mount
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function RiderHome() {
       setHasRequest(true);
       sendRiderRequestNotification(readyOrder.restaurantName, Math.max(900, Math.round(readyOrder.deliveryFee * 0.8)));
     }
-  }, [readyOrder?.id, isOnline]);
+  }, [readyOrder, isOnline, hasRequest]);
 
   const handleToggle = async (val: boolean) => {
     setIsOnline(val);
@@ -129,7 +129,7 @@ export default function RiderHome() {
         updatedAt: serverTimestamp(),
       }).catch(() => undefined);
     }
-    showAlert('Delivery Accepted!', `Head to ${request.restaurant} to pick up the order. Navigation coming soon!`);
+    showAlert('Delivery Accepted!', `Head to ${request.restaurant} to pick up the order. The live map now shows the pickup route.`);
   };
 
   const handleDecline = () => {

@@ -1,7 +1,9 @@
 import React, { createContext, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -19,6 +21,8 @@ import { auth, db } from '@/services/firebase';
 
 WebBrowser.maybeCompleteAuthSession();
 
+type NativeGoogleSignIn = typeof import('@react-native-google-signin/google-signin');
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -33,10 +37,11 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, role: UserRole) => Promise<void>;
+  isGoogleSignInReady: boolean;
+  login: (email: string, password: string) => Promise<void>;
   register: (data: Partial<AuthUser> & { password: string }) => Promise<void>;
-  loginWithGoogle: (role: UserRole) => Promise<void>;
-  loginWithApple: (role: UserRole) => Promise<void>;
+  loginWithGoogle: (role?: UserRole, forceRole?: boolean) => Promise<void>;
+  loginWithApple: (role?: UserRole, forceRole?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
 }
@@ -44,16 +49,42 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const GOOGLE_CLIENT_IDS = {
-  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  androidClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim() ||
+    '276964904825-77c1v72s3tmqt7o6imjv231rp4pi34jj.apps.googleusercontent.com',
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim(),
+  webClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ||
+    '276964904825-8bk4qptfdkarvkr55qrdaekcafu1se91.apps.googleusercontent.com',
 };
 
-const isGoogleConfigured = Boolean(
-  GOOGLE_CLIENT_IDS.androidClientId ||
-  GOOGLE_CLIENT_IDS.iosClientId ||
-  GOOGLE_CLIENT_IDS.webClientId
-);
+const GOOGLE_ANDROID_REDIRECT_SCHEME =
+  'com.googleusercontent.apps.276964904825-77c1v72s3tmqt7o6imjv231rp4pi34jj';
+
+const GOOGLE_REDIRECT_OPTIONS =
+  Platform.OS === 'android'
+    ? {
+        native: `${GOOGLE_ANDROID_REDIRECT_SCHEME}:/oauth2redirect`,
+      }
+    : undefined;
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+function getMissingGoogleClientIdMessage() {
+  if (Platform.OS === 'android' && !GOOGLE_CLIENT_IDS.androidClientId) {
+    return 'Google Sign-In needs EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID for Android. Create an Android OAuth client for package com.redrush.app in Firebase/Google Cloud, then add it to your Expo environment.';
+  }
+
+  if (Platform.OS === 'ios' && !GOOGLE_CLIENT_IDS.iosClientId) {
+    return 'Google Sign-In needs EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID for iOS. Create an iOS OAuth client for bundle com.redrush.app in Firebase/Google Cloud, then add it to your Expo environment.';
+  }
+
+  if (Platform.OS === 'web' && !GOOGLE_CLIENT_IDS.webClientId) {
+    return 'Google Sign-In needs EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID for web. Create a Web OAuth client in Firebase/Google Cloud, then add it to your Expo environment.';
+  }
+
+  return null;
+}
 
 function cleanPayload<T extends Record<string, unknown>>(payload: T): Partial<T> {
   return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)) as Partial<T>;
@@ -68,6 +99,7 @@ function defaultNameForRole(role: UserRole) {
 
 function profileFromFirebaseUser(firebaseUser: FirebaseUser, profile?: Partial<AuthUser>): AuthUser {
   const role = profile?.role || 'customer';
+
   return {
     id: firebaseUser.uid,
     name: profile?.name || firebaseUser.displayName || defaultNameForRole(role),
@@ -85,11 +117,18 @@ function getAuthErrorMessage(error: unknown) {
 
   if (code.includes('auth/email-already-in-use')) return 'That email is already registered. Please sign in instead.';
   if (code.includes('auth/invalid-email')) return 'Please enter a valid email address.';
-  if (code.includes('auth/invalid-credential') || code.includes('auth/wrong-password')) return 'The email or password is incorrect.';
+  if (code.includes('auth/invalid-credential') || code.includes('auth/wrong-password')) {
+    return 'The email or password is incorrect.';
+  }
   if (code.includes('auth/user-not-found')) return 'No account exists for that email.';
   if (code.includes('auth/weak-password')) return 'Password must be at least 6 characters.';
   if (code.includes('auth/network-request-failed')) return 'Network error. Check your connection and try again.';
-  if (code.includes('auth/popup-closed-by-user') || code.includes('auth/cancelled-popup-request')) return 'Sign-in was cancelled.';
+  if (code.includes('permission-denied') || message.toLowerCase().includes('insufficient permission')) {
+    return 'Your account signed in, but Firestore blocked the user profile. The security rules need to allow this user profile read/write.';
+  }
+  if (code.includes('auth/popup-closed-by-user') || code.includes('auth/cancelled-popup-request')) {
+    return 'Sign-in was cancelled.';
+  }
 
   return message;
 }
@@ -101,7 +140,11 @@ async function ensureUserProfile(firebaseUser: FirebaseUser, data: Partial<AuthU
     ? (snapshot.data() as Partial<AuthUser> & { status?: string; createdAt?: unknown })
     : {};
   const nextRole = forceRole || !existing.role ? data.role || 'customer' : existing.role;
-  const profile = profileFromFirebaseUser(firebaseUser, { ...existing, ...data, role: nextRole });
+  const profile = profileFromFirebaseUser(firebaseUser, {
+    ...existing,
+    ...data,
+    role: nextRole,
+  });
 
   await setDoc(
     userRef,
@@ -123,10 +166,37 @@ async function ensureUserProfile(firebaseUser: FirebaseUser, data: Partial<AuthU
   return profile;
 }
 
+async function getNativeGoogleIdToken() {
+  const { GoogleSignin } = (await import('@react-native-google-signin/google-signin')) as NativeGoogleSignIn;
+
+  GoogleSignin.configure({
+    webClientId: GOOGLE_CLIENT_IDS.webClientId,
+    offlineAccess: false,
+  });
+
+  if (Platform.OS === 'android') {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  }
+
+  const result = await GoogleSignin.signIn();
+
+  if (result.type !== 'success') {
+    throw new Error('Google Sign-In was cancelled.');
+  }
+
+  const idToken = result.data.idToken;
+
+  if (!idToken) {
+    throw new Error('Google did not return an identity token. Check the Firebase web OAuth client ID.');
+  }
+
+  return idToken;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [, , promptGoogleAsync] = Google.useIdTokenAuthRequest(GOOGLE_CLIENT_IDS);
+  const [googleRequest, , promptGoogleAsync] = Google.useIdTokenAuthRequest(GOOGLE_CLIENT_IDS, GOOGLE_REDIRECT_OPTIONS);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async currentUser => {
@@ -135,9 +205,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
         return;
       }
+
       try {
         const userRef = doc(db, 'users', currentUser.uid);
         const snapshot = await getDoc(userRef);
+
         if (snapshot.exists()) {
           setUser(profileFromFirebaseUser(currentUser, snapshot.data() as Partial<AuthUser>));
         } else {
@@ -149,13 +221,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     });
+
     return unsubscribe;
   }, []);
 
-  const login = async (email: string, password: string, role: UserRole) => {
+  const login = async (email: string, password: string) => {
     try {
-      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const profile = await ensureUserProfile(credential.user, { email: email.trim(), role });
+      const emailAddress = email.trim();
+      const credential = await signInWithEmailAndPassword(auth, emailAddress, password);
+      const profile = await ensureUserProfile(credential.user, { email: emailAddress });
       setUser(profile);
     } catch (error) {
       throw new Error(getAuthErrorMessage(error));
@@ -166,12 +240,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const email = (data.email || '').trim();
       const credential = await createUserWithEmailAndPassword(auth, email, data.password);
+
       if (data.name) {
         await updateFirebaseProfile(credential.user, { displayName: data.name });
       }
+
       const profile = await ensureUserProfile(
         credential.user,
-        { name: data.name, email, phone: data.phone, role: data.role || 'customer', address: data.address },
+        {
+          name: data.name,
+          email,
+          phone: data.phone,
+          role: data.role || 'customer',
+          address: data.address,
+        },
         true
       );
       setUser(profile);
@@ -180,41 +262,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithGoogle = async (role: UserRole) => {
-    if (!isGoogleConfigured) {
-      throw new Error('Google Sign-In needs OAuth client IDs. Add EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID from Firebase Authentication.');
+  const loginWithGoogle = async (role?: UserRole, forceRole = false) => {
+    const missingClientIdMessage = getMissingGoogleClientIdMessage();
+
+    if (missingClientIdMessage) {
+      throw new Error(missingClientIdMessage);
     }
+
+    if (Platform.OS !== 'web' && isExpoGo) {
+      throw new Error(
+        'Google Sign-In cannot run inside Expo Go because Google requires the native Google Sign-In SDK for policy-compliant Android sign-in. Build and open the RedRush development app instead of Expo Go, then try Google Sign-In again.'
+      );
+    }
+
+    if (Platform.OS === 'web' && !googleRequest) {
+      throw new Error('Google Sign-In is still loading. Please try again in a moment.');
+    }
+
     try {
-      const result = await promptGoogleAsync();
-      if (result.type !== 'success') throw new Error('Google Sign-In was cancelled.');
-      const idToken = result.params?.id_token;
-      if (!idToken) throw new Error('Google did not return an identity token.');
+      let idToken: string | undefined;
+
+      if (Platform.OS === 'web') {
+        const result = await promptGoogleAsync();
+
+        if (result.type !== 'success') {
+          throw new Error('Google Sign-In was cancelled.');
+        }
+
+        idToken = result.params?.id_token;
+      } else {
+        idToken = await getNativeGoogleIdToken();
+      }
+
+      if (!idToken) {
+        throw new Error('Google did not return an identity token. Check your Firebase OAuth client configuration.');
+      }
+
       const credential = GoogleAuthProvider.credential(idToken);
       const firebaseCredential = await signInWithCredential(auth, credential);
-      const profile = await ensureUserProfile(firebaseCredential.user, { role });
+      const profile = await ensureUserProfile(firebaseCredential.user, { role: role || 'customer' }, forceRole);
       setUser(profile);
     } catch (error) {
       throw new Error(getAuthErrorMessage(error));
     }
   };
 
-  const loginWithApple = async (role: UserRole) => {
-    // Apple Sign-In is only available natively on iOS
-    if (Platform.OS !== 'ios') {
-      throw new Error(
-        Platform.OS === 'android'
-          ? 'Apple Sign-In requires an iOS device.'
-          : 'Apple Sign-In is not available on web. Please use email or Google sign-in.'
-      );
-    }
-
+  const loginWithApple = async (role?: UserRole, forceRole = false) => {
     try {
-      // Dynamically import to avoid web bundling issues
-      const AppleAuthentication = await import('expo-apple-authentication');
       const isAvailable = await AppleAuthentication.isAvailableAsync();
 
       if (!isAvailable) {
-        throw new Error('Apple Sign-In is not available on this device.');
+        throw new Error(
+          Platform.OS === 'ios'
+            ? 'Apple Sign-In is not available on this device.'
+            : 'Apple Sign-In requires an iOS native build. Configure Apple web OAuth before enabling it on Android.'
+        );
       }
 
       const appleCredential = await AppleAuthentication.signInAsync({
@@ -224,10 +326,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ],
       });
 
-      if (!appleCredential.identityToken) throw new Error('Apple did not return an identity token.');
+      if (!appleCredential.identityToken) {
+        throw new Error('Apple did not return an identity token.');
+      }
 
       const provider = new OAuthProvider('apple.com');
-      const firebaseCredential = provider.credential({ idToken: appleCredential.identityToken });
+      const firebaseCredential = provider.credential({
+        idToken: appleCredential.identityToken,
+      });
       const userCredential = await signInWithCredential(auth, firebaseCredential);
       const fullName = appleCredential.fullName
         ? [appleCredential.fullName.givenName, appleCredential.fullName.familyName].filter(Boolean).join(' ')
@@ -235,8 +341,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await ensureUserProfile(userCredential.user, {
         name: fullName || undefined,
         email: appleCredential.email || userCredential.user.email || undefined,
-        role,
-      });
+        role: role || 'customer',
+      }, forceRole);
       setUser(profile);
     } catch (error) {
       throw new Error(getAuthErrorMessage(error));
@@ -250,11 +356,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (data: Partial<AuthUser>) => {
     if (!user) return;
+
     const nextUser = { ...user, ...data };
     setUser(nextUser);
+
     if (auth.currentUser && data.name) {
       await updateFirebaseProfile(auth.currentUser, { displayName: data.name });
     }
+
     await updateDoc(
       doc(db, 'users', user.id),
       cleanPayload({
@@ -268,9 +377,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo(
-    () => ({ user, isAuthenticated: !!user, isLoading, login, register, loginWithGoogle, loginWithApple, logout, updateProfile }),
-    [user, isLoading]
+    () => ({
+      user,
+      isAuthenticated: !!user,
+      isLoading,
+      isGoogleSignInReady: Platform.OS === 'web' ? !!googleRequest : true,
+      login,
+      register,
+      loginWithGoogle,
+      loginWithApple,
+      logout,
+      updateProfile,
+    }),
+    [user, isLoading, googleRequest]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

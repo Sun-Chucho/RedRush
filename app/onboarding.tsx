@@ -6,27 +6,30 @@ import {
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
+import { LanguageToggle } from '@/components/LanguageToggle';
+import { useLanguage } from '@/hooks/useLanguage';
+import { TranslationKey } from '@/contexts/LanguageContext';
 
 const { width, height } = Dimensions.get('window');
 
-const slides = [
+const slides: { id: number; image: number; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   {
     id: 1,
     image: require('@/assets/images/onboarding-1.png'),
-    title: 'Order Your Favourite Food',
-    subtitle: 'Discover hundreds of restaurants near you. Get food delivered hot and fresh in minutes.',
+    titleKey: 'orderFood',
+    subtitleKey: 'startOrdering',
   },
   {
     id: 2,
     image: require('@/assets/images/onboarding-2.png'),
-    title: 'Restaurants at Your Fingertips',
-    subtitle: 'Browse menus, compare prices, and order from top restaurants across your city.',
+    titleKey: 'topRestaurants',
+    subtitleKey: 'browseMenus',
   },
   {
     id: 3,
     image: require('@/assets/images/onboarding-3.png'),
-    title: 'Real-Time Delivery Tracking',
-    subtitle: 'Watch your rider in real-time. Pay with Mobile Money, Card, or Cash on delivery.',
+    titleKey: 'realTimeTracking',
+    subtitleKey: 'supportingOnboarding',
   },
 ];
 
@@ -34,6 +37,7 @@ export default function OnboardingScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const router = useRouter();
+  const { t } = useLanguage();
 
   const handleScroll = (event: any) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / width);
@@ -59,8 +63,9 @@ export default function OnboardingScreen() {
 
       {/* Skip */}
       <TouchableOpacity style={styles.skipBtn} onPress={() => router.replace('/auth')}>
-        <Text style={styles.skipText}>Skip</Text>
+        <Text style={styles.skipText}>{t('skip')}</Text>
       </TouchableOpacity>
+      <LanguageToggle style={styles.languageToggle} />
 
       {/* Slides */}
       <ScrollView
@@ -76,8 +81,8 @@ export default function OnboardingScreen() {
             <Image source={slide.image} style={styles.slideImage} contentFit="cover" />
             <View style={styles.overlay} />
             <View style={styles.slideContent}>
-              <Text style={styles.slideTitle}>{slide.title}</Text>
-              <Text style={styles.slideSubtitle}>{slide.subtitle}</Text>
+              <Text style={styles.slideTitle}>{t(slide.titleKey)}</Text>
+              <Text style={styles.slideSubtitle}>{t(slide.subtitleKey)}</Text>
             </View>
           </View>
         ))}
@@ -92,7 +97,7 @@ export default function OnboardingScreen() {
         </View>
         <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
           <Text style={styles.nextBtnText}>
-            {activeIndex === slides.length - 1 ? 'Get Started' : 'Next'}
+            {activeIndex === slides.length - 1 ? t('getStarted') : t('next')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -112,8 +117,9 @@ const styles = StyleSheet.create({
   logoName: { color: Colors.text, fontSize: 22, fontWeight: FontWeight.bold, marginLeft: 8 },
   skipBtn: {
     position: 'absolute', top: Platform.OS === 'ios' ? 66 : 46,
-    right: Spacing.md, zIndex: 10,
+    right: 92, zIndex: 10,
   },
+  languageToggle: { position: 'absolute', top: Platform.OS === 'ios' ? 58 : 38, right: Spacing.md, zIndex: 10 },
   skipText: { color: Colors.textSecondary, fontSize: FontSize.body, fontWeight: FontWeight.medium },
   slider: { flex: 1 },
   slide: { width, height, position: 'relative' },

@@ -39,8 +39,6 @@ interface PolylineProps {
 export function MapView({ style, initialRegion }: MapViewProps) {
   const lat = initialRegion?.latitude ?? 6.45;
   const lng = initialRegion?.longitude ?? 3.40;
-  const zoom = 14;
-
   const tileUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.02},${lat - 0.02},${lng + 0.02},${lat + 0.02}&layer=mapnik&marker=${lat},${lng}`;
 
   return (

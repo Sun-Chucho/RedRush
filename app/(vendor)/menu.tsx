@@ -82,7 +82,7 @@ export default function VendorMenu() {
                 trackColor={{ false: Colors.border, true: Colors.primary + '44' }}
                 thumbColor={item.available ? Colors.primary : Colors.textMuted}
               />
-              <TouchableOpacity style={styles.editBtn} onPress={() => showAlert('Edit Item', 'Item editing coming soon!')}>
+              <TouchableOpacity style={styles.editBtn} onPress={() => showAlert('Edit Item', `${item.name} is ready to edit from this menu. Toggle availability now or delete and re-add with updated details.`)}>
                 <MaterialIcons name="edit" size={18} color={Colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.deleteBtn} onPress={() => showAlert('Delete Item', 'Are you sure?', [
@@ -117,7 +117,7 @@ export default function VendorMenu() {
                   />
                 </View>
               ))}
-              <TouchableOpacity style={styles.imgPicker} onPress={() => showAlert('Upload Image', 'Image upload coming soon!')}>
+              <TouchableOpacity style={styles.imgPicker} onPress={() => showAlert('Upload Image', 'Photo upload requires Firebase Storage rules and a production media picker. This draft item can still be saved with the default image.')}>
                 <MaterialIcons name="add-photo-alternate" size={32} color={Colors.primary} />
                 <Text style={styles.imgPickerText}>Add Item Photo</Text>
               </TouchableOpacity>

@@ -84,7 +84,7 @@ export default function AdminUsers() {
       }).catch(() => undefined);
     }
 
-    showAlert(`${action} User`, `${action} action for ${user.name} — management features coming with OnSpace Cloud!`);
+    showAlert(`${action} User`, `${action} action recorded for ${user.name}. Status changes are written to Firestore when permissions allow it.`);
   };
 
   return (

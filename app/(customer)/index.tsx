@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput,
-  FlatList,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,9 +10,21 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { MOCK_RESTAURANTS, CUISINES, Restaurant } from '@/constants/mockData';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useCustomerData } from '@/hooks/useCustomerData';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useAlert } from '@/template';
+import { TranslationKey } from '@/contexts/LanguageContext';
 
-const PROMO_BANNERS = [
-  { id: '1', title: 'Free Delivery', subtitle: 'On your first 3 orders', bg: Colors.primary, icon: 'delivery-dining' },
+const PROMO_BANNERS: {
+  id: string;
+  title?: string;
+  subtitle?: string;
+  titleKey?: TranslationKey;
+  subtitleKey?: TranslationKey;
+  bg: string;
+  icon: string;
+}[] = [
+  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', bg: Colors.primary, icon: 'delivery-dining' },
   { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', bg: '#1A1A2E', icon: 'local-offer' },
   { id: '3', title: 'MTN MoMo Pay', subtitle: 'Earn 500 cashback per order', bg: '#2A2A1A', icon: 'payment' },
 ];
@@ -24,7 +35,10 @@ export default function CustomerHome() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { formatMoney, locationLabel } = useCurrency();
+  const { formatMoney, locationLabel, refreshLocationCurrency } = useCurrency();
+  const { notificationSettings, enablePushNotifications } = useCustomerData();
+  const { t } = useLanguage();
+  const { showAlert } = useAlert();
 
   const filtered = MOCK_RESTAURANTS.filter(r => {
     const matchCuisine = selectedCuisine === 'All' || r.cuisine === selectedCuisine;
@@ -40,16 +54,34 @@ export default function CustomerHome() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
-          <View style={styles.locationRow}>
+          <Text style={styles.greeting}>{t('hello')}, {firstName}</Text>
+          <TouchableOpacity
+            style={styles.locationRow}
+            onPress={() => {
+              refreshLocationCurrency()
+                .then(label => showAlert('Location updated', `Showing restaurants near ${label}.`))
+                .catch(() => showAlert('Location', 'Unable to read your current location.'));
+            }}
+          >
             <MaterialIcons name="location-on" size={14} color={Colors.primary} />
             <Text style={styles.locationText}>{locationLabel}  </Text>
             <MaterialIcons name="keyboard-arrow-down" size={16} color={Colors.textSecondary} />
-          </View>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.notifBtn}>
+        <TouchableOpacity
+          style={styles.notifBtn}
+          onPress={() => {
+            if (notificationSettings.pushEnabled) {
+              router.push('/(customer)/profile');
+              return;
+            }
+            enablePushNotifications().then(granted => {
+              showAlert('Notifications', granted ? 'In-app order notifications are enabled.' : 'Notification permission was not granted.');
+            });
+          }}
+        >
           <MaterialIcons name="notifications-none" size={24} color={Colors.text} />
-          <View style={styles.notifDot} />
+          {notificationSettings.pushEnabled ? <View style={styles.notifDot} /> : null}
         </TouchableOpacity>
       </View>
 
@@ -59,7 +91,7 @@ export default function CustomerHome() {
           <MaterialIcons name="search" size={20} color={Colors.textMuted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search restaurants or dishes..."
+            placeholder={t('searchRestaurantsDishes')}
             placeholderTextColor={Colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -75,8 +107,8 @@ export default function CustomerHome() {
           {PROMO_BANNERS.map(banner => (
             <TouchableOpacity key={banner.id} style={[styles.promoBanner, { backgroundColor: banner.bg }]}>
               <View>
-                <Text style={styles.promoTitle}>{banner.title}</Text>
-                <Text style={styles.promoSubtitle}>{banner.subtitle}</Text>
+                <Text style={styles.promoTitle}>{banner.titleKey ? t(banner.titleKey) : banner.title}</Text>
+                <Text style={styles.promoSubtitle}>{banner.subtitleKey ? t(banner.subtitleKey) : banner.subtitle}</Text>
               </View>
               <MaterialIcons name={banner.icon as any} size={40} color="rgba(255,255,255,0.3)" />
             </TouchableOpacity>
@@ -85,8 +117,8 @@ export default function CustomerHome() {
 
         {/* Cuisine Filter */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Restaurants Near You</Text>
-          <Text style={styles.sectionCount}>{filtered.length} open</Text>
+          <Text style={styles.sectionTitle}>{t('restaurantsNearYou')}</Text>
+          <Text style={styles.sectionCount}>{filtered.length} {t('open')}</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cuisineContent}>
           {CUISINES.map(c => (
@@ -106,9 +138,9 @@ export default function CustomerHome() {
         </ScrollView>
 
         {/* All Restaurants */}
-        <Text style={styles.sectionTitle2}>All Restaurants</Text>
+        <Text style={styles.sectionTitle2}>{t('allRestaurants')}</Text>
         {filtered.map(r => (
-          <RestaurantCard key={r.id} restaurant={r} formatMoney={formatMoney} onPress={() => router.push(`/restaurant/${r.id}`)} />
+          <RestaurantCard key={r.id} restaurant={r} closedLabel={t('closed')} deliveryLabel={t('delivery')} formatMoney={formatMoney} onPress={() => router.push(`/restaurant/${r.id}`)} />
         ))}
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -138,14 +170,14 @@ function FeaturedCard({ restaurant, onPress }: { restaurant: Restaurant; onPress
   );
 }
 
-function RestaurantCard({ restaurant, formatMoney, onPress }: { restaurant: Restaurant; formatMoney: (amount: number) => string; onPress: () => void }) {
+function RestaurantCard({ restaurant, closedLabel, deliveryLabel, formatMoney, onPress }: { restaurant: Restaurant; closedLabel: string; deliveryLabel: string; formatMoney: (amount: number) => string; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.restaurantCard} onPress={onPress} activeOpacity={0.85}>
       <Image source={{ uri: restaurant.image }} style={styles.restaurantImg} contentFit="cover" />
       <View style={styles.restaurantInfo}>
         <View style={styles.restaurantNameRow}>
           <Text style={styles.restaurantName}>{restaurant.name}</Text>
-          {!restaurant.isOpen ? <View style={styles.closedPill}><Text style={styles.closedPillText}>Closed</Text></View> : null}
+          {!restaurant.isOpen ? <View style={styles.closedPill}><Text style={styles.closedPillText}>{closedLabel}</Text></View> : null}
         </View>
         <Text style={styles.restaurantCuisine}>{restaurant.cuisine}  •  {restaurant.distance}</Text>
         <View style={styles.restaurantMeta}>
@@ -156,7 +188,7 @@ function RestaurantCard({ restaurant, formatMoney, onPress }: { restaurant: Rest
           <Text style={styles.metaText}> {restaurant.deliveryTime}</Text>
         </View>
         <View style={styles.restaurantFoot}>
-          <Text style={styles.deliveryFee}>Delivery: {formatMoney(restaurant.deliveryFee)}</Text>
+          <Text style={styles.deliveryFee}>{deliveryLabel}: {formatMoney(restaurant.deliveryFee)}</Text>
           {restaurant.promo ? <View style={styles.promoTag}><Text style={styles.promoTagText}>{restaurant.promo}</Text></View> : null}
         </View>
       </View>

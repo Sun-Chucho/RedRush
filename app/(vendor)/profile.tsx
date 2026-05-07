@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -32,7 +32,7 @@ export default function VendorProfile() {
             <Text style={styles.verifiedText}> Verified Restaurant</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => showAlert('Edit Profile', 'Profile editing coming soon!')}>
+        <TouchableOpacity onPress={() => showAlert('Edit Profile', 'Restaurant profile details are visible below. Connect the settings form to the users/vendorProfile Firestore document before release.')}>
           <MaterialIcons name="edit" size={22} color={Colors.primary} />
         </TouchableOpacity>
       </View>
@@ -86,7 +86,11 @@ export default function VendorProfile() {
           <Switch value={autoAccept} onValueChange={setAutoAccept} trackColor={{ false: Colors.border, true: Colors.primary + '44' }} thumbColor={autoAccept ? Colors.primary : Colors.textMuted} />
         </View>
         {[{ icon: 'credit-card', label: 'Payout Settings' }, { icon: 'description', label: 'Legal Documents' }, { icon: 'help', label: 'Help & Support' }].map(s => (
-          <TouchableOpacity key={s.label} style={styles.menuItem} onPress={() => showAlert(s.label, 'Coming soon!')}>
+          <TouchableOpacity
+            key={s.label}
+            style={styles.menuItem}
+            onPress={() => s.label === 'Help & Support' ? router.push('/support') : showAlert(s.label, `${s.label} opened. Persist this section to Firebase before production launch.`)}
+          >
             <MaterialIcons name={s.icon as any} size={20} color={Colors.textSecondary} />
             <Text style={styles.menuLabel}>{s.label}</Text>
             <MaterialIcons name="chevron-right" size={20} color={Colors.textMuted} />

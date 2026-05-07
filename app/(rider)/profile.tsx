@@ -6,13 +6,11 @@ import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useAlert } from '@/template';
 
 export default function RiderProfile() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const router = useRouter();
-  const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
 
   return (
@@ -67,7 +65,11 @@ export default function RiderProfile() {
           { icon: 'notifications', label: 'Notification Settings' },
           { icon: 'help', label: 'Support & Help' },
         ].map(item => (
-          <TouchableOpacity key={item.label} style={styles.menuItem} onPress={() => showAlert(item.label, 'Coming soon!')}>
+          <TouchableOpacity
+            key={item.label}
+            style={styles.menuItem}
+            onPress={() => item.label === 'Support & Help' ? router.push('/support') : undefined}
+          >
             <MaterialIcons name={item.icon as any} size={20} color={Colors.primary} />
             <Text style={styles.menuLabel}>{item.label}</Text>
             <MaterialIcons name="chevron-right" size={20} color={Colors.textMuted} />

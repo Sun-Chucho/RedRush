@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -7,8 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { MOCK_ORDERS } from '@/constants/mockData';
 import { useAlert } from '@/template';
-import { useOrders } from '@/hooks/useOrders';
-import { sendNewOrderNotification } from '@/services/notifications';
+import { useRouter } from 'expo-router';
 
 export default function VendorDashboard() {
   const [isOpen, setIsOpen] = useState(true);
@@ -16,56 +15,14 @@ export default function VendorDashboard() {
   const { user } = useAuth();
   const { formatMoney } = useCurrency();
   const { showAlert } = useAlert();
-  const { orders, updateOrderStatus } = useOrders();
+  const router = useRouter();
 
-  // Live incoming orders — pending status targeted at this vendor
-  const incomingOrders = orders.filter(o => o.status === 'pending');
-  const preparingOrders = orders.filter(o => o.status === 'preparing' || o.status === 'accepted');
-
-  const todayRevenue = orders
-    .filter(o => o.status === 'delivered')
-    .reduce((s, o) => s + o.total, 0);
-
-  // Notify vendor when new orders come in
-  const [prevCount, setPrevCount] = useState(0);
-  useEffect(() => {
-    if (incomingOrders.length > prevCount && prevCount > 0) {
-      sendNewOrderNotification(incomingOrders.length);
-    }
-    setPrevCount(incomingOrders.length);
-  }, [incomingOrders.length]);
-
-  const handleAcceptOrder = async (orderId: string) => {
-    updateOrderStatus(orderId, 'accepted');
-    showAlert('Order Accepted!', 'Start preparing the food. Status updated to Accepted.');
-  };
-
-  const handlePreparing = async (orderId: string) => {
-    updateOrderStatus(orderId, 'preparing');
-    showAlert('Status Updated', 'Order marked as Preparing.');
-  };
-
-  const handleMarkReady = async (orderId: string) => {
-    updateOrderStatus(orderId, 'ready');
-    showAlert('Ready for Pickup!', 'A rider will be assigned to pick up this order shortly.');
-  };
-
-  const handleRejectOrder = async (orderId: string) => {
-    showAlert('Reject Order?', 'This will cancel the order and notify the customer.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reject', style: 'destructive', onPress: () => {
-          updateOrderStatus(orderId, 'cancelled');
-        }
-      },
-    ]);
-  };
-
+  const incomingOrders = MOCK_ORDERS.filter(o => o.status === 'pending');
   const vendorStats = [
-    { label: "Today's Revenue", value: formatMoney(todayRevenue || 47500), icon: 'attach-money' as const, color: Colors.success, change: '+12%' },
-    { label: 'Total Orders', value: String(orders.length || 23), icon: 'receipt-long' as const, color: Colors.primary, change: 'Live' },
-    { label: 'Avg Rating', value: '4.8', icon: 'star' as const, color: Colors.gold, change: '+0.1' },
-    { label: 'Active Menu', value: '18', icon: 'restaurant-menu' as const, color: Colors.info, change: '2 off' },
+    { label: "Today's Revenue", value: formatMoney(47500), icon: 'attach-money', color: Colors.success, change: '+12%' },
+    { label: 'Total Orders', value: '23', icon: 'receipt-long', color: Colors.primary, change: '+5' },
+    { label: 'Avg Rating', value: '4.8', icon: 'star', color: Colors.gold, change: '+0.1' },
+    { label: 'Active Menu', value: '18', icon: 'restaurant-menu', color: Colors.info, change: '2 off' },
   ];
 
   return (
@@ -80,7 +37,7 @@ export default function VendorDashboard() {
           style={[styles.statusToggle, { backgroundColor: isOpen ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' }]}
           onPress={() => {
             setIsOpen(!isOpen);
-            showAlert(isOpen ? 'Store Closed' : 'Store Open', isOpen ? 'Your store is now offline. No new orders will be received.' : 'Your store is now accepting orders!');
+            showAlert(isOpen ? 'Store Closed' : 'Store Open', isOpen ? 'Your store is now offline.' : 'Your store is now accepting orders!');
           }}
         >
           <View style={[styles.statusDot, { backgroundColor: isOpen ? Colors.success : Colors.error }]} />
@@ -95,7 +52,7 @@ export default function VendorDashboard() {
         {vendorStats.map(s => (
           <View key={s.label} style={styles.statCard}>
             <View style={[styles.statIconBox, { backgroundColor: s.color + '22' }]}>
-              <MaterialIcons name={s.icon} size={20} color={s.color} />
+              <MaterialIcons name={s.icon as any} size={20} color={s.color} />
             </View>
             <Text style={styles.statValue}>{s.value}</Text>
             <Text style={styles.statLabel}>{s.label}</Text>
@@ -109,14 +66,13 @@ export default function VendorDashboard() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Incoming Orders</Text>
           {incomingOrders.length > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{incomingOrders.length} new</Text>
+            <View style={styles.notifBadge}>
+              <Text style={styles.notifText}>{incomingOrders.length} new</Text>
             </View>
           ) : null}
         </View>
-
         {incomingOrders.length === 0 ? (
-          <View style={styles.emptyBox}>
+          <View style={styles.emptyOrders}>
             <MaterialIcons name="inbox" size={40} color={Colors.textMuted} />
             <Text style={styles.emptyText}>No pending orders</Text>
           </View>
@@ -126,21 +82,18 @@ export default function VendorDashboard() {
               <Text style={styles.orderId}>#{order.id.slice(-6).toUpperCase()}</Text>
               <Text style={styles.orderTime}>{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
             </View>
-            <Text style={styles.orderAddr}>{order.address}</Text>
+            <Text style={styles.orderAddress}>{order.address}</Text>
             {order.items.map((item, i) => (
-              <Text key={i} style={styles.orderItem}>{item.quantity}× {item.menuItem.name}</Text>
+              <Text key={`${order.id}-${item.menuItem.id}-${i}`} style={styles.orderItem}>{item.quantity}x {item.menuItem.name}</Text>
             ))}
-            <View style={styles.orderFooter}>
-              <Text style={styles.orderTotal}>{formatMoney(order.total)}</Text>
-              <Text style={styles.payMethod}>{order.paymentMethod}</Text>
-            </View>
+            <Text style={styles.orderTotal}>{formatMoney(order.total)} - {order.paymentMethod}</Text>
             <View style={styles.orderActions}>
-              <TouchableOpacity style={styles.rejectBtn} onPress={() => handleRejectOrder(order.id)}>
-                <MaterialIcons name="close" size={16} color={Colors.error} />
+              <TouchableOpacity style={styles.rejectBtn} onPress={() => showAlert('Order Rejected', 'Order has been rejected.')}>
+                <MaterialIcons name="close" size={18} color={Colors.error} />
                 <Text style={styles.rejectText}>Reject</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.acceptBtn} onPress={() => handleAcceptOrder(order.id)}>
-                <MaterialIcons name="check" size={16} color={Colors.text} />
+              <TouchableOpacity style={styles.acceptBtn} onPress={() => showAlert('Order Accepted', 'Order accepted! Start preparing.')}>
+                <MaterialIcons name="check" size={18} color={Colors.text} />
                 <Text style={styles.acceptText}>Accept</Text>
               </TouchableOpacity>
             </View>
@@ -148,51 +101,25 @@ export default function VendorDashboard() {
         ))}
       </View>
 
-      {/* Preparing Orders */}
-      {preparingOrders.length > 0 ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Being Prepared ({preparingOrders.length})</Text>
-          {preparingOrders.map(order => (
-            <View key={order.id} style={[styles.orderCard, { borderLeftColor: Colors.warning }]}>
-              <View style={styles.orderTop}>
-                <Text style={styles.orderId}>#{order.id.slice(-6).toUpperCase()}</Text>
-                <View style={[styles.statusChip, { backgroundColor: Colors.warning + '22' }]}>
-                  <Text style={[styles.statusChipText, { color: Colors.warning }]}>{order.status}</Text>
-                </View>
-              </View>
-              {order.items.map((item, i) => (
-                <Text key={i} style={styles.orderItem}>{item.quantity}× {item.menuItem.name}</Text>
-              ))}
-              <View style={styles.orderActions}>
-                {order.status === 'accepted' ? (
-                  <TouchableOpacity style={styles.acceptBtn} onPress={() => handlePreparing(order.id)}>
-                    <MaterialIcons name="restaurant" size={16} color={Colors.text} />
-                    <Text style={styles.acceptText}>Start Preparing</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity style={styles.acceptBtn} onPress={() => handleMarkReady(order.id)}>
-                    <MaterialIcons name="done-all" size={16} color={Colors.text} />
-                    <Text style={styles.acceptText}>Mark as Ready</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
       {/* Quick Actions */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
           {[
-            { icon: 'add-circle' as const, label: 'Add Item', color: Colors.primary },
-            { icon: 'local-offer' as const, label: 'Run Promo', color: Colors.warning },
-            { icon: 'notifications' as const, label: 'Notify Customers', color: Colors.info },
-            { icon: 'print' as const, label: 'Print Report', color: Colors.textSecondary },
+            { icon: 'add-circle', label: 'Add Item', color: Colors.primary },
+            { icon: 'local-offer', label: 'Run Promo', color: Colors.warning },
+            { icon: 'notifications', label: 'Notify Customers', color: Colors.info },
+            { icon: 'print', label: 'Print Report', color: Colors.textSecondary },
           ].map(a => (
-            <TouchableOpacity key={a.label} style={styles.actionCard} onPress={() => showAlert(a.label, 'Coming soon!')}>
-              <MaterialIcons name={a.icon} size={28} color={a.color} />
+            <TouchableOpacity
+              key={a.label}
+              style={styles.actionCard}
+              onPress={() => {
+                if (a.label === 'Add Item') router.push('/(vendor)/menu');
+                else showAlert(a.label, `${a.label} action recorded for this store.`);
+              }}
+            >
+              <MaterialIcons name={a.icon as any} size={28} color={a.color} />
               <Text style={styles.actionLabel}>{a.label}</Text>
             </TouchableOpacity>
           ))}
@@ -220,22 +147,18 @@ const styles = StyleSheet.create({
   statChange: { fontSize: FontSize.xs, fontWeight: FontWeight.semibold, marginTop: 2 },
   section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
-  sectionTitle: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold, flex: 1, marginBottom: Spacing.sm },
-  badge: { backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, paddingHorizontal: 8, paddingVertical: 3 },
-  badgeText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
-  emptyBox: { alignItems: 'center', paddingVertical: Spacing.xl, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg },
+  sectionTitle: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold, flex: 1 },
+  notifBadge: { backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, paddingHorizontal: 8, paddingVertical: 3 },
+  notifText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+  emptyOrders: { alignItems: 'center', paddingVertical: Spacing.xl, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg },
   emptyText: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: Spacing.sm },
-  orderCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, borderLeftWidth: 3, borderLeftColor: Colors.primary, ...Shadow.md },
+  orderCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, borderLeftWidth: 3, borderLeftColor: Colors.warning, ...Shadow.md },
   orderTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs },
   orderId: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   orderTime: { color: Colors.textMuted, fontSize: FontSize.sm },
-  orderAddr: { color: Colors.textSecondary, fontSize: FontSize.xs, marginBottom: Spacing.xs },
+  orderAddress: { color: Colors.textSecondary, fontSize: FontSize.xs, marginBottom: Spacing.xs },
   orderItem: { color: Colors.textSecondary, fontSize: FontSize.sm },
-  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
-  orderTotal: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-  payMethod: { color: Colors.textMuted, fontSize: FontSize.xs },
-  statusChip: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  statusChipText: { fontSize: 10, fontWeight: FontWeight.bold, textTransform: 'uppercase' },
+  orderTotal: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginTop: Spacing.sm },
   orderActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
   rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.md, borderWidth: 1.5, borderColor: Colors.error, paddingVertical: 10, gap: 6 },
   rejectText: { color: Colors.error, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },

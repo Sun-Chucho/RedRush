@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { MOCK_RESTAURANTS, MenuItem } from '@/constants/mockData';
 import { useCart } from '@/hooks/useCart';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useCustomerData } from '@/hooks/useCustomerData';
 import { useAlert } from '@/template';
 
 export default function RestaurantScreen() {
@@ -18,6 +19,7 @@ export default function RestaurantScreen() {
   const router = useRouter();
   const { addItem, items, itemCount } = useCart();
   const { formatMoney } = useCurrency();
+  const { favouriteRestaurantIds, toggleFavouriteRestaurant } = useCustomerData();
   const { showAlert } = useAlert();
 
   const restaurant = MOCK_RESTAURANTS.find(r => r.id === id);
@@ -37,6 +39,7 @@ export default function RestaurantScreen() {
     : restaurant.menu.filter(m => m.category === selectedCategory);
 
   const getItemQty = (itemId: string) => items.find(i => i.menuItem.id === itemId)?.quantity || 0;
+  const isFavourite = favouriteRestaurantIds.includes(restaurant.id);
 
   const handleAdd = (item: MenuItem) => {
     if (!restaurant.isOpen) {
@@ -62,10 +65,16 @@ export default function RestaurantScreen() {
             </View>
           ) : null}
           {restaurant.promo ? (
-            <View style={[styles.heroBadge, { top: insets.top + 8, right: Spacing.md }]}>
+            <View style={[styles.heroBadge, { top: insets.top + 8, right: 68 }]}>
               <Text style={styles.heroBadgeText}>{restaurant.promo}</Text>
             </View>
           ) : null}
+          <TouchableOpacity
+            style={[styles.favouriteBtn, { top: insets.top + 8 }]}
+            onPress={() => toggleFavouriteRestaurant(restaurant.id)}
+          >
+            <MaterialIcons name={isFavourite ? 'favorite' : 'favorite-border'} size={22} color={Colors.text} />
+          </TouchableOpacity>
         </View>
 
         {/* Restaurant Info */}
@@ -182,6 +191,7 @@ const styles = StyleSheet.create({
   heroImage: { width: '100%', height: '100%' },
   heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
   backBtn: { position: 'absolute', left: Spacing.md, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  favouriteBtn: { position: 'absolute', right: Spacing.md, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   closedBanner: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.8)', padding: 8, alignItems: 'center' },
   closedBannerText: { color: Colors.textMuted, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   heroBadge: { position: 'absolute', backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, paddingHorizontal: 10, paddingVertical: 4 },

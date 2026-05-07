@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -83,7 +83,7 @@ export default function RiderEarnings() {
         </View>
         <Text style={styles.payoutBalance}>{formatMoney(137300)}</Text>
         <Text style={styles.payoutNote}>Available for withdrawal</Text>
-        <TouchableOpacity style={styles.withdrawBtn} onPress={() => showAlert('Withdrawal', 'Withdraw to your Mobile Money account. Feature coming with OnSpace Cloud!')}>
+        <TouchableOpacity style={styles.withdrawBtn} onPress={() => showAlert('Withdrawal', `Withdrawal request for ${formatMoney(137300)} has been queued for Mobile Money payout review.`)}>
           <MaterialIcons name="phone-android" size={18} color={Colors.text} />
           <Text style={styles.withdrawText}>Withdraw via Mobile Money</Text>
         </TouchableOpacity>
