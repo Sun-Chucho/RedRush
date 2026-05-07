@@ -1,6 +1,6 @@
 import React, { createContext, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
-import * as AppleAuthentication from 'expo-apple-authentication';
+// expo-apple-authentication is loaded dynamically to avoid web bundling errors
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -309,6 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithApple = async (role?: UserRole, forceRole = false) => {
     try {
+      const AppleAuthentication = await import('expo-apple-authentication');
       const isAvailable = await AppleAuthentication.isAvailableAsync();
 
       if (!isAvailable) {
