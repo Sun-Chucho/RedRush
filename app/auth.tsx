@@ -11,6 +11,15 @@ import { useAlert } from '@/template';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
+import { UserRole } from '@/constants/mockData';
+
+type SignupRole = Exclude<UserRole, 'admin'>;
+
+const SIGNUP_ROLES: { role: SignupRole; icon: keyof typeof MaterialIcons.glyphMap; label: string; desc: string }[] = [
+  { role: 'customer', icon: 'person', label: 'Customer', desc: 'Order food' },
+  { role: 'vendor', icon: 'restaurant', label: 'Vendor', desc: 'Sell meals' },
+  { role: 'rider', icon: 'delivery-dining', label: 'Rider', desc: 'Deliver orders' },
+];
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -18,6 +27,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [signupRole, setSignupRole] = useState<SignupRole>('customer');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -41,7 +51,7 @@ export default function AuthScreen() {
             setLoading(false);
             return;
           }
-        await register({ name, email, phone, password, role: 'customer' });
+        await register({ name, email, phone, password, role: signupRole });
       }
       router.replace('/');
     } catch (e) {
@@ -124,6 +134,27 @@ export default function AuthScreen() {
                   keyboardType="phone-pad"
                 />
               </View>
+              <View>
+                <Text style={styles.sectionLabel}>Account type</Text>
+                <View style={styles.rolesGrid}>
+                  {SIGNUP_ROLES.map(item => {
+                    const active = signupRole === item.role;
+
+                    return (
+                      <TouchableOpacity
+                        key={item.role}
+                        style={[styles.roleCard, active && styles.roleCardActive]}
+                        onPress={() => setSignupRole(item.role)}
+                        activeOpacity={0.85}
+                      >
+                        <MaterialIcons name={item.icon} size={22} color={active ? Colors.primary : Colors.textMuted} />
+                        <Text style={[styles.roleLabel, active && styles.roleLabelActive]}>{item.label}</Text>
+                        <Text style={styles.roleDesc}>{item.desc}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
             </>
           )}
           <View style={styles.inputRow}>
@@ -203,8 +234,8 @@ const styles = StyleSheet.create({
   modeBtnText: { color: Colors.textMuted, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
   modeBtnTextActive: { color: Colors.text },
   sectionLabel: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginBottom: Spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
-  rolesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
-  roleCard: { width: '47%', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, padding: Spacing.md, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' },
+  rolesGrid: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
+  roleCard: { flex: 1, minHeight: 88, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, padding: Spacing.sm, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   roleCardActive: { borderColor: Colors.primary, backgroundColor: 'rgba(204,0,0,0.08)' },
   roleLabel: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginTop: 6 },
   roleLabelActive: { color: Colors.primary },

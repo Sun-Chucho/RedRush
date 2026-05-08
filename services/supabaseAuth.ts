@@ -134,7 +134,7 @@ export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { pass
     name: data.name,
     email,
     phone: data.phone,
-    role: 'customer',
+    role: data.role === 'admin' ? 'customer' : data.role || 'customer',
     address: data.address,
   });
 }
