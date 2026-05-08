@@ -24,9 +24,9 @@ const PROMO_BANNERS: {
   subtitleKey?: TranslationKey;
   image: number;
 }[] = [
-  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', image: require('@/assets/images/onboarding-1.png') },
-  { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/assets/images/onboarding-2.png') },
-  { id: '3', title: 'MTN MoMo Pay', subtitle: 'Earn 500 cashback per order', image: require('@/assets/images/onboarding-3.png') },
+  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', image: require('@/assets/images/home-1.png') },
+  { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/assets/images/home-2.png') },
+  { id: '3', title: 'MTN MoMo Pay', subtitle: 'Earn 500 cashback per order', image: require('@/assets/images/home-3.png') },
 ];
 
 export default function CustomerHome() {
@@ -112,8 +112,9 @@ export default function CustomerHome() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promoScroll} contentContainerStyle={styles.promoContent}>
           {PROMO_BANNERS.map(banner => (
             <TouchableOpacity key={banner.id} style={styles.promoBanner}>
-              <Image source={banner.image} style={styles.promoImage} contentFit="contain" />
-              <View style={styles.promoImageOverlay} />
+              <View style={styles.promoImageFrame}>
+                <Image source={banner.image} style={styles.promoImage} contentFit="contain" />
+              </View>
               <View style={styles.promoTextBlock}>
                 <Text style={styles.promoTitle}>{banner.titleKey ? t(banner.titleKey) : banner.title}</Text>
                 <Text style={styles.promoSubtitle}>{banner.subtitleKey ? t(banner.subtitleKey) : banner.subtitle}</Text>
@@ -217,12 +218,12 @@ const styles = StyleSheet.create({
   filterBtn: { backgroundColor: 'rgba(204,0,0,0.15)', borderRadius: BorderRadius.sm, padding: 6 },
   promoScroll: { marginBottom: Spacing.md },
   promoContent: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
-  promoBanner: { width: 178, height: 272, borderRadius: BorderRadius.lg, overflow: 'hidden', position: 'relative', justifyContent: 'flex-end', backgroundColor: Colors.background },
-  promoImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  promoImageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
-  promoTextBlock: { padding: Spacing.md },
+  promoBanner: { width: 180, height: 286, borderRadius: BorderRadius.lg, overflow: 'hidden', backgroundColor: Colors.surfaceCard, borderWidth: 1, borderColor: Colors.border },
+  promoImageFrame: { height: 222, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  promoImage: { width: '100%', height: '100%' },
+  promoTextBlock: { minHeight: 64, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, justifyContent: 'center' },
   promoTitle: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold },
-  promoSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.xs, marginTop: 2 },
+  promoSubtitle: { color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
   sectionTitle: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold },
   sectionCount: { color: Colors.textMuted, fontSize: FontSize.sm },

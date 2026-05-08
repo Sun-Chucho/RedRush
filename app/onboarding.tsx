@@ -13,19 +13,19 @@ import { TranslationKey } from '@/contexts/LanguageContext';
 const slides: { id: number; image: number; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   {
     id: 1,
-    image: require('@/assets/images/onboarding-1.png'),
+    image: require('@/assets/images/home-1.png'),
     titleKey: 'orderFood',
     subtitleKey: 'startOrdering',
   },
   {
     id: 2,
-    image: require('@/assets/images/onboarding-2.png'),
+    image: require('@/assets/images/home-2.png'),
     titleKey: 'topRestaurants',
     subtitleKey: 'browseMenus',
   },
   {
     id: 3,
-    image: require('@/assets/images/onboarding-3.png'),
+    image: require('@/assets/images/home-3.png'),
     titleKey: 'realTimeTracking',
     subtitleKey: 'supportingOnboarding',
   },
@@ -83,8 +83,6 @@ export default function OnboardingScreen() {
             <View style={styles.imageStage}>
               <Image source={slide.image} style={styles.slideImage} contentFit="contain" />
             </View>
-            <View style={styles.overlayTop} />
-            <View style={styles.overlayBottom} />
             <View style={styles.slideContent}>
               <Text style={styles.slideTitle}>{t(slide.titleKey)}</Text>
               <Text style={styles.slideSubtitle}>{t(slide.subtitleKey)}</Text>
@@ -129,32 +127,23 @@ const styles = StyleSheet.create({
   slider: { flex: 1 },
   slide: { position: 'relative', backgroundColor: Colors.background },
   imageStage: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 112 : 92,
+    left: 0,
+    right: 0,
+    bottom: 300,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 104,
-    paddingBottom: 170,
-    paddingHorizontal: 0,
+    paddingHorizontal: Spacing.sm,
   },
   slideImage: { width: '100%', height: '100%' },
-  overlayTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 150,
-    backgroundColor: 'rgba(0,0,0,0.36)',
-  },
-  overlayBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 270,
-    backgroundColor: 'rgba(0,0,0,0.62)',
-  },
   slideContent: {
-    position: 'absolute', bottom: 180, left: Spacing.xl, right: Spacing.xl,
+    position: 'absolute',
+    bottom: 142,
+    left: Spacing.xl,
+    right: Spacing.xl,
+    minHeight: 124,
+    justifyContent: 'flex-end',
   },
   slideTitle: {
     color: Colors.text, fontSize: FontSize.xxl, fontWeight: FontWeight.extrabold,
