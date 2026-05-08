@@ -17,6 +17,8 @@ android/app/build/
 android/app/.cxx/
 *.orig.*
 *.jks
+credentials.json
+credentials/
 *.p8
 *.p12
 *.key
