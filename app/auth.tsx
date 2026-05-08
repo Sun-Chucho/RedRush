@@ -13,11 +13,11 @@ import { UserRole } from '@/constants/mockData';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 
-const ROLES: { value: UserRole; labelKey: 'customer' | 'vendor' | 'rider' | 'admin'; icon: string; descKey: 'customerDesc' | 'vendorDesc' | 'riderDesc' | 'adminDesc' }[] = [
+// Admin accounts can only be created by an existing admin — not via self-registration
+const ROLES: { value: UserRole; labelKey: 'customer' | 'vendor' | 'rider'; icon: string; descKey: 'customerDesc' | 'vendorDesc' | 'riderDesc' }[] = [
   { value: 'customer', labelKey: 'customer', icon: 'person', descKey: 'customerDesc' },
   { value: 'vendor', labelKey: 'vendor', icon: 'restaurant', descKey: 'vendorDesc' },
   { value: 'rider', labelKey: 'rider', icon: 'delivery-dining', descKey: 'riderDesc' },
-  { value: 'admin', labelKey: 'admin', icon: 'admin-panel-settings', descKey: 'adminDesc' },
 ];
 
 export default function AuthScreen() {

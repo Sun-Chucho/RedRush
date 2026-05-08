@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
@@ -9,15 +9,6 @@ import { db } from '@/services/firebase';
 import { useAlert } from '@/template';
 
 const ROLE_TABS = ['All', 'Customers', 'Vendors', 'Riders'];
-
-const MOCK_USERS = [
-  { id: 'u1', name: 'Adaeze Okonkwo', email: 'adaeze@example.com', role: 'customer', status: 'active', joined: 'Jan 2026', orders: 12 },
-  { id: 'u2', name: 'Chicken Republic', email: 'cr@example.com', role: 'vendor', status: 'active', joined: 'Mar 2025', orders: 1234 },
-  { id: 'u3', name: 'Emeka Rider', email: 'emeka@example.com', role: 'rider', status: 'active', joined: 'Feb 2026', orders: 312 },
-  { id: 'u4', name: 'Ngozi Eze', email: 'ngozi@example.com', role: 'customer', status: 'suspended', joined: 'Apr 2026', orders: 3 },
-  { id: 'u5', name: 'Papa John\'s', email: 'pj@example.com', role: 'vendor', status: 'pending', joined: 'May 2026', orders: 0 },
-  { id: 'u6', name: 'Tunde Balogun', email: 'tunde@example.com', role: 'rider', status: 'active', joined: 'Mar 2026', orders: 89 },
-];
 
 type AdminUser = {
   id: string;
@@ -39,15 +30,18 @@ const ROLE_COLOR: Record<string, string> = {
 export default function AdminUsers() {
   const [tab, setTab] = useState('All');
   const [search, setSearch] = useState('');
-  const [users, setUsers] = useState<AdminUser[]>(MOCK_USERS as AdminUser[]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
 
   useEffect(() => {
+    setUsersLoading(true);
     const unsubscribe = onSnapshot(
       collection(db, 'users'),
       snapshot => {
-        if (snapshot.empty) return;
+        setUsersLoading(false);
+        if (snapshot.empty) { setUsers([]); return; }
 
         setUsers(snapshot.docs.map(userDoc => {
           const data = userDoc.data() as Partial<AdminUser> & { createdAt?: { toDate?: () => Date } };
@@ -64,7 +58,7 @@ export default function AdminUsers() {
           };
         }));
       },
-      () => undefined
+      () => { setUsersLoading(false); }
     );
 
     return unsubscribe;
@@ -106,6 +100,12 @@ export default function AdminUsers() {
         ))}
       </View>
 
+      {usersLoading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={Colors.primary} size="large" />
+          <Text style={styles.loadingText}>Loading users from Firestore...</Text>
+        </View>
+      ) : (
       <FlatList
         data={filtered}
         keyExtractor={u => u.id}
@@ -138,7 +138,14 @@ export default function AdminUsers() {
             </TouchableOpacity>
           </View>
         )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <MaterialIcons name="people-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyText}>No users found</Text>
+          </View>
+        }
       />
+      )}
     </View>
   );
 }
@@ -166,4 +173,8 @@ const styles = StyleSheet.create({
   statusPillText: { fontSize: 10, fontWeight: FontWeight.semibold },
   joinedText: { color: Colors.textMuted, fontSize: 10 },
   moreBtn: { padding: 4 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  loadingText: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: Spacing.sm },
+  emptyState: { alignItems: 'center', paddingVertical: 60 },
+  emptyText: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.md },
 });

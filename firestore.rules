@@ -2,8 +2,15 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
     function signedIn() {
       return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
     }
 
     function profile() {
@@ -14,61 +21,145 @@ service cloud.firestore {
       return signedIn() && profile().role in roles;
     }
 
-    function isSelf(userId) {
-      return signedIn() && request.auth.uid == userId;
+    function isAdmin() {
+      return hasRole(['admin']);
     }
 
+    // Fields a user is allowed to update on their own profile (role is NOT listed)
+    function safeProfileUpdate() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+               .hasAny(['role', 'status', 'id']);
+    }
+
+    // ─── Users ────────────────────────────────────────────────────────────────
+
     match /users/{userId} {
-      allow create: if isSelf(userId);
-      allow get: if isSelf(userId) || hasRole(['admin']);
-      allow read: if isSelf(userId) || hasRole(['admin']);
-      allow list: if hasRole(['admin']);
-      allow update: if isSelf(userId) || hasRole(['admin']);
+      // New self-registration — role must be customer, vendor, or rider (never admin)
+      allow create: if isSelf(userId)
+                    && request.resource.data.role in ['customer', 'vendor', 'rider']
+                    && request.resource.data.status == 'active';
+
+      // Self read
+      allow get, read: if isSelf(userId) || isAdmin();
+
+      // List users — admins only
+      allow list: if isAdmin();
+
+      // Self update — cannot change role or status; admins can change anything
+      allow update: if (isSelf(userId) && safeProfileUpdate()) || isAdmin();
+
+      // Deletion — admins only
+      allow delete: if isAdmin();
 
       match /profileData/{documentId} {
-        allow read, write: if isSelf(userId) || hasRole(['admin']);
+        allow read, write: if isSelf(userId) || isAdmin();
       }
     }
 
+    // ─── Orders ───────────────────────────────────────────────────────────────
+
     match /orders/{orderId} {
-      allow create: if signedIn() && request.resource.data.customerId == request.auth.uid;
+      // Customers can create orders for themselves only
+      allow create: if signedIn()
+                    && request.resource.data.customerId == request.auth.uid
+                    && request.resource.data.status == 'pending';
+
+      // Read: own customer, or vendor/rider/admin
       allow read: if signedIn() && (
         resource.data.customerId == request.auth.uid ||
         hasRole(['admin', 'vendor', 'rider'])
       );
+
+      // Customers: can only cancel (pending → cancelled), nothing else
       allow update: if signedIn() && (
-        resource.data.customerId == request.auth.uid ||
-        hasRole(['admin', 'vendor', 'rider'])
+        // Admin can do anything
+        isAdmin() ||
+        // Vendor can accept/prepare/ready their restaurant's orders
+        (hasRole(['vendor']) &&
+          resource.data.restaurantId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt'])) ||
+        // Rider can mark picked_up or delivered
+        (hasRole(['rider']) &&
+          (resource.data.riderId == request.auth.uid || resource.data.riderId == null) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'riderId', 'riderName', 'updatedAt', 'deliveredAt'])) ||
+        // Customer can only cancel their own pending order
+        (resource.data.customerId == request.auth.uid &&
+          resource.data.status == 'pending' &&
+          request.resource.data.status == 'cancelled' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']))
       );
+
+      allow delete: if isAdmin();
     }
+
+    // ─── Restaurants ──────────────────────────────────────────────────────────
 
     match /restaurants/{restaurantId} {
       allow read: if true;
-      allow write: if hasRole(['admin', 'vendor']);
+      // Vendors can only manage their own restaurant document
+      allow create: if hasRole(['vendor', 'admin']);
+      allow update, delete: if isAdmin() ||
+        (hasRole(['vendor']) && restaurantId == request.auth.uid);
 
       match /menu/{itemId} {
         allow read: if true;
-        allow write: if hasRole(['admin', 'vendor']);
+        allow write: if isAdmin() ||
+          (hasRole(['vendor']) && restaurantId == request.auth.uid);
       }
     }
 
+    // ─── Rider Locations ──────────────────────────────────────────────────────
+
+    match /riderLocations/{riderId} {
+      // Only the rider themselves can write their location
+      allow create, update: if hasRole(['rider']) && riderId == request.auth.uid;
+      // Customers, vendors, and admins can read any rider location (for tracking)
+      allow read: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    // ─── System Events / Notifications ────────────────────────────────────────
+
+    match /systemEvents/{eventId} {
+      // Server-side writes only via Firebase Admin / Cloud Functions
+      // Client reads limited to admins (for monitoring)
+      allow read: if isAdmin();
+      // Allow authenticated users to record notifications (push token events, etc.)
+      allow create: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── Support Threads ──────────────────────────────────────────────────────
+
     match /supportThreads/{threadId} {
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+                    && request.resource.data.userId == request.auth.uid;
       allow read, update: if signedIn() && (
         resource.data.userId == request.auth.uid ||
-        hasRole(['admin'])
+        isAdmin()
       );
+      allow delete: if isAdmin();
 
       match /messages/{messageId} {
         allow create: if signedIn() && (
           get(/databases/$(database)/documents/supportThreads/$(threadId)).data.userId == request.auth.uid ||
-          hasRole(['admin'])
+          isAdmin()
         );
         allow read: if signedIn() && (
           get(/databases/$(database)/documents/supportThreads/$(threadId)).data.userId == request.auth.uid ||
-          hasRole(['admin'])
+          isAdmin()
         );
+        allow update, delete: if isAdmin();
       }
+    }
+
+    // ─── Push Tokens ──────────────────────────────────────────────────────────
+
+    match /pushTokens/{userId} {
+      allow read, write: if isSelf(userId) || isAdmin();
     }
   }
 }

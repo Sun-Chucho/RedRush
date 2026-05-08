@@ -139,7 +139,9 @@ async function ensureUserProfile(firebaseUser: FirebaseUser, data: Partial<AuthU
   const existing = snapshot.exists()
     ? (snapshot.data() as Partial<AuthUser> & { status?: string; createdAt?: unknown })
     : {};
-  const nextRole = forceRole || !existing.role ? data.role || 'customer' : existing.role;
+  // Admin role can never be self-assigned — only set server-side or by another admin
+  const requestedRole = data.role === 'admin' ? 'customer' : (data.role || 'customer');
+  const nextRole = forceRole || !existing.role ? requestedRole : existing.role;
   const profile = profileFromFirebaseUser(firebaseUser, {
     ...existing,
     ...data,

@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { collection, getCountFromServer } from 'firebase/firestore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useCurrency } from '@/hooks/useCurrency';
+import { db } from '@/services/firebase';
 
+// Static revenue chart — replace with real aggregation (BigQuery / Cloud Functions) when ready
 const MONTHLY_REVENUE = [1.2, 1.8, 2.1, 1.6, 2.8, 3.4, 2.9, 3.8, 4.2, 3.6, 4.5, 4.2];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MAX_REV = Math.max(...MONTHLY_REVENUE);
@@ -17,10 +20,44 @@ const TOP_RESTAURANTS = [
   { name: 'Sushi & More', revenue: 312000, orders: 98, growth: '+31%' },
 ];
 
+interface LiveCounts {
+  users: number;
+  orders: number;
+  vendors: number;
+  riders: number;
+}
+
 export default function AdminAnalytics() {
   const [period, setPeriod] = useState('Month');
+  const [liveCounts, setLiveCounts] = useState<LiveCounts | null>(null);
+  const [countsLoading, setCountsLoading] = useState(true);
   const insets = useSafeAreaInsets();
   const { currency, formatMoney } = useCurrency();
+
+  useEffect(() => {
+    let cancelled = false;
+    setCountsLoading(true);
+
+    Promise.all([
+      getCountFromServer(collection(db, 'users')),
+      getCountFromServer(collection(db, 'orders')),
+      getCountFromServer(collection(db, 'restaurants')),
+      getCountFromServer(collection(db, 'riderLocations')),
+    ])
+      .then(([users, orders, vendors, riders]) => {
+        if (cancelled) return;
+        setLiveCounts({
+          users: users.data().count,
+          orders: orders.data().count,
+          vendors: vendors.data().count,
+          riders: riders.data().count,
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!cancelled) setCountsLoading(false); });
+
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
@@ -35,9 +72,38 @@ export default function AdminAnalytics() {
         ))}
       </View>
 
-      {/* Revenue Chart */}
+      {/* Live Firestore Counts */}
+      <View style={styles.liveCard}>
+        <View style={styles.liveHeader}>
+          <MaterialIcons name="wifi" size={14} color={Colors.success} />
+          <Text style={styles.liveTitle}>  Live Platform Counts</Text>
+        </View>
+        {countsLoading ? (
+          <ActivityIndicator color={Colors.primary} style={{ marginVertical: Spacing.md }} />
+        ) : (
+          <View style={styles.liveGrid}>
+            {[
+              { label: 'Total Users', value: liveCounts?.users ?? 0, icon: 'people', color: Colors.info },
+              { label: 'Total Orders', value: liveCounts?.orders ?? 0, icon: 'receipt-long', color: Colors.primary },
+              { label: 'Restaurants', value: liveCounts?.vendors ?? 0, icon: 'restaurant', color: Colors.warning },
+              { label: 'Active Riders', value: liveCounts?.riders ?? 0, icon: 'delivery-dining', color: Colors.success },
+            ].map(item => (
+              <View key={item.label} style={styles.liveItem}>
+                <MaterialIcons name={item.icon as any} size={20} color={item.color} />
+                <Text style={[styles.liveValue, { color: item.color }]}>{item.value.toLocaleString()}</Text>
+                <Text style={styles.liveLabel}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Revenue Chart (static placeholder — connect to BigQuery/Cloud Function for production) */}
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Monthly Revenue ({currency}M)</Text>
+        <View style={styles.chartHeader}>
+          <Text style={styles.chartTitle}>Monthly Revenue ({currency}M)</Text>
+          <Text style={styles.chartNote}>Sample data</Text>
+        </View>
         <View style={styles.chart}>
           {MONTHLY_REVENUE.map((val, i) => {
             const height = Math.max(8, (val / MAX_REV) * 100);
@@ -126,7 +192,9 @@ const styles = StyleSheet.create({
   periodText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   periodTextActive: { color: Colors.text },
   chartCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, marginBottom: Spacing.md, ...Shadow.md },
-  chartTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginBottom: Spacing.md },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  chartTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
+  chartNote: { color: Colors.textMuted, fontSize: FontSize.xs, fontStyle: 'italic' },
   chart: { flexDirection: 'row', alignItems: 'flex-end', height: 120 },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   barVal: { color: Colors.textMuted, fontSize: 8, textAlign: 'center', marginBottom: 2 },
@@ -156,4 +224,11 @@ const styles = StyleSheet.create({
   regionBarContainer: { flex: 1, height: 8, backgroundColor: Colors.surfaceElevated, borderRadius: 4, overflow: 'hidden' },
   regionBar: { height: '100%', backgroundColor: Colors.primary, borderRadius: 4 },
   regionPct: { color: Colors.primary, fontSize: FontSize.xs, fontWeight: FontWeight.bold, width: 30, textAlign: 'right' },
+  liveCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, marginBottom: Spacing.md, ...Shadow.md, borderWidth: 1, borderColor: Colors.success + '33' },
+  liveHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
+  liveTitle: { color: Colors.success, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
+  liveGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  liveItem: { width: '47%', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: Spacing.sm, alignItems: 'center', gap: 4 },
+  liveValue: { fontSize: FontSize.lg, fontWeight: FontWeight.extrabold },
+  liveLabel: { color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'center' },
 });

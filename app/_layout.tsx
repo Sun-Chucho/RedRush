@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AlertProvider } from '@/template';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -8,6 +9,18 @@ import { CurrencyProvider } from '@/contexts/CurrencyContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { CustomerDataProvider } from '@/contexts/CustomerDataContext';
 import { SupportProvider } from '@/contexts/SupportContext';
+import { registerForPushNotifications } from '@/services/notifications';
+import { useAuth } from '@/hooks/useAuth';
+
+function NotificationRegistrar() {
+  const { user } = useAuth();
+  useEffect(() => {
+    if (user?.id) {
+      registerForPushNotifications(user.id).catch(() => undefined);
+    }
+  }, [user?.id]);
+  return null;
+}
 
 export default function RootLayout() {
   return (
@@ -20,6 +33,7 @@ export default function RootLayout() {
                 <CustomerDataProvider>
                   <SupportProvider>
                     <OrderProvider>
+                      <NotificationRegistrar />
                       <Stack screenOptions={{ headerShown: false }}>
                         <Stack.Screen name="index" />
                         <Stack.Screen name="onboarding" />
