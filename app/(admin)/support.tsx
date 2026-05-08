@@ -7,6 +7,10 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { db } from '@/services/firebase';
 import { SupportMessage, SupportThread, useSupport } from '@/contexts/SupportContext';
 import { useAlert } from '@/template';
+import {
+  subscribeToSupabaseAdminThreads,
+  subscribeToSupabaseMessages,
+} from '@/services/supabaseSupport';
 
 export default function AdminSupportScreen() {
   const insets = useSafeAreaInsets();
@@ -18,6 +22,15 @@ export default function AdminSupportScreen() {
   const [draft, setDraft] = useState('');
 
   useEffect(() => {
+    // Try Supabase realtime first
+    const unsubSupabase = subscribeToSupabaseAdminThreads(nextThreads => {
+      setThreads(nextThreads);
+      setSelectedThreadId(prev => prev || nextThreads[0]?.id || null);
+    });
+
+    if (unsubSupabase) return unsubSupabase;
+
+    // Fallback to Firebase
     const unsubscribe = onSnapshot(
       collection(db, 'supportThreads'),
       snapshot => {
@@ -39,6 +52,14 @@ export default function AdminSupportScreen() {
       return undefined;
     }
 
+    // Try Supabase realtime first
+    const unsubSupabase = subscribeToSupabaseMessages(selectedThreadId, nextMessages => {
+      setMessages(nextMessages);
+    });
+
+    if (unsubSupabase) return unsubSupabase;
+
+    // Fallback to Firebase
     const unsubscribe = onSnapshot(
       collection(db, 'supportThreads', selectedThreadId, 'messages'),
       snapshot => {
@@ -154,6 +175,10 @@ export default function AdminSupportScreen() {
 function dateValue(value: unknown) {
   if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
     return (value as { toDate: () => Date }).toDate().getTime();
+  }
+
+  if (typeof value === 'string') {
+    return new Date(value).getTime();
   }
 
   return 0;

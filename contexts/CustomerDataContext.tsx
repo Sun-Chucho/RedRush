@@ -3,6 +3,12 @@ import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { registerForPushNotifications } from '@/services/notifications';
+import {
+  loadSupabaseCustomerData,
+  saveSupabaseCustomerData,
+  saveSupabaseLastNotification,
+  registerSupabasePushToken,
+} from '@/services/supabaseCustomerData';
 
 export interface SavedAddress {
   id: string;
@@ -146,6 +152,20 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const load = async () => {
       const seed = createSeedData();
+
+      // Try Supabase first
+      const supabaseData = await loadSupabaseCustomerData(user.id);
+      if (supabaseData && !cancelled) {
+        setSavedAddresses(supabaseData.savedAddresses.length ? supabaseData.savedAddresses : seed.savedAddresses);
+        setPaymentMethods(supabaseData.paymentMethods.length ? supabaseData.paymentMethods : seed.paymentMethods);
+        setFavouriteRestaurantIds(supabaseData.favouriteRestaurantIds);
+        setPromoCodes(supabaseData.promoCodes.length ? supabaseData.promoCodes : seed.promoCodes);
+        setReviews(supabaseData.reviews);
+        setNotificationSettings({ ...seed.notificationSettings, ...supabaseData.notificationSettings });
+        return;
+      }
+
+      // Fallback to Firebase
       const ref = doc(db, 'users', user.id, 'profileData', 'customer');
       const snapshot = await getDoc(ref);
       const data = snapshot.exists() ? snapshot.data() : {};
@@ -162,6 +182,9 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
       if (!snapshot.exists()) {
         await setDoc(ref, { ...seed, updatedAt: serverTimestamp() });
       }
+
+      // Sync seed data to Supabase for future sessions
+      saveSupabaseCustomerData(user.id, seed).catch(() => undefined);
     };
 
     load().catch(() => undefined);
@@ -172,6 +195,21 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
 
   const persist = (patch: Record<string, unknown>) => {
     if (!user) return;
+
+    // Save to Supabase
+    const supabasePatch: Record<string, unknown> = {};
+    if (patch.savedAddresses !== undefined) supabasePatch.savedAddresses = patch.savedAddresses;
+    if (patch.paymentMethods !== undefined) supabasePatch.paymentMethods = patch.paymentMethods;
+    if (patch.favouriteRestaurantIds !== undefined) supabasePatch.favouriteRestaurantIds = patch.favouriteRestaurantIds;
+    if (patch.promoCodes !== undefined) supabasePatch.promoCodes = patch.promoCodes;
+    if (patch.reviews !== undefined) supabasePatch.reviews = patch.reviews;
+    if (patch.notificationSettings !== undefined) supabasePatch.notificationSettings = patch.notificationSettings;
+
+    if (Object.keys(supabasePatch).length) {
+      saveSupabaseCustomerData(user.id, supabasePatch as Partial<import('@/services/supabaseCustomerData').SupabaseCustomerProfileData>).catch(() => undefined);
+    }
+
+    // Also save to Firebase for backward compatibility
     setDoc(doc(db, 'users', user.id, 'profileData', 'customer'), { ...patch, updatedAt: serverTimestamp() }, { merge: true }).catch(() => undefined);
   };
 
@@ -243,18 +281,24 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
     const token = await registerForPushNotifications(user.id);
     const enabled = !!token;
     updateNotificationSetting('pushEnabled', enabled);
+
+    // Also register token in Supabase push_tokens table
+    if (token) {
+      registerSupabasePushToken(user.id, token).catch(() => undefined);
+    }
+
     return enabled;
   };
 
   const sendLocalNotification = async (title: string, body: string) => {
     if (!notificationSettings.pushEnabled) return;
-    persist({
-      lastNotification: {
-        title,
-        body,
-        createdAt: new Date().toISOString(),
-      },
-    });
+    const notification = { title, body, createdAt: new Date().toISOString() };
+    persist({ lastNotification: notification });
+
+    // Also save to Supabase
+    if (user) {
+      saveSupabaseLastNotification(user.id, notification).catch(() => undefined);
+    }
   };
 
   const value = useMemo(

@@ -9,6 +9,10 @@ import { db } from '@/services/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { SupportMessage, SupportThread, useSupport } from '@/contexts/SupportContext';
 import { useAlert } from '@/template';
+import {
+  subscribeToSupabaseThreads,
+  subscribeToSupabaseMessages,
+} from '@/services/supabaseSupport';
 
 export default function SupportChatScreen() {
   const { orderId } = useLocalSearchParams<{ orderId?: string }>();
@@ -25,6 +29,15 @@ export default function SupportChatScreen() {
   useEffect(() => {
     if (!user) return undefined;
 
+    // Try Supabase realtime first
+    const unsubSupabase = subscribeToSupabaseThreads(user.id, threads => {
+      const openThread = threads.find(item => item.status === 'open') || threads[0] || null;
+      setThread(openThread);
+    });
+
+    if (unsubSupabase) return unsubSupabase;
+
+    // Fallback to Firebase
     const unsubscribe = onSnapshot(
       query(collection(db, 'supportThreads'), where('userId', '==', user.id)),
       snapshot => {
@@ -44,6 +57,14 @@ export default function SupportChatScreen() {
       return undefined;
     }
 
+    // Try Supabase realtime first
+    const unsubSupabase = subscribeToSupabaseMessages(thread.id, nextMessages => {
+      setMessages(nextMessages);
+    });
+
+    if (unsubSupabase) return unsubSupabase;
+
+    // Fallback to Firebase
     const unsubscribe = onSnapshot(
       collection(db, 'supportThreads', thread.id, 'messages'),
       snapshot => {
@@ -130,6 +151,10 @@ export default function SupportChatScreen() {
 function dateValue(value: unknown) {
   if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
     return (value as { toDate: () => Date }).toDate().getTime();
+  }
+
+  if (typeof value === 'string') {
+    return new Date(value).getTime();
   }
 
   return 0;

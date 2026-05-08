@@ -2,6 +2,11 @@ import React, { createContext, ReactNode, useContext, useMemo } from 'react';
 import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  createSupabaseThread,
+  sendSupabaseMessage,
+  closeSupabaseThread,
+} from '@/services/supabaseSupport';
 
 export interface SupportThread {
   id: string;
@@ -38,6 +43,17 @@ export function SupportProvider({ children }: { children: ReactNode }) {
   const createThread = async (subject: string, firstMessage: string) => {
     if (!user) throw new Error('Please sign in to contact support.');
 
+    // Try Supabase first
+    const supabaseThreadId = await createSupabaseThread(
+      user.id,
+      user.name,
+      user.role,
+      subject,
+      firstMessage
+    );
+    if (supabaseThreadId) return supabaseThreadId;
+
+    // Fallback to Firebase
     const threadRef = await addDoc(collection(db, 'supportThreads'), {
       userId: user.id,
       userName: user.name,
@@ -66,6 +82,11 @@ export function SupportProvider({ children }: { children: ReactNode }) {
     const message = text.trim();
     if (!message) return;
 
+    // Try Supabase first
+    const sent = await sendSupabaseMessage(threadId, user.id, user.name, user.role, message);
+    if (sent) return;
+
+    // Fallback to Firebase
     await addDoc(collection(db, 'supportThreads', threadId, 'messages'), {
       senderId: user.id,
       senderName: user.name,
@@ -86,6 +107,11 @@ export function SupportProvider({ children }: { children: ReactNode }) {
   };
 
   const closeThread = async (threadId: string) => {
+    // Try Supabase first
+    const closed = await closeSupabaseThread(threadId);
+    if (closed) return;
+
+    // Fallback to Firebase
     await updateDoc(doc(db, 'supportThreads', threadId), {
       status: 'closed',
       updatedAt: serverTimestamp(),
