@@ -5,6 +5,10 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
       "src": "/_expo/(.*)",
       "dest": "/_expo/$1"
     },

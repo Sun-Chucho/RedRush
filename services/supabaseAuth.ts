@@ -17,6 +17,12 @@ function safeSignupRole(role: Partial<AuthUser>['role']) {
   return role === 'vendor' || role === 'rider' ? role : 'customer';
 }
 
+const launchApiBaseUrl = (
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  process.env.EXPO_PUBLIC_WEB_URL ||
+  'https://red-rush.vercel.app'
+).replace(/\/$/, '');
+
 export function shouldUseSupabaseAuth() {
   return isSupabaseConfigured;
 }
@@ -151,6 +157,51 @@ export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { pass
 
   const email = (data.email || '').trim();
   const role = safeSignupRole(data.role);
+
+  try {
+    const response = await fetch(`${launchApiBaseUrl}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: data.name,
+        email,
+        phone: data.phone,
+        password: data.password,
+        role,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload.error || 'Unable to create account.');
+    }
+
+    const { data: signInResult, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password: data.password,
+    });
+
+    if (signInError) throw signInError;
+    if (!signInResult.user) throw new Error('Account created, but sign in failed.');
+
+    return ensureSupabaseProfile(signInResult.user.id, {
+      name: data.name,
+      email,
+      phone: data.phone,
+      role,
+      address: data.address,
+    });
+  } catch (apiError) {
+    const message = apiError instanceof Error ? apiError.message.toLowerCase() : '';
+    if (
+      message.includes('already registered') ||
+      message.includes('password') ||
+      message.includes('required')
+    ) {
+      throw apiError;
+    }
+  }
+
   const { data: result, error } = await supabase.auth.signUp({
     email,
     password: data.password,
