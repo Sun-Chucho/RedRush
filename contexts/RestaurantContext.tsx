@@ -11,6 +11,14 @@ import {
 } from 'firebase/firestore';
 import { MenuItem, MOCK_RESTAURANTS, Restaurant } from '@/constants/mockData';
 import { db } from '@/services/firebase';
+import {
+  createSupabaseMenuItem,
+  deleteSupabaseMenuItem,
+  ensureSupabaseVendorRestaurant,
+  fetchSupabaseRestaurants,
+  shouldUseSupabaseRestaurants,
+  updateSupabaseMenuItem,
+} from '@/services/supabaseRestaurants';
 import { useAuth } from '@/hooks/useAuth';
 
 type MenuItemInput = Omit<MenuItem, 'id'>;
@@ -104,10 +112,28 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [restaurantBases, setRestaurantBases] = useState<RestaurantBase[]>([]);
   const [menuByRestaurantId, setMenuByRestaurantId] = useState<Record<string, MenuItem[]>>({});
+  const [supabaseRestaurants, setSupabaseRestaurants] = useState<Restaurant[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
+    if (shouldUseSupabaseRestaurants()) {
+      fetchSupabaseRestaurants()
+        .then(restaurants => {
+          if (!isMounted) return;
+          setSupabaseRestaurants(restaurants);
+          setIsLoading(false);
+          setError(null);
+        })
+        .catch(err => {
+          if (!isMounted) return;
+          setSupabaseRestaurants(null);
+          setError(`Supabase unavailable, using Firebase fallback: ${err.message}`);
+        });
+    }
+
     const unsubscribe = onSnapshot(
       collection(db, 'restaurants'),
       snapshot => {
@@ -121,7 +147,10 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const restaurantIds = useMemo(() => restaurantBases.map(restaurant => restaurant.id).sort().join('|'), [restaurantBases]);
@@ -155,7 +184,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     [restaurantBases, menuByRestaurantId]
   );
 
-  const restaurants = liveRestaurants;
+  const restaurants = supabaseRestaurants || liveRestaurants;
 
   const getRestaurantById = useCallback(
     (id: string) => restaurants.find(restaurant => restaurant.id === id),
@@ -177,10 +206,17 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     }
 
     const ownedRestaurant =
-      liveRestaurants.find(restaurant => restaurant.id === user.restaurantId) ||
-      liveRestaurants.find(restaurant => restaurant.ownerId === user.id);
+      restaurants.find(restaurant => restaurant.id === user.restaurantId) ||
+      restaurants.find(restaurant => restaurant.ownerId === user.id);
 
     if (ownedRestaurant) return ownedRestaurant.id;
+
+    const supabaseRestaurantId = await ensureSupabaseVendorRestaurant(user);
+    if (supabaseRestaurantId) {
+      const refreshedRestaurants = await fetchSupabaseRestaurants();
+      setSupabaseRestaurants(refreshedRestaurants);
+      return supabaseRestaurantId;
+    }
 
     const restaurantId = `vendor-${user.id}`;
     const template = MOCK_RESTAURANTS[0];
@@ -210,9 +246,14 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     );
 
     return restaurantId;
-  }, [liveRestaurants, user]);
+  }, [restaurants, user]);
 
   const createMenuItem = useCallback(async (restaurantId: string, item: MenuItemInput) => {
+    if (await createSupabaseMenuItem(restaurantId, item)) {
+      setSupabaseRestaurants(await fetchSupabaseRestaurants());
+      return;
+    }
+
     await addDoc(collection(db, 'restaurants', restaurantId, 'menu'), {
       ...item,
       createdAt: serverTimestamp(),
@@ -221,6 +262,11 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateMenuItem = useCallback(async (restaurantId: string, itemId: string, item: MenuItemUpdate) => {
+    if (await updateSupabaseMenuItem(restaurantId, itemId, item)) {
+      setSupabaseRestaurants(await fetchSupabaseRestaurants());
+      return;
+    }
+
     await updateDoc(doc(db, 'restaurants', restaurantId, 'menu', itemId), {
       ...item,
       updatedAt: serverTimestamp(),
@@ -228,6 +274,11 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteMenuItem = useCallback(async (restaurantId: string, itemId: string) => {
+    if (await deleteSupabaseMenuItem(restaurantId, itemId)) {
+      setSupabaseRestaurants(await fetchSupabaseRestaurants());
+      return;
+    }
+
     await deleteDoc(doc(db, 'restaurants', restaurantId, 'menu', itemId));
   }, []);
 

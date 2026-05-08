@@ -1,0 +1,30 @@
+import 'react-native-url-polyfill/auto';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
+
+const emptyUrl = 'https://example.supabase.co';
+const emptyKey = 'supabase-not-configured';
+
+export const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
+export const supabasePublishableKey = (
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  ''
+).trim();
+
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
+
+export const supabase = createClient(
+  supabaseUrl || emptyUrl,
+  supabasePublishableKey || emptyKey,
+  {
+    auth: {
+      storage: Platform.OS === 'web' ? undefined : AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: Platform.OS === 'web',
+    },
+  }
+);

@@ -8,6 +8,7 @@ import { UserRole } from '@/constants/mockData';
 import { db } from '@/services/firebase';
 import { useAlert } from '@/template';
 import { reviewRoleRequestOnBackend } from '@/services/backend';
+import { fetchSupabaseAdminUsers, fetchSupabaseRoleRequests } from '@/services/supabaseRoles';
 
 const ROLE_TABS = ['All', 'Customers', 'Vendors', 'Riders'];
 
@@ -45,6 +46,10 @@ export default function AdminUsers() {
   const { showAlert } = useAlert();
 
   useEffect(() => {
+    fetchSupabaseAdminUsers().then(nextUsers => {
+      if (nextUsers?.length) setUsers(nextUsers);
+    });
+
     const unsubscribe = onSnapshot(
       collection(db, 'users'),
       snapshot => {
@@ -72,6 +77,10 @@ export default function AdminUsers() {
   }, []);
 
   useEffect(() => {
+    fetchSupabaseRoleRequests().then(nextRequests => {
+      if (nextRequests) setRoleRequests(nextRequests);
+    });
+
     const unsubscribe = onSnapshot(
       collection(db, 'roleRequests'),
       snapshot => {

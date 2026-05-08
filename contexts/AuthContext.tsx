@@ -18,6 +18,14 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { UserRole } from '@/constants/mockData';
 import { auth, db } from '@/services/firebase';
+import {
+  getCurrentSupabaseUser,
+  loginWithSupabaseEmail,
+  logoutSupabase,
+  registerWithSupabaseEmail,
+  shouldUseSupabaseAuth,
+  updateSupabaseProfile,
+} from '@/services/supabaseAuth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -202,9 +210,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [googleRequest, , promptGoogleAsync] = Google.useIdTokenAuthRequest(GOOGLE_CLIENT_IDS, GOOGLE_REDIRECT_OPTIONS);
 
   useEffect(() => {
+    if (shouldUseSupabaseAuth()) {
+      getCurrentSupabaseUser()
+        .then(currentUser => {
+          if (currentUser) setUser(currentUser);
+        })
+        .finally(() => setIsLoading(false));
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async currentUser => {
+      if (shouldUseSupabaseAuth() && user) {
+        return;
+      }
+
       if (!currentUser) {
-        setUser(null);
+        if (!shouldUseSupabaseAuth()) setUser(null);
         setIsLoading(false);
         return;
       }
@@ -231,6 +251,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const emailAddress = email.trim();
+      if (shouldUseSupabaseAuth()) {
+        try {
+          const supabaseProfile = await loginWithSupabaseEmail(emailAddress, password);
+          if (supabaseProfile) {
+            setUser(supabaseProfile);
+            return;
+          }
+        } catch (supabaseError) {
+          const message = supabaseError instanceof Error ? supabaseError.message.toLowerCase() : '';
+          if (!message.includes('relation') && !message.includes('schema cache') && !message.includes('failed to fetch')) {
+            throw supabaseError;
+          }
+        }
+      }
+
       const credential = await signInWithEmailAndPassword(auth, emailAddress, password);
       const profile = await ensureUserProfile(credential.user, { email: emailAddress });
       setUser(profile);
@@ -241,6 +276,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: Partial<AuthUser> & { password: string }) => {
     try {
+      if (shouldUseSupabaseAuth()) {
+        try {
+          const supabaseProfile = await registerWithSupabaseEmail(data);
+          if (supabaseProfile) {
+            setUser(supabaseProfile);
+            return;
+          }
+        } catch (supabaseError) {
+          const message = supabaseError instanceof Error ? supabaseError.message.toLowerCase() : '';
+          if (!message.includes('relation') && !message.includes('schema cache') && !message.includes('failed to fetch')) {
+            throw supabaseError;
+          }
+        }
+      }
+
       const email = (data.email || '').trim();
       const credential = await createUserWithEmailAndPassword(auth, email, data.password);
 
@@ -352,6 +402,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    await logoutSupabase();
     await signOut(auth);
     setUser(null);
   };
@@ -364,6 +415,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (auth.currentUser && data.name) {
       await updateFirebaseProfile(auth.currentUser, { displayName: data.name });
+    }
+
+    if (await updateSupabaseProfile(user.id, data)) {
+      return;
     }
 
     await updateDoc(

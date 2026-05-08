@@ -10,6 +10,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { auth, db, functions } from './firebase';
+import { requestRoleOnSupabase, reviewRoleRequestOnSupabase } from './supabaseRoles';
 
 export type RoleRequestRole = 'vendor' | 'rider';
 export type RoleRequestDecision = 'approved' | 'rejected';
@@ -45,6 +46,8 @@ export async function updateOrderStatusOnBackend(payload: {
 }
 
 export async function requestRoleOnBackend(role: RoleRequestRole, notes?: string): Promise<void> {
+  if (await requestRoleOnSupabase(role, notes)) return;
+
   const callable = httpsCallable<{ role: RoleRequestRole; notes?: string }, { ok: boolean }>(functions, 'requestRole');
   try {
     await callable({ role, notes });
@@ -68,6 +71,8 @@ export async function reviewRoleRequestOnBackend(
   userId: string,
   decision: RoleRequestDecision
 ): Promise<void> {
+  if (await reviewRoleRequestOnSupabase(userId, decision)) return;
+
   const callable = httpsCallable<{ userId: string; decision: RoleRequestDecision }, { ok: boolean }>(
     functions,
     'reviewRoleRequest'

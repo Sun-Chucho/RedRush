@@ -6,6 +6,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { db } from '@/services/firebase';
 import { createOrderOnBackend, updateOrderStatusOnBackend } from '@/services/backend';
+import {
+  createSupabaseOrder,
+  fetchSupabaseOrders,
+  updateSupabaseOrderStatus,
+} from '@/services/supabaseOrders';
 
 interface OrderContextType {
   orders: Order[];
@@ -79,6 +84,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { getVendorRestaurant } = useRestaurants();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [supabaseOrders, setSupabaseOrders] = useState<Order[] | null>(null);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const vendorRestaurant = getVendorRestaurant();
   const vendorRestaurantId = vendorRestaurant?.id;
@@ -141,6 +147,26 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     };
   }, [user, user?.id, user?.role, vendorRestaurantId]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchSupabaseOrders(user, vendorRestaurantId)
+      .then(nextOrders => {
+        if (!isMounted || nextOrders === null) return;
+        setSupabaseOrders(nextOrders);
+        setActiveOrder(prev => (prev ? nextOrders.find(order => order.id === prev.id) || prev : prev));
+      })
+      .catch(() => {
+        if (isMounted) setSupabaseOrders(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, user?.id, user?.role, vendorRestaurantId]);
+
+  const visibleOrders = supabaseOrders || orders;
+
   const placeOrder = useCallback(async (
     items: CartItem[],
     restaurantId: string,
@@ -157,6 +183,20 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      const supabaseOrder = await createSupabaseOrder({
+        restaurantId,
+        address,
+        paymentMethod,
+        promoCode,
+        items: items.map(item => ({ menuItemId: item.menuItem.id, quantity: item.quantity })),
+      });
+
+      if (supabaseOrder) {
+        setSupabaseOrders(prev => uniqueOrdersById([supabaseOrder, ...(prev || []).filter(order => order.id !== supabaseOrder.id)]));
+        setActiveOrder(supabaseOrder);
+        return supabaseOrder;
+      }
+
       const createdOrder = await createOrderOnBackend<Partial<Order> & Record<string, unknown>>({
         restaurantId,
         address,
@@ -183,22 +223,29 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       : extra;
 
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...optimisticExtra, status } : o));
+    setSupabaseOrders(prev => prev ? prev.map(o => o.id === orderId ? { ...o, ...optimisticExtra, status } : o) : prev);
     if (activeOrder?.id === orderId) {
       setActiveOrder(prev => prev ? { ...prev, ...optimisticExtra, status } : null);
     }
 
+    if (await updateSupabaseOrderStatus(orderId, status)) {
+      const refreshedOrders = await fetchSupabaseOrders(user, vendorRestaurantId);
+      if (refreshedOrders !== null) setSupabaseOrders(refreshedOrders);
+      return;
+    }
+
     await updateOrderStatusOnBackend({ orderId, status });
-  }, [activeOrder?.id, user]);
+  }, [activeOrder?.id, user, vendorRestaurantId]);
 
   const assignRider = useCallback(async (orderId: string, riderId: string, riderName: string) => {
     await updateOrderStatus(orderId, 'picked_up', { riderId, riderName });
   }, [updateOrderStatus]);
 
-  const getOrderById = useCallback((id: string) => orders.find(o => o.id === id), [orders]);
+  const getOrderById = useCallback((id: string) => visibleOrders.find(o => o.id === id), [visibleOrders]);
 
   const value = useMemo(
-    () => ({ orders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById }),
-    [orders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById]
+    () => ({ orders: visibleOrders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById }),
+    [visibleOrders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById]
   );
 
   return (
