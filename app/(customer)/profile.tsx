@@ -13,6 +13,7 @@ import { useAlert } from '@/template';
 import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
 import { requestRoleOnBackend } from '@/services/backend';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 type PanelKey =
   | 'savedAddresses'
@@ -180,6 +181,11 @@ export default function ProfileScreen() {
 
       <Text style={styles.sectionTitle}>{t('settings')}</Text>
       <View style={styles.menuSection}>
+        <View style={styles.menuItem}>
+          <MaterialIcons name="contrast" size={22} color={Colors.textSecondary} />
+          <Text style={styles.menuLabel}>Theme</Text>
+          <ThemeToggle showLabel />
+        </View>
         {settingsItems.map(item => (
           <TouchableOpacity
             key={item.labelKey}

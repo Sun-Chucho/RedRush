@@ -7,6 +7,7 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function VendorProfile() {
   const [notifications, setNotifications] = useState(true);
@@ -77,6 +78,10 @@ export default function VendorProfile() {
       {/* Settings */}
       <View style={styles.settingsCard}>
         <Text style={styles.sectionTitle}>Settings</Text>
+        <View style={styles.settingRow}>
+          <Text style={styles.settingLabel}>Theme</Text>
+          <ThemeToggle showLabel />
+        </View>
         <View style={styles.settingRow}>
           <Text style={styles.settingLabel}>Order Notifications</Text>
           <Switch value={notifications} onValueChange={setNotifications} trackColor={{ false: Colors.border, true: Colors.primary + '44' }} thumbColor={notifications ? Colors.primary : Colors.textMuted} />

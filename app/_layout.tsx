@@ -1,5 +1,5 @@
-import { Stack } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Stack, usePathname } from 'expo-router';
+import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AlertProvider } from '@/template';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -11,9 +11,12 @@ import { CustomerDataProvider } from '@/contexts/CustomerDataContext';
 import { SupportProvider } from '@/contexts/SupportContext';
 import { RestaurantProvider } from '@/contexts/RestaurantContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function RootLayout() {
+  const pathname = usePathname();
+  const isAdminPath = pathname === '/admin' || pathname.startsWith('/(admin)') || ['/users', '/orders', '/analytics'].includes(pathname);
+  const usePhoneShell = Platform.OS === 'web' && !isAdminPath;
+
   return (
     <AlertProvider>
       <SafeAreaProvider>
@@ -26,22 +29,23 @@ export default function RootLayout() {
                     <RestaurantProvider>
                       <SupportProvider>
                         <OrderProvider>
-                          <View style={styles.root}>
-                            <Stack screenOptions={{ headerShown: false }}>
-                              <Stack.Screen name="index" />
-                              <Stack.Screen name="onboarding" />
-                              <Stack.Screen name="auth" />
-                              <Stack.Screen name="admin" />
-                              <Stack.Screen name="(customer)" />
-                              <Stack.Screen name="(vendor)" />
-                              <Stack.Screen name="(rider)" />
-                              <Stack.Screen name="(admin)" />
-                              <Stack.Screen name="restaurant/[id]" />
-                              <Stack.Screen name="order/[id]" />
-                              <Stack.Screen name="checkout" />
-                              <Stack.Screen name="support" />
-                            </Stack>
-                            <ThemeToggle style={styles.themeToggle} />
+                          <View style={[styles.webFrame, usePhoneShell && styles.webFramePhone]}>
+                            <View style={[styles.root, usePhoneShell && styles.phoneShell]}>
+                              <Stack screenOptions={{ headerShown: false }}>
+                                <Stack.Screen name="index" />
+                                <Stack.Screen name="onboarding" />
+                                <Stack.Screen name="auth" />
+                                <Stack.Screen name="admin" />
+                                <Stack.Screen name="(customer)" />
+                                <Stack.Screen name="(vendor)" />
+                                <Stack.Screen name="(rider)" />
+                                <Stack.Screen name="(admin)" />
+                                <Stack.Screen name="restaurant/[id]" />
+                                <Stack.Screen name="order/[id]" />
+                                <Stack.Screen name="checkout" />
+                                <Stack.Screen name="support" />
+                              </Stack>
+                            </View>
                           </View>
                         </OrderProvider>
                       </SupportProvider>
@@ -58,11 +62,17 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  themeToggle: {
-    bottom: 92,
-    position: 'absolute',
-    right: 14,
-    zIndex: 100,
+  webFrame: { flex: 1 },
+  webFramePhone: {
+    alignItems: 'center',
+    backgroundColor: '#151010',
+    justifyContent: 'center',
+  },
+  root: { flex: 1, width: '100%' },
+  phoneShell: {
+    maxWidth: 430,
+    minHeight: '100%',
+    overflow: 'hidden',
+    width: '100%',
   },
 });

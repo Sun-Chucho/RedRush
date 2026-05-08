@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function RiderProfile() {
   const insets = useSafeAreaInsets();
@@ -58,6 +59,11 @@ export default function RiderProfile() {
 
       {/* Menu */}
       <View style={styles.menuCard}>
+        <View style={styles.menuItem}>
+          <MaterialIcons name="contrast" size={20} color={Colors.primary} />
+          <Text style={styles.menuLabel}>Theme</Text>
+          <ThemeToggle showLabel />
+        </View>
         {[
           { icon: 'account-balance-wallet', label: 'Bank Account' },
           { icon: 'phone-android', label: 'Mobile Money' },

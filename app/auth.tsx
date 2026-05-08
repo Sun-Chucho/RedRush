@@ -20,8 +20,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 import { UserRole } from '@/constants/mockData';
+import { useThemeMode } from '@/contexts/ThemeContext';
 
 type SignupRole = Exclude<UserRole, 'admin'>;
 
@@ -47,7 +49,15 @@ export default function AuthScreen() {
   const router = useRouter();
   const { showAlert } = useAlert();
   const { t } = useLanguage();
-  const heroImage = mode === 'register' ? require('@/assets/images/onboarding-1.png') : require('@/assets/images/onboarding-2.png');
+  const { mode: themeMode } = useThemeMode();
+  const heroImage = mode === 'register' ? require('@/assets/images/sign-1.png') : require('@/assets/images/sign-2.png');
+  const themed = {
+    screen: { backgroundColor: Colors.background },
+    modeToggle: { backgroundColor: Colors.surfaceElevated },
+    inputRow: { backgroundColor: Colors.surfaceCard, borderColor: Colors.border },
+    input: { color: Colors.text },
+    muted: { color: Colors.textMuted },
+  };
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -76,9 +86,9 @@ export default function AuthScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView style={[styles.container, themed.screen]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={Colors.background} />
+      <ScrollView style={[styles.scrollView, themed.screen]} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <Image source={heroImage} style={styles.heroImage} contentFit="cover" />
           <LinearGradient
@@ -95,10 +105,13 @@ export default function AuthScreen() {
           </View>
         </View>
 
-        <View style={styles.authPanel}>
-          <LanguageToggle style={styles.languageToggle} />
+        <View style={[styles.authPanel, themed.screen]}>
+          <View style={styles.topControls}>
+            <LanguageToggle />
+            <ThemeToggle />
+          </View>
 
-          <View style={styles.modeToggle}>
+          <View style={[styles.modeToggle, themed.modeToggle]}>
             {(['login', 'register'] as const).map(m => (
               <TouchableOpacity key={m} style={[styles.modeBtn, mode === m && styles.modeBtnActive]} onPress={() => setMode(m)}>
                 <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextActive]}>
@@ -111,20 +124,20 @@ export default function AuthScreen() {
           <View style={styles.form}>
             {mode === 'register' && (
               <>
-                <View style={styles.inputRow}>
+                <View style={[styles.inputRow, themed.inputRow]}>
                   <MaterialIcons name="person" size={20} color={Colors.textMuted} style={styles.inputIcon} />
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, themed.input]}
                     placeholder={t('fullName')}
                     placeholderTextColor={Colors.textMuted}
                     value={name}
                     onChangeText={setName}
                   />
                 </View>
-                <View style={styles.inputRow}>
+                <View style={[styles.inputRow, themed.inputRow]}>
                   <MaterialIcons name="phone" size={20} color={Colors.textMuted} style={styles.inputIcon} />
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, themed.input]}
                     placeholder={t('phoneNumber')}
                     placeholderTextColor={Colors.textMuted}
                     value={phone}
@@ -146,8 +159,8 @@ export default function AuthScreen() {
                           activeOpacity={0.85}
                         >
                           <MaterialIcons name={item.icon} size={22} color={active ? Colors.primary : Colors.textMuted} />
-                          <Text style={[styles.roleLabel, active && styles.roleLabelActive]}>{item.label}</Text>
-                          <Text style={styles.roleDesc}>{item.desc}</Text>
+                          <Text style={[styles.roleLabel, themed.muted, active && styles.roleLabelActive]}>{item.label}</Text>
+                          <Text style={[styles.roleDesc, themed.muted]}>{item.desc}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -156,10 +169,10 @@ export default function AuthScreen() {
               </>
             )}
 
-            <View style={styles.inputRow}>
+            <View style={[styles.inputRow, themed.inputRow]}>
               <MaterialIcons name="email" size={20} color={Colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, themed.input]}
                 placeholder={t('emailAddress')}
                 placeholderTextColor={Colors.textMuted}
                 value={email}
@@ -168,10 +181,10 @@ export default function AuthScreen() {
                 autoCapitalize="none"
               />
             </View>
-            <View style={styles.inputRow}>
+            <View style={[styles.inputRow, themed.inputRow]}>
               <MaterialIcons name="lock" size={20} color={Colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={[styles.input, { flex: 1 }]}
+                style={[styles.input, themed.input, { flex: 1 }]}
                 placeholder={t('password')}
                 placeholderTextColor={Colors.textMuted}
                 value={password}
@@ -210,7 +223,7 @@ const styles = StyleSheet.create({
   logoName: { color: Colors.text, fontSize: 28, fontWeight: FontWeight.extrabold, marginLeft: 10 },
   subtitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.regular },
   authPanel: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
-  languageToggle: { alignSelf: 'center', marginBottom: Spacing.md },
+  topControls: { alignSelf: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.lg },
   modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: BorderRadius.sm },
   modeBtnActive: { backgroundColor: Colors.primary },
