@@ -7,6 +7,14 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/restaurant/:id",
+      "destination": "/restaurant/[id].html"
+    },
+    {
+      "source": "/order/:id",
+      "destination": "/order/[id].html"
+    },
+    {
       "source": "/((?!_expo|assets|favicon.ico|.*\\..*).*)",
       "destination": "/index.html"
     }
