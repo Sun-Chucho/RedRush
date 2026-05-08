@@ -1,5 +1,5 @@
 // RedRush Design System Tokens
-export const Colors = {
+export const DarkColors = {
   primary: '#CC0000',
   primaryDark: '#990000',
   primaryLight: '#FF2222',
@@ -20,6 +20,36 @@ export const Colors = {
   gold: '#FFD700',
   overlay: 'rgba(0,0,0,0.6)',
 };
+
+export const LightColors = {
+  primary: '#CC0000',
+  primaryDark: '#990000',
+  primaryLight: '#E62020',
+  background: '#FFF8F8',
+  surface: '#FFFFFF',
+  surfaceElevated: '#FFF1F1',
+  surfaceCard: '#FFFFFF',
+  border: '#F2CACA',
+  borderLight: '#F7DCDC',
+  text: '#1E1515',
+  textSecondary: '#5E4B4B',
+  textMuted: '#8E7474',
+  textInverse: '#FFFFFF',
+  success: '#16A34A',
+  warning: '#D97706',
+  error: '#DC2626',
+  info: '#2563EB',
+  gold: '#B88700',
+  overlay: 'rgba(255,255,255,0.68)',
+};
+
+export type ThemeMode = 'dark' | 'light';
+
+export const Colors = { ...DarkColors };
+
+export function applyThemeColors(mode: ThemeMode) {
+  Object.assign(Colors, mode === 'light' ? LightColors : DarkColors);
+}
 
 export const Spacing = {
   xs: 4,

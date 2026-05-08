@@ -15,19 +15,19 @@ const { width, height } = Dimensions.get('window');
 const slides: { id: number; image: number; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   {
     id: 1,
-    image: require('@/assets/images/onboarding-1.png'),
+    image: require('@/assets/images/home-1.png'),
     titleKey: 'orderFood',
     subtitleKey: 'startOrdering',
   },
   {
     id: 2,
-    image: require('@/assets/images/onboarding-2.png'),
+    image: require('@/assets/images/home-2.png'),
     titleKey: 'topRestaurants',
     subtitleKey: 'browseMenus',
   },
   {
     id: 3,
-    image: require('@/assets/images/onboarding-3.png'),
+    image: require('@/assets/images/home-3.png'),
     titleKey: 'realTimeTracking',
     subtitleKey: 'supportingOnboarding',
   },
@@ -40,13 +40,15 @@ export default function OnboardingScreen() {
   const { t } = useLanguage();
 
   const handleScroll = (event: any) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / width);
+    const index = Math.max(0, Math.min(slides.length - 1, Math.round(event.nativeEvent.contentOffset.x / width)));
     setActiveIndex(index);
   };
 
   const handleNext = () => {
     if (activeIndex < slides.length - 1) {
-      scrollRef.current?.scrollTo({ x: (activeIndex + 1) * width, animated: true });
+      const nextIndex = activeIndex + 1;
+      setActiveIndex(nextIndex);
+      scrollRef.current?.scrollTo({ x: nextIndex * width, animated: true });
     } else {
       router.replace('/auth');
     }
@@ -74,6 +76,7 @@ export default function OnboardingScreen() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
+        scrollEventThrottle={16}
         style={styles.slider}
       >
         {slides.map((slide) => (

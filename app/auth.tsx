@@ -47,6 +47,7 @@ export default function AuthScreen() {
   const router = useRouter();
   const { showAlert } = useAlert();
   const { t } = useLanguage();
+  const heroImage = mode === 'register' ? require('@/assets/images/sign-1.png') : require('@/assets/images/sign-2.png');
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -79,7 +80,7 @@ export default function AuthScreen() {
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Image source={require('@/assets/images/hero-delivery.png')} style={styles.heroImage} contentFit="cover" />
+          <Image source={heroImage} style={styles.heroImage} contentFit="cover" />
           <LinearGradient
             colors={['rgba(204,0,0,0.92)', 'rgba(204,0,0,0.44)', 'rgba(8,8,8,0.06)', Colors.background]}
             locations={[0, 0.34, 0.72, 1]}
