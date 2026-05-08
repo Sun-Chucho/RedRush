@@ -47,7 +47,7 @@ export default function AuthScreen() {
   const router = useRouter();
   const { showAlert } = useAlert();
   const { t } = useLanguage();
-  const heroImage = mode === 'register' ? require('@/assets/images/sign-1.png') : require('@/assets/images/sign-2.png');
+  const heroImage = mode === 'register' ? require('@/assets/images/onboarding-1.png') : require('@/assets/images/onboarding-2.png');
 
   const handleSubmit = async () => {
     if (!email || !password) {
