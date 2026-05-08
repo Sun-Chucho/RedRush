@@ -90,7 +90,7 @@ export default function AuthScreen() {
       <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={Colors.background} />
       <ScrollView style={[styles.scrollView, themed.screen]} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Image source={heroImage} style={styles.heroImage} contentFit="cover" />
+          <Image source={heroImage} style={styles.heroImage} contentFit="contain" />
           <LinearGradient
             colors={['rgba(204,0,0,0.92)', 'rgba(204,0,0,0.44)', 'rgba(8,8,8,0.06)', Colors.background]}
             locations={[0, 0.34, 0.72, 1]}
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollView: { flex: 1, backgroundColor: Colors.background },
   scroll: { paddingBottom: Spacing.xxl },
-  hero: { height: HERO_HEIGHT, minHeight: 310, position: 'relative', overflow: 'hidden' },
+  hero: { height: HERO_HEIGHT, minHeight: 310, position: 'relative', overflow: 'hidden', backgroundColor: Colors.background },
   heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   heroGradient: { ...StyleSheet.absoluteFillObject },
   heroContent: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },

@@ -112,7 +112,7 @@ export default function CustomerHome() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promoScroll} contentContainerStyle={styles.promoContent}>
           {PROMO_BANNERS.map(banner => (
             <TouchableOpacity key={banner.id} style={styles.promoBanner}>
-              <Image source={banner.image} style={styles.promoImage} contentFit="cover" />
+              <Image source={banner.image} style={styles.promoImage} contentFit="contain" />
               <View style={styles.promoImageOverlay} />
               <View style={styles.promoTextBlock}>
                 <Text style={styles.promoTitle}>{banner.titleKey ? t(banner.titleKey) : banner.title}</Text>
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   filterBtn: { backgroundColor: 'rgba(204,0,0,0.15)', borderRadius: BorderRadius.sm, padding: 6 },
   promoScroll: { marginBottom: Spacing.md },
   promoContent: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
-  promoBanner: { width: 240, height: 118, borderRadius: BorderRadius.lg, overflow: 'hidden', position: 'relative', justifyContent: 'flex-end' },
+  promoBanner: { width: 178, height: 272, borderRadius: BorderRadius.lg, overflow: 'hidden', position: 'relative', justifyContent: 'flex-end', backgroundColor: Colors.background },
   promoImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   promoImageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
   promoTextBlock: { padding: Spacing.md },

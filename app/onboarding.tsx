@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Dimensions, TouchableOpacity,
-  ScrollView, StatusBar, Platform,
+  View, Text, StyleSheet, TouchableOpacity,
+  ScrollView, StatusBar, Platform, useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -9,8 +9,6 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
-
-const { width, height } = Dimensions.get('window');
 
 const slides: { id: number; image: number; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   {
@@ -38,9 +36,10 @@ export default function OnboardingScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const router = useRouter();
   const { t } = useLanguage();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const handleScroll = (event: any) => {
-    const index = Math.max(0, Math.min(slides.length - 1, Math.round(event.nativeEvent.contentOffset.x / width)));
+    const index = Math.max(0, Math.min(slides.length - 1, Math.round(event.nativeEvent.contentOffset.x / screenWidth)));
     setActiveIndex(index);
   };
 
@@ -48,7 +47,7 @@ export default function OnboardingScreen() {
     if (activeIndex < slides.length - 1) {
       const nextIndex = activeIndex + 1;
       setActiveIndex(nextIndex);
-      scrollRef.current?.scrollTo({ x: nextIndex * width, animated: true });
+      scrollRef.current?.scrollTo({ x: nextIndex * screenWidth, animated: true });
     } else {
       router.replace('/auth');
     }
@@ -80,9 +79,12 @@ export default function OnboardingScreen() {
         style={styles.slider}
       >
         {slides.map((slide) => (
-          <View key={slide.id} style={styles.slide}>
-            <Image source={slide.image} style={styles.slideImage} contentFit="cover" />
-            <View style={styles.overlay} />
+          <View key={slide.id} style={[styles.slide, { width: screenWidth, height: screenHeight }]}>
+            <View style={styles.imageStage}>
+              <Image source={slide.image} style={styles.slideImage} contentFit="contain" />
+            </View>
+            <View style={styles.overlayTop} />
+            <View style={styles.overlayBottom} />
             <View style={styles.slideContent}>
               <Text style={styles.slideTitle}>{t(slide.titleKey)}</Text>
               <Text style={styles.slideSubtitle}>{t(slide.subtitleKey)}</Text>
@@ -125,11 +127,31 @@ const styles = StyleSheet.create({
   languageToggle: { position: 'absolute', top: Platform.OS === 'ios' ? 58 : 38, right: Spacing.md, zIndex: 10 },
   skipText: { color: Colors.textSecondary, fontSize: FontSize.body, fontWeight: FontWeight.medium },
   slider: { flex: 1 },
-  slide: { width, height, position: 'relative' },
-  slideImage: { width: '100%', height: '100%', position: 'absolute' },
-  overlay: {
+  slide: { position: 'relative', backgroundColor: Colors.background },
+  imageStage: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 104,
+    paddingBottom: 170,
+    paddingHorizontal: 0,
+  },
+  slideImage: { width: '100%', height: '100%' },
+  overlayTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 150,
+    backgroundColor: 'rgba(0,0,0,0.36)',
+  },
+  overlayBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 270,
+    backgroundColor: 'rgba(0,0,0,0.62)',
   },
   slideContent: {
     position: 'absolute', bottom: 180, left: Spacing.xl, right: Spacing.xl,
