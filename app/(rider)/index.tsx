@@ -26,9 +26,10 @@ export default function RiderHome() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { formatMoney } = useCurrency();
-  const { orders, updateOrderStatus } = useOrders();
+  const { orders, updateOrderStatus, assignRider } = useOrders();
   const { showAlert } = useAlert();
 
+  const activeDelivery = orders.find(order => order.riderId === user?.id && order.status === 'picked_up');
   const readyOrder = orders.find(order => order.status === 'ready');
   const request = readyOrder
     ? {
@@ -118,18 +119,29 @@ export default function RiderHome() {
 
   const handleAccept = async () => {
     if (!request) return;
-    updateOrderStatus(request.orderId, 'picked_up');
-    setHasRequest(false);
-    // Assign this rider to the order in Firestore
-    if (user?.id) {
-      await updateDoc(doc(db, 'orders', request.orderId), {
-        riderId: user.id,
-        riderName: user.name,
-        status: 'picked_up',
-        updatedAt: serverTimestamp(),
-      }).catch(() => undefined);
+    if (!user?.id) {
+      showAlert('Sign in required', 'Please sign in as a rider before accepting deliveries.');
+      return;
     }
-    showAlert('Delivery Accepted!', `Head to ${request.restaurant} to pick up the order. The live map now shows the pickup route.`);
+
+    try {
+      await assignRider(request.orderId, user.id, user.name);
+      setHasRequest(false);
+      showAlert('Delivery Accepted!', `Head to ${request.restaurant} to pick up the order. The live map now shows the pickup route.`);
+    } catch {
+      showAlert('Delivery update failed', 'Unable to accept this delivery.');
+    }
+  };
+
+  const handleDelivered = async () => {
+    if (!activeDelivery) return;
+
+    try {
+      await updateOrderStatus(activeDelivery.id, 'delivered');
+      showAlert('Delivery Completed', 'The customer order has been marked as delivered.');
+    } catch {
+      showAlert('Delivery update failed', 'Unable to mark this order as delivered.');
+    }
   };
 
   const handleDecline = () => {
@@ -184,7 +196,7 @@ export default function RiderHome() {
         </View>
         <View style={styles.statsRow}>
           {[
-            { label: "Today's Trips", value: orders.filter(o => o.status === 'delivered').length.toString() },
+            { label: "Today's Trips", value: orders.filter(o => o.riderId === user?.id && o.status === 'delivered').length.toString() },
             { label: 'Hours Online', value: '4.5h' },
             { label: 'Distance', value: '38 km' },
           ].map(s => (
@@ -258,6 +270,45 @@ export default function RiderHome() {
         </View>
       ) : null}
 
+      {activeDelivery ? (
+        <View style={styles.requestCard}>
+          <View style={styles.requestHeader}>
+            <MaterialIcons name="delivery-dining" size={22} color={Colors.success} />
+            <Text style={styles.requestTitle}>Active Delivery</Text>
+            <View style={styles.newBadge}><Text style={styles.newBadgeText}>LIVE</Text></View>
+          </View>
+          <View style={styles.routeCard}>
+            <View style={styles.routePoint}>
+              <View style={[styles.routeIcon, { backgroundColor: Colors.warning + '22' }]}>
+                <MaterialIcons name="restaurant" size={14} color={Colors.warning} />
+              </View>
+              <View>
+                <Text style={styles.routeRestaurant}>{activeDelivery.restaurantName}</Text>
+                <Text style={styles.routeAddr}>Pickup completed</Text>
+              </View>
+            </View>
+            <View style={styles.routeDash} />
+            <View style={styles.routePoint}>
+              <View style={[styles.routeIcon, { backgroundColor: Colors.success + '22' }]}>
+                <MaterialIcons name="home" size={14} color={Colors.success} />
+              </View>
+              <View>
+                <Text style={styles.routeRestaurant}>Customer</Text>
+                <Text style={styles.routeAddr} numberOfLines={1}>{activeDelivery.address}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.earningRow}>
+            <Text style={styles.earningLabel}>Delivery Earnings</Text>
+            <Text style={styles.earningValue}>{formatMoney(Math.max(900, Math.round(activeDelivery.deliveryFee * 0.8)))}</Text>
+          </View>
+          <TouchableOpacity style={styles.acceptBtn} onPress={handleDelivered}>
+            <MaterialIcons name="check-circle" size={16} color={Colors.text} />
+            <Text style={styles.acceptBtnText}>Mark Delivered</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {/* Live Map */}
       <View style={styles.mapCard}>
         <MapView style={styles.map} initialRegion={mapRegion}>
@@ -288,10 +339,10 @@ export default function RiderHome() {
       {/* Quick Stats */}
       <View style={styles.quickStats}>
         {[
-          { label: "Today's Earnings", value: formatMoney(8400), icon: 'account-balance-wallet' as const, color: Colors.success },
+          { label: "Today's Earnings", value: formatMoney(orders.filter(o => o.riderId === user?.id && o.status === 'delivered').reduce((sum, order) => sum + Math.max(900, Math.round(order.deliveryFee * 0.8)), 0)), icon: 'account-balance-wallet' as const, color: Colors.success },
           { label: 'This Week', value: formatMoney(47200), icon: 'calendar-today' as const, color: Colors.primary },
           { label: 'Avg Rating', value: '4.9 ⭐', icon: 'star' as const, color: Colors.gold },
-          { label: 'Total Trips', value: String(312 + orders.filter(o => o.status === 'delivered').length), icon: 'delivery-dining' as const, color: Colors.info },
+          { label: 'Total Trips', value: String(orders.filter(o => o.riderId === user?.id && o.status === 'delivered').length), icon: 'delivery-dining' as const, color: Colors.info },
         ].map(s => (
           <View key={s.label} style={styles.quickCard}>
             <MaterialIcons name={s.icon} size={20} color={s.color} />

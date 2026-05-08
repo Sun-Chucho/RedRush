@@ -70,6 +70,10 @@ export default function CheckoutScreen() {
       showAlert('Missing Address', 'Please enter your delivery address.');
       return;
     }
+    if (items.length === 0) {
+      showAlert('Cart Empty', 'Add items to your cart before placing an order.');
+      return;
+    }
     if (!restaurantId || !restaurantName) return;
 
     setLoading(true);

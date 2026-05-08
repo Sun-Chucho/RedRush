@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { MOCK_RESTAURANTS, CUISINES } from '@/constants/mockData';
+import { CUISINES } from '@/constants/mockData';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { TranslationKey } from '@/contexts/LanguageContext';
 
 const SORT_OPTIONS: { value: 'Relevance' | 'Rating' | 'Delivery Time' | 'Price'; labelKey: TranslationKey }[] = [
@@ -25,8 +26,14 @@ export default function SearchScreen() {
   const router = useRouter();
   const { formatMoney } = useCurrency();
   const { t } = useLanguage();
+  const { restaurants } = useRestaurants();
 
-  const results = MOCK_RESTAURANTS.filter(r => {
+  const cuisines = useMemo(
+    () => Array.from(new Set(['All', ...CUISINES.filter(cuisine => restaurants.some(restaurant => restaurant.cuisine === cuisine)), ...restaurants.map(restaurant => restaurant.cuisine)])),
+    [restaurants]
+  );
+
+  const results = restaurants.filter(r => {
     const matchQ = !query || r.name.toLowerCase().includes(query.toLowerCase()) || r.cuisine.toLowerCase().includes(query.toLowerCase());
     const matchC = selectedCuisine === 'All' || r.cuisine === selectedCuisine;
     return matchQ && matchC;
@@ -64,7 +71,7 @@ export default function SearchScreen() {
 
       {/* Cuisine Filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cuisineRow}>
-        {CUISINES.map(c => (
+        {cuisines.map(c => (
           <TouchableOpacity
             key={c}
             style={[styles.cuisineChip, selectedCuisine === c && styles.cuisineChipActive]}

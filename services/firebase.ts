@@ -3,6 +3,7 @@ import { getApp, getApps, initializeApp } from 'firebase/app';
 import * as FirebaseAuth from 'firebase/auth';
 import type { Auth, Persistence } from 'firebase/auth';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 
 export const firebaseConfig = {
@@ -45,3 +46,4 @@ function createFirestore() {
 export const auth = createAuth();
 export const db = createFirestore();
 export const storage = getStorage(firebaseApp);
+export const functions = getFunctions(firebaseApp);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
@@ -7,6 +7,7 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { UserRole } from '@/constants/mockData';
 import { db } from '@/services/firebase';
 import { useAlert } from '@/template';
+import { reviewRoleRequestOnBackend } from '@/services/backend';
 
 const ROLE_TABS = ['All', 'Customers', 'Vendors', 'Riders'];
 
@@ -20,6 +21,14 @@ type AdminUser = {
   orders: number;
 };
 
+type RoleRequest = {
+  id: string;
+  userName: string;
+  email: string;
+  requestedRole: UserRole;
+  status: string;
+};
+
 const ROLE_COLOR: Record<string, string> = {
   customer: Colors.info,
   vendor: Colors.warning,
@@ -31,17 +40,15 @@ export default function AdminUsers() {
   const [tab, setTab] = useState('All');
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [usersLoading, setUsersLoading] = useState(true);
+  const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([]);
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
 
   useEffect(() => {
-    setUsersLoading(true);
     const unsubscribe = onSnapshot(
       collection(db, 'users'),
       snapshot => {
-        setUsersLoading(false);
-        if (snapshot.empty) { setUsers([]); return; }
+        if (snapshot.empty) return;
 
         setUsers(snapshot.docs.map(userDoc => {
           const data = userDoc.data() as Partial<AdminUser> & { createdAt?: { toDate?: () => Date } };
@@ -58,7 +65,28 @@ export default function AdminUsers() {
           };
         }));
       },
-      () => { setUsersLoading(false); }
+      () => undefined
+    );
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'roleRequests'),
+      snapshot => {
+        setRoleRequests(snapshot.docs.map(requestDoc => {
+          const data = requestDoc.data() as Partial<RoleRequest>;
+          return {
+            id: requestDoc.id,
+            userName: data.userName || 'Unnamed user',
+            email: data.email || '',
+            requestedRole: data.requestedRole || 'vendor',
+            status: data.status || 'pending',
+          };
+        }));
+      },
+      () => undefined
     );
 
     return unsubscribe;
@@ -81,6 +109,17 @@ export default function AdminUsers() {
     showAlert(`${action} User`, `${action} action recorded for ${user.name}. Status changes are written to Firestore when permissions allow it.`);
   };
 
+  const handleReviewRoleRequest = async (request: RoleRequest, decision: 'approved' | 'rejected') => {
+    try {
+      await reviewRoleRequestOnBackend(request.id, decision);
+      showAlert('Role Request', `${request.userName}'s ${request.requestedRole} request was ${decision}.`);
+    } catch (error) {
+      showAlert('Role Request', error instanceof Error ? error.message : 'Unable to review this request.');
+    }
+  };
+
+  const pendingRoleRequests = roleRequests.filter(request => request.status === 'pending');
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Text style={styles.title}>User Management</Text>
@@ -100,17 +139,33 @@ export default function AdminUsers() {
         ))}
       </View>
 
-      {usersLoading ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={Colors.primary} size="large" />
-          <Text style={styles.loadingText}>Loading users from Firestore...</Text>
-        </View>
-      ) : (
       <FlatList
         data={filtered}
         keyExtractor={u => u.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={pendingRoleRequests.length ? (
+          <View style={styles.requestsSection}>
+            <Text style={styles.requestsTitle}>Pending Role Requests</Text>
+            {pendingRoleRequests.map(request => (
+              <View key={request.id} style={styles.requestCard}>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{request.userName}</Text>
+                  <Text style={styles.userEmail}>{request.email}</Text>
+                  <Text style={styles.requestRole}>Requested: {request.requestedRole}</Text>
+                </View>
+                <View style={styles.requestActions}>
+                  <TouchableOpacity style={styles.rejectBtn} onPress={() => handleReviewRoleRequest(request, 'rejected')}>
+                    <MaterialIcons name="close" size={16} color={Colors.error} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.approveBtn} onPress={() => handleReviewRoleRequest(request, 'approved')}>
+                    <MaterialIcons name="check" size={16} color={Colors.text} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
         renderItem={({ item }) => (
           <View style={styles.userCard}>
             <View style={[styles.userAvatar, { backgroundColor: ROLE_COLOR[item.role] + '22' }]}>
@@ -138,14 +193,7 @@ export default function AdminUsers() {
             </TouchableOpacity>
           </View>
         )}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <MaterialIcons name="people-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No users found</Text>
-          </View>
-        }
       />
-      )}
     </View>
   );
 }
@@ -161,6 +209,13 @@ const styles = StyleSheet.create({
   tabText: { color: Colors.textMuted, fontSize: FontSize.xs, fontWeight: FontWeight.semibold },
   tabTextActive: { color: Colors.text },
   list: { paddingHorizontal: Spacing.md, paddingBottom: 80 },
+  requestsSection: { marginBottom: Spacing.md },
+  requestsTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
+  requestCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginBottom: Spacing.sm, padding: Spacing.md, gap: Spacing.sm, borderWidth: 1, borderColor: Colors.primary + '55', ...Shadow.md },
+  requestRole: { color: Colors.primary, fontSize: FontSize.xs, marginTop: 4, fontWeight: FontWeight.semibold },
+  requestActions: { flexDirection: 'row', gap: Spacing.sm },
+  rejectBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: Colors.error, alignItems: 'center', justifyContent: 'center' },
+  approveBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginBottom: Spacing.sm, padding: Spacing.md, gap: Spacing.sm, ...Shadow.md },
   userAvatar: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
   userInfo: { flex: 1 },
@@ -173,8 +228,4 @@ const styles = StyleSheet.create({
   statusPillText: { fontSize: 10, fontWeight: FontWeight.semibold },
   joinedText: { color: Colors.textMuted, fontSize: 10 },
   moreBtn: { padding: 4 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-  loadingText: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: Spacing.sm },
-  emptyState: { alignItems: 'center', paddingVertical: 60 },
-  emptyText: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.md },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput,
 } from 'react-native';
@@ -7,11 +7,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { MOCK_RESTAURANTS, CUISINES, Restaurant } from '@/constants/mockData';
+import { CUISINES, Restaurant } from '@/constants/mockData';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCustomerData } from '@/hooks/useCustomerData';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { TranslationKey } from '@/contexts/LanguageContext';
 
@@ -39,8 +40,14 @@ export default function CustomerHome() {
   const { notificationSettings, enablePushNotifications } = useCustomerData();
   const { t } = useLanguage();
   const { showAlert } = useAlert();
+  const { restaurants } = useRestaurants();
 
-  const filtered = MOCK_RESTAURANTS.filter(r => {
+  const cuisines = useMemo(
+    () => Array.from(new Set(['All', ...CUISINES.filter(cuisine => restaurants.some(restaurant => restaurant.cuisine === cuisine)), ...restaurants.map(restaurant => restaurant.cuisine)])),
+    [restaurants]
+  );
+
+  const filtered = restaurants.filter(r => {
     const matchCuisine = selectedCuisine === 'All' || r.cuisine === selectedCuisine;
     const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.cuisine.toLowerCase().includes(searchQuery.toLowerCase());
@@ -121,7 +128,7 @@ export default function CustomerHome() {
           <Text style={styles.sectionCount}>{filtered.length} {t('open')}</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cuisineContent}>
-          {CUISINES.map(c => (
+          {cuisines.map(c => (
             <TouchableOpacity
               key={c}
               style={[styles.cuisineChip, selectedCuisine === c && styles.cuisineChipActive]}

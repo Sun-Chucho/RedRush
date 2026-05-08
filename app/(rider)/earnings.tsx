@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { MOCK_RIDER_EARNINGS } from '@/constants/mockData';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
+import { useAuth } from '@/hooks/useAuth';
+import { useOrders } from '@/hooks/useOrders';
 
 const PERIODS = ['Week', 'Month', 'Year'];
 
@@ -14,10 +15,24 @@ export default function RiderEarnings() {
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
+  const { user } = useAuth();
+  const { orders } = useOrders();
 
-  const totalEarnings = MOCK_RIDER_EARNINGS.reduce((s, d) => s + d.earnings, 0);
-  const totalDeliveries = MOCK_RIDER_EARNINGS.reduce((s, d) => s + d.deliveries, 0);
-  const maxEarnings = Math.max(...MOCK_RIDER_EARNINGS.map(d => d.earnings));
+  const deliveredOrders = orders.filter(order => order.riderId === user?.id && order.status === 'delivered');
+  const totalDeliveries = deliveredOrders.length;
+  const totalEarnings = deliveredOrders.reduce((sum, order) => sum + Math.max(900, Math.round(order.deliveryFee * 0.8)), 0);
+  const averageEarnings = totalDeliveries ? Math.round(totalEarnings / totalDeliveries) : 0;
+  const chartRows = Object.values(
+    deliveredOrders.reduce<Record<string, { date: string; earnings: number; deliveries: number }>>((acc, order) => {
+      const key = new Date(order.deliveredAt || order.createdAt).toLocaleDateString(undefined, { weekday: 'short' });
+      const earnings = Math.max(900, Math.round(order.deliveryFee * 0.8));
+      acc[key] = acc[key] || { date: key, earnings: 0, deliveries: 0 };
+      acc[key].earnings += earnings;
+      acc[key].deliveries += 1;
+      return acc;
+    }, {})
+  );
+  const maxEarnings = Math.max(...chartRows.map(d => d.earnings), 1);
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
@@ -43,7 +58,7 @@ export default function RiderEarnings() {
           </View>
           <View style={styles.totalStatDivider} />
           <View style={styles.totalStat}>
-            <Text style={styles.totalStatValue}>{formatMoney(Math.round(totalEarnings / totalDeliveries))}</Text>
+            <Text style={styles.totalStatValue}>{formatMoney(averageEarnings)}</Text>
             <Text style={styles.totalStatLabel}>Avg per trip</Text>
           </View>
           <View style={styles.totalStatDivider} />
@@ -58,7 +73,7 @@ export default function RiderEarnings() {
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>Daily Breakdown</Text>
         <View style={styles.chart}>
-          {MOCK_RIDER_EARNINGS.map((d, i) => {
+          {chartRows.length ? chartRows.map((d, i) => {
             const height = Math.max(8, (d.earnings / maxEarnings) * 100);
             return (
               <View key={d.date} style={styles.barCol}>
@@ -70,7 +85,11 @@ export default function RiderEarnings() {
                 <Text style={styles.barDeliveries}>{d.deliveries}</Text>
               </View>
             );
-          })}
+          }) : (
+            <View style={styles.emptyChart}>
+              <Text style={styles.emptyText}>No delivered trips yet.</Text>
+            </View>
+          )}
         </View>
         <Text style={styles.chartNote}>Numbers below bars = deliveries count</Text>
       </View>
@@ -81,9 +100,9 @@ export default function RiderEarnings() {
           <MaterialIcons name="account-balance-wallet" size={22} color={Colors.primary} />
           <Text style={styles.payoutTitle}>Payout Balance</Text>
         </View>
-        <Text style={styles.payoutBalance}>{formatMoney(137300)}</Text>
+        <Text style={styles.payoutBalance}>{formatMoney(totalEarnings)}</Text>
         <Text style={styles.payoutNote}>Available for withdrawal</Text>
-        <TouchableOpacity style={styles.withdrawBtn} onPress={() => showAlert('Withdrawal', `Withdrawal request for ${formatMoney(137300)} has been queued for Mobile Money payout review.`)}>
+        <TouchableOpacity style={styles.withdrawBtn} onPress={() => showAlert('Withdrawal', `Withdrawal request for ${formatMoney(totalEarnings)} has been queued for Mobile Money payout review.`)}>
           <MaterialIcons name="phone-android" size={18} color={Colors.text} />
           <Text style={styles.withdrawText}>Withdraw via Mobile Money</Text>
         </TouchableOpacity>
@@ -133,6 +152,8 @@ const styles = StyleSheet.create({
   barDay: { color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 4 },
   barDeliveries: { color: Colors.primary, fontSize: 9, fontWeight: FontWeight.bold },
   chartNote: { color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'center', marginTop: Spacing.sm },
+  emptyChart: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { color: Colors.textMuted, fontSize: FontSize.sm },
   payoutCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, marginBottom: Spacing.md, ...Shadow.md },
   payoutHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   payoutTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },

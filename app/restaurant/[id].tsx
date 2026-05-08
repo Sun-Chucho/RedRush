@@ -7,10 +7,11 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { MOCK_RESTAURANTS, MenuItem } from '@/constants/mockData';
+import { MenuItem } from '@/constants/mockData';
 import { useCart } from '@/hooks/useCart';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCustomerData } from '@/hooks/useCustomerData';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 
 export default function RestaurantScreen() {
@@ -20,9 +21,10 @@ export default function RestaurantScreen() {
   const { addItem, items, itemCount } = useCart();
   const { formatMoney } = useCurrency();
   const { favouriteRestaurantIds, toggleFavouriteRestaurant } = useCustomerData();
+  const { getRestaurantById } = useRestaurants();
   const { showAlert } = useAlert();
 
-  const restaurant = MOCK_RESTAURANTS.find(r => r.id === id);
+  const restaurant = getRestaurantById(id || '');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   if (!restaurant) {

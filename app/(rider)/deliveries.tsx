@@ -3,22 +3,34 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
-
-const DELIVERY_HISTORY = [
-  { id: 'd1', restaurant: 'Chicken Republic', customer: 'Adaeze O.', address: '45 Saka Tinubu St', distance: '3.2 km', earnings: 1200, status: 'completed', time: '2:45 PM', date: 'Today' },
-  { id: 'd2', restaurant: 'Mama Put Kitchen', customer: 'Emeka C.', address: '7 Broad Street', distance: '1.8 km', earnings: 900, status: 'completed', time: '1:10 PM', date: 'Today' },
-  { id: 'd3', restaurant: 'Pizza Palace', customer: 'Ngozi A.', address: '23 Lekki Phase 1', distance: '5.1 km', earnings: 1800, status: 'completed', time: '11:20 AM', date: 'Today' },
-  { id: 'd4', restaurant: 'Grillmaster BBQ', customer: 'Tunde B.', address: '12 Victoria Island', distance: '4.3 km', earnings: 1500, status: 'completed', time: '6:30 PM', date: 'Yesterday' },
-  { id: 'd5', restaurant: 'Sushi & More', customer: 'Chioma K.', address: '9 Eko Hotel Way', distance: '2.7 km', earnings: 1100, status: 'cancelled', time: '3:15 PM', date: 'Yesterday' },
-];
+import { useOrders } from '@/hooks/useOrders';
 
 export default function RiderDeliveries() {
   const [filter, setFilter] = useState('All');
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { formatMoney } = useCurrency();
+  const { orders } = useOrders();
 
-  const filtered = DELIVERY_HISTORY.filter(d => filter === 'All' || d.status === filter.toLowerCase());
+  const deliveries = orders
+    .filter(order => order.riderId === user?.id && ['delivered', 'cancelled'].includes(order.status))
+    .map(order => {
+      const deliveredAt = order.deliveredAt || order.createdAt;
+      return {
+        id: order.id,
+        restaurant: order.restaurantName,
+        customer: order.customerName || 'Customer',
+        address: order.address,
+        distance: 'Live route',
+        earnings: Math.max(900, Math.round(order.deliveryFee * 0.8)),
+        status: order.status === 'delivered' ? 'completed' : 'cancelled',
+        time: new Date(deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: new Date(deliveredAt).toDateString() === new Date().toDateString() ? 'Today' : new Date(deliveredAt).toLocaleDateString(),
+      };
+    });
+  const filtered = deliveries.filter(d => filter === 'All' || d.status === filter.toLowerCase());
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -27,9 +39,9 @@ export default function RiderDeliveries() {
       {/* Summary */}
       <View style={styles.summaryRow}>
         {[
-          { label: 'Completed', value: DELIVERY_HISTORY.filter(d => d.status === 'completed').length.toString(), color: Colors.success },
-          { label: 'Cancelled', value: DELIVERY_HISTORY.filter(d => d.status === 'cancelled').length.toString(), color: Colors.error },
-          { label: 'Total Distance', value: '17.1 km', color: Colors.info },
+          { label: 'Completed', value: deliveries.filter(d => d.status === 'completed').length.toString(), color: Colors.success },
+          { label: 'Cancelled', value: deliveries.filter(d => d.status === 'cancelled').length.toString(), color: Colors.error },
+          { label: 'Total Earnings', value: formatMoney(deliveries.filter(d => d.status === 'completed').reduce((sum, item) => sum + item.earnings, 0)), color: Colors.info },
         ].map(s => (
           <View key={s.label} style={styles.summaryCard}>
             <Text style={[styles.summaryValue, { color: s.color }]}>{s.value}</Text>
@@ -74,6 +86,12 @@ export default function RiderDeliveries() {
             </View>
           </View>
         )}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <MaterialIcons name="inbox" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyText}>No delivery history yet</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -93,6 +111,8 @@ const styles = StyleSheet.create({
   filterTextActive: { color: Colors.text, fontWeight: FontWeight.semibold },
   list: { paddingHorizontal: Spacing.md, paddingBottom: 80 },
   deliveryCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, borderLeftWidth: 4, ...Shadow.md },
+  empty: { alignItems: 'center', paddingVertical: 60 },
+  emptyText: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.md },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs },
   restaurantName: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
   customerName: { color: Colors.textMuted, fontSize: FontSize.xs },

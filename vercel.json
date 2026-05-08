@@ -1,0 +1,14 @@
+{
+  "framework": null,
+  "buildCommand": "pnpm build:web",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/((?!_expo|assets|favicon.ico|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

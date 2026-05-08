@@ -30,19 +30,24 @@ export default function VendorOrders() {
     return true;
   });
 
-  const handleAction = (order: Order, action: string) => {
+  const handleAction = async (order: Order, action: string) => {
     if (action === 'accept') {
-      updateOrderStatus(order.id, 'accepted');
-      showAlert('Order Accepted', 'Start preparing the order.');
+      try {
+        await updateOrderStatus(order.id, 'accepted');
+        showAlert('Order Accepted', 'Start preparing the order.');
+      } catch {
+        showAlert('Order update failed', 'Unable to accept this order.');
+      }
     } else if (action === 'prepare') {
-      updateOrderStatus(order.id, 'preparing');
+      updateOrderStatus(order.id, 'preparing').catch(() => showAlert('Order update failed', 'Unable to start preparing this order.'));
     } else if (action === 'ready') {
-      updateOrderStatus(order.id, 'ready');
-      showAlert('Order Ready', 'Notifying rider for pickup.');
+      updateOrderStatus(order.id, 'ready')
+        .then(() => showAlert('Order Ready', 'Riders can now accept this pickup.'))
+        .catch(() => showAlert('Order update failed', 'Unable to mark this order as ready.'));
     } else if (action === 'reject') {
       showAlert('Reject Order', 'Are you sure you want to reject this order?', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Reject', style: 'destructive', onPress: () => updateOrderStatus(order.id, 'cancelled') },
+        { text: 'Reject', style: 'destructive', onPress: () => updateOrderStatus(order.id, 'cancelled').catch(() => showAlert('Order update failed', 'Unable to reject this order.')) },
       ]);
     }
   };
@@ -80,7 +85,7 @@ export default function VendorOrders() {
             </View>
             <Text style={styles.orderAddress}>{item.address}</Text>
             {item.items.map((i, idx) => (
-              <Text key={idx} style={styles.orderItem}>{i.quantity}x {i.menuItem.name}</Text>
+              <Text key={`${item.id}-${i.menuItem.id}-${idx}`} style={styles.orderItem}>{i.quantity}x {i.menuItem.name}</Text>
             ))}
             <View style={styles.orderFoot}>
               <Text style={styles.orderTotal}>{formatMoney(item.total)}</Text>

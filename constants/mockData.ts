@@ -10,6 +10,7 @@ export interface User {
   avatar?: string;
   address?: string;
   rating?: number;
+  restaurantId?: string;
 }
 
 export interface MenuItem {
@@ -25,6 +26,7 @@ export interface MenuItem {
 
 export interface Restaurant {
   id: string;
+  ownerId?: string;
   name: string;
   cuisine: string;
   rating: number;
@@ -51,12 +53,17 @@ export interface OrderItem {
 export interface Order {
   id: string;
   customerId: string;
+  customerName?: string;
+  customerPhone?: string;
   restaurantId: string;
   restaurantName: string;
   items: OrderItem[];
+  subtotal?: number;
   total: number;
   deliveryFee: number;
   serviceCharge?: number;
+  discount?: number;
+  promoCode?: string;
   status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'picked_up' | 'delivered' | 'cancelled';
   paymentMethod: string;
   address: string;
@@ -64,6 +71,12 @@ export interface Order {
   estimatedDelivery: string;
   riderId?: string;
   riderName?: string;
+  acceptedAt?: string;
+  preparingAt?: string;
+  readyAt?: string;
+  pickedUpAt?: string;
+  deliveredAt?: string;
+  cancelledAt?: string;
 }
 
 export interface RiderEarning {

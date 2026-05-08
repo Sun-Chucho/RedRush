@@ -1,15 +1,18 @@
-import React, { createContext, useEffect, useState, ReactNode } from 'react';
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
-import { Order, MOCK_ORDERS } from '@/constants/mockData';
+import React, { createContext, useCallback, useEffect, useMemo, useState, ReactNode } from 'react';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { Order } from '@/constants/mockData';
 import { CartItem } from './CartContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { db } from '@/services/firebase';
+import { createOrderOnBackend, updateOrderStatusOnBackend } from '@/services/backend';
 
 interface OrderContextType {
   orders: Order[];
   activeOrder: Order | null;
   placeOrder: (items: CartItem[], restaurantId: string, restaurantName: string, address: string, paymentMethod: string, deliveryFee: number, serviceCharge?: number, discount?: number, promoCode?: string) => Promise<Order>;
-  updateOrderStatus: (orderId: string, status: Order['status']) => void;
+  updateOrderStatus: (orderId: string, status: Order['status'], extra?: Partial<Pick<Order, 'riderId' | 'riderName'>>) => Promise<void>;
+  assignRider: (orderId: string, riderId: string, riderName: string) => Promise<void>;
   getOrderById: (id: string) => Order | undefined;
 }
 
@@ -35,9 +38,12 @@ function orderFromDoc(id: string, data: Partial<Order> & Record<string, unknown>
   return {
     id,
     customerId: data.customerId || '',
+    customerName: data.customerName,
+    customerPhone: data.customerPhone,
     restaurantId: data.restaurantId || '',
     restaurantName: data.restaurantName || 'Restaurant',
     items: Array.isArray(data.items) ? data.items : [],
+    subtotal: Number(data.subtotal || 0),
     total: Number(data.total || 0),
     deliveryFee: Number(data.deliveryFee || 0),
     status: data.status || 'pending',
@@ -46,8 +52,16 @@ function orderFromDoc(id: string, data: Partial<Order> & Record<string, unknown>
     createdAt: toIsoDate(data.createdAt || data.createdAtIso),
     estimatedDelivery: toIsoDate(data.estimatedDelivery, Date.now() + 40 * 60000),
     serviceCharge: Number(data.serviceCharge || 0),
+    discount: Number(data.discount || 0),
+    promoCode: data.promoCode,
     riderId: data.riderId,
     riderName: data.riderName,
+    acceptedAt: data.acceptedAt ? toIsoDate(data.acceptedAt) : undefined,
+    preparingAt: data.preparingAt ? toIsoDate(data.preparingAt) : undefined,
+    readyAt: data.readyAt ? toIsoDate(data.readyAt) : undefined,
+    pickedUpAt: data.pickedUpAt ? toIsoDate(data.pickedUpAt) : undefined,
+    deliveredAt: data.deliveredAt ? toIsoDate(data.deliveredAt) : undefined,
+    cancelledAt: data.cancelledAt ? toIsoDate(data.cancelledAt) : undefined,
   };
 }
 
@@ -63,8 +77,11 @@ function uniqueOrdersById(orders: Order[]) {
 
 export function OrderProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { getVendorRestaurant } = useRestaurants();
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const vendorRestaurant = getVendorRestaurant();
+  const vendorRestaurantId = vendorRestaurant?.id;
 
   useEffect(() => {
     if (!user) {
@@ -74,29 +91,57 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     }
 
     const ordersRef = collection(db, 'orders');
-    const ordersQuery = user.role === 'customer'
-      ? query(ordersRef, where('customerId', '==', user.id))
-      : ordersRef;
+    const orderQueries =
+      user.role === 'customer'
+        ? [query(ordersRef, where('customerId', '==', user.id))]
+        : user.role === 'vendor'
+          ? vendorRestaurantId
+            ? [query(ordersRef, where('restaurantId', '==', vendorRestaurantId))]
+            : []
+          : user.role === 'rider'
+            ? [
+                query(ordersRef, where('status', '==', 'ready')),
+                query(ordersRef, where('riderId', '==', user.id)),
+              ]
+            : [ordersRef];
 
-    const unsubscribe = onSnapshot(
+    if (!orderQueries.length) {
+      setOrders([]);
+      setActiveOrder(null);
+      return;
+    }
+
+    const snapshots = new Map<number, Order[]>();
+
+    const publish = () => {
+      const liveOrders = uniqueOrdersById(
+        Array.from(snapshots.values())
+          .flat()
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      );
+
+      setOrders(liveOrders);
+      setActiveOrder(prev => (prev ? liveOrders.find(order => order.id === prev.id) || prev : prev));
+    };
+
+    const unsubscribes = orderQueries.map((ordersQuery, index) => onSnapshot(
       ordersQuery,
       snapshot => {
-        const liveOrders = uniqueOrdersById(snapshot.docs
-          .map(orderDoc => orderFromDoc(orderDoc.id, orderDoc.data() as Partial<Order> & Record<string, unknown>))
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-
-        setOrders(liveOrders);
-        setActiveOrder(prev => (prev ? liveOrders.find(order => order.id === prev.id) || prev : prev));
+        snapshots.set(index, snapshot.docs.map(orderDoc => orderFromDoc(orderDoc.id, orderDoc.data() as Partial<Order> & Record<string, unknown>)));
+        publish();
       },
       () => {
-        setOrders(uniqueOrdersById(MOCK_ORDERS));
+        snapshots.set(index, []);
+        publish();
       }
-    );
+    ));
 
-    return unsubscribe;
-  }, [user?.id, user?.role]);
+    return () => {
+      unsubscribes.forEach(unsubscribe => unsubscribe());
+    };
+  }, [user, user?.id, user?.role, vendorRestaurantId]);
 
-  const placeOrder = async (
+  const placeOrder = useCallback(async (
     items: CartItem[],
     restaurantId: string,
     restaurantName: string,
@@ -111,77 +156,53 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       throw new Error('Please sign in before placing an order.');
     }
 
-    const total = items.reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
-    const createdAt = new Date();
-    const estimatedDelivery = new Date(Date.now() + 40 * 60000);
-    const orderPayload = {
-      customerId: user.id,
-      customerName: user.name,
-      customerPhone: user.phone,
-      restaurantId,
-      restaurantName,
-      items: items.map(i => ({ menuItem: i.menuItem, quantity: i.quantity, restaurantId })),
-      subtotal: total,
-      total: Math.max(0, total - discount) + deliveryFee + serviceCharge,
-      deliveryFee,
-      serviceCharge,
-      discount,
-      promoCode,
-      status: 'pending',
-      paymentMethod,
-      address,
-      createdAt: serverTimestamp(),
-      createdAtIso: createdAt.toISOString(),
-      estimatedDelivery: estimatedDelivery.toISOString(),
-      updatedAt: serverTimestamp(),
-    };
-
-    const optimisticOrder: Order = {
-      id: 'ord' + Date.now(),
-      customerId: user.id,
-      restaurantId,
-      restaurantName,
-      items: orderPayload.items,
-      total: orderPayload.total,
-      deliveryFee,
-      serviceCharge,
-      status: 'pending',
-      paymentMethod,
-      address,
-      createdAt: createdAt.toISOString(),
-      estimatedDelivery: estimatedDelivery.toISOString(),
-    };
-
     try {
-      const orderRef = await addDoc(collection(db, 'orders'), orderPayload);
-      const savedOrder = { ...optimisticOrder, id: orderRef.id };
-      setOrders(prev => uniqueOrdersById([savedOrder, ...prev.filter(order => order.id !== optimisticOrder.id && order.id !== savedOrder.id)]));
+      const createdOrder = await createOrderOnBackend<Partial<Order> & Record<string, unknown>>({
+        restaurantId,
+        address,
+        paymentMethod,
+        promoCode,
+        items: items.map(item => ({ menuItemId: item.menuItem.id, quantity: item.quantity })),
+      });
+      const savedOrder = orderFromDoc(String(createdOrder.id || ''), createdOrder);
+      setOrders(prev => uniqueOrdersById([savedOrder, ...prev.filter(order => order.id !== savedOrder.id)]));
       setActiveOrder(savedOrder);
       return savedOrder;
-    } catch {
-      setOrders(prev => uniqueOrdersById([optimisticOrder, ...prev.filter(order => order.id !== optimisticOrder.id)]));
-      setActiveOrder(optimisticOrder);
-      return optimisticOrder;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Unable to place order.');
     }
-  };
+  }, [user]);
 
-  const updateOrderStatus = (orderId: string, status: Order['status']) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+  const updateOrderStatus = useCallback(async (
+    orderId: string,
+    status: Order['status'],
+    extra: Partial<Pick<Order, 'riderId' | 'riderName'>> = {}
+  ) => {
+    const optimisticExtra = status === 'picked_up' && user
+      ? { riderId: user.id, riderName: user.name, ...extra }
+      : extra;
+
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...optimisticExtra, status } : o));
     if (activeOrder?.id === orderId) {
-      setActiveOrder(prev => prev ? { ...prev, status } : null);
+      setActiveOrder(prev => prev ? { ...prev, ...optimisticExtra, status } : null);
     }
 
-    updateDoc(doc(db, 'orders', orderId), {
-      status,
-      updatedAt: serverTimestamp(),
-      ...(status === 'delivered' ? { deliveredAt: serverTimestamp() } : {}),
-    }).catch(() => undefined);
-  };
+    await updateOrderStatusOnBackend({ orderId, status });
+  }, [activeOrder?.id, user]);
 
-  const getOrderById = (id: string) => orders.find(o => o.id === id);
+  const assignRider = useCallback(async (orderId: string, riderId: string, riderName: string) => {
+    await updateOrderStatus(orderId, 'picked_up', { riderId, riderName });
+  }, [updateOrderStatus]);
+
+  const getOrderById = useCallback((id: string) => orders.find(o => o.id === id), [orders]);
+
+  const value = useMemo(
+    () => ({ orders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById }),
+    [orders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById]
+  );
 
   return (
-    <OrderContext.Provider value={{ orders, activeOrder, placeOrder, updateOrderStatus, getOrderById }}>
+    <OrderContext.Provider value={value}>
       {children}
     </OrderContext.Provider>
   );

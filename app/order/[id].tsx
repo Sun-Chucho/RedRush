@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MapView, Marker, Polyline } from '@/components/MapViewCompat';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCustomerData } from '@/hooks/useCustomerData';
 import { useAlert } from '@/template';
+import { RiderCoords, subscribeToRiderLocation } from '@/services/riderLocation';
 
 const STEPS = [
   { key: 'pending', label: 'Order Placed', icon: 'receipt', desc: 'Your order has been received' },
@@ -25,6 +26,9 @@ const DELIVERY_ROUTE = {
   customer: { latitude: -1.2921, longitude: 36.8219, label: 'Delivery' },
 };
 
+const RESTAURANT_COORDS = DELIVERY_ROUTE.restaurant;
+const CUSTOMER_COORDS = DELIVERY_ROUTE.customer;
+
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getOrderById } = useOrders();
@@ -34,6 +38,28 @@ export default function OrderTrackingScreen() {
   const { formatMoney } = useCurrency();
   const { addReview } = useCustomerData();
   const order = getOrderById(id || '');
+  const [riderCoords, setRiderCoords] = useState<RiderCoords | null>(null);
+
+  useEffect(() => {
+    if (!order?.riderId || !['picked_up', 'delivered'].includes(order.status)) {
+      setRiderCoords(null);
+      return undefined;
+    }
+
+    return subscribeToRiderLocation(order.riderId, setRiderCoords);
+  }, [order?.riderId, order?.status]);
+
+  const route = useMemo(() => {
+    const rider = riderCoords
+      ? { latitude: riderCoords.latitude, longitude: riderCoords.longitude, label: 'Rider' }
+      : DELIVERY_ROUTE.rider;
+
+    return {
+      rider,
+      coordinates: [RESTAURANT_COORDS, rider, CUSTOMER_COORDS],
+      center: rider,
+    };
+  }, [riderCoords]);
 
   if (!order) {
     return (
@@ -69,19 +95,19 @@ export default function OrderTrackingScreen() {
           <MapView
             style={styles.map}
             initialRegion={{
-              latitude: DELIVERY_ROUTE.rider.latitude,
-              longitude: DELIVERY_ROUTE.rider.longitude,
+              latitude: route.center.latitude,
+              longitude: route.center.longitude,
               latitudeDelta: 0.026,
               longitudeDelta: 0.026,
             }}
           >
             <Polyline
-              coordinates={[DELIVERY_ROUTE.restaurant, DELIVERY_ROUTE.rider, DELIVERY_ROUTE.customer]}
+              coordinates={route.coordinates}
               strokeColor={Colors.primary}
               strokeWidth={4}
             />
             <Marker coordinate={DELIVERY_ROUTE.restaurant} title={order.restaurantName} />
-            <Marker coordinate={DELIVERY_ROUTE.rider} title={order.riderName || 'Rider'}>
+            <Marker coordinate={route.rider} title={order.riderName || 'Rider'}>
               <View style={styles.riderMarker}>
                 <MaterialIcons name="delivery-dining" size={18} color={Colors.text} />
               </View>
@@ -89,7 +115,7 @@ export default function OrderTrackingScreen() {
             <Marker coordinate={DELIVERY_ROUTE.customer} title="Delivery address" />
           </MapView>
           <View style={styles.mapBadge}>
-            <Text style={styles.mapBadgeText}>Live map</Text>
+            <Text style={styles.mapBadgeText}>{riderCoords ? 'Live rider GPS' : 'Route preview'}</Text>
           </View>
         </View>
 

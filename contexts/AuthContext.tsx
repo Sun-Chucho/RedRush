@@ -1,6 +1,6 @@
 import React, { createContext, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
-// expo-apple-authentication is loaded dynamically to avoid web bundling errors
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -31,6 +31,7 @@ export interface AuthUser {
   role: UserRole;
   avatar?: string;
   address?: string;
+  restaurantId?: string;
 }
 
 interface AuthContextType {
@@ -40,8 +41,8 @@ interface AuthContextType {
   isGoogleSignInReady: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: Partial<AuthUser> & { password: string }) => Promise<void>;
-  loginWithGoogle: (role?: UserRole, forceRole?: boolean) => Promise<void>;
-  loginWithApple: (role?: UserRole, forceRole?: boolean) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  loginWithApple: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
 }
@@ -108,6 +109,7 @@ function profileFromFirebaseUser(firebaseUser: FirebaseUser, profile?: Partial<A
     role,
     avatar: profile?.avatar || firebaseUser.photoURL || undefined,
     address: profile?.address,
+    restaurantId: profile?.restaurantId,
   };
 }
 
@@ -133,15 +135,13 @@ function getAuthErrorMessage(error: unknown) {
   return message;
 }
 
-async function ensureUserProfile(firebaseUser: FirebaseUser, data: Partial<AuthUser>, forceRole = false) {
+async function ensureUserProfile(firebaseUser: FirebaseUser, data: Partial<AuthUser>) {
   const userRef = doc(db, 'users', firebaseUser.uid);
   const snapshot = await getDoc(userRef);
   const existing = snapshot.exists()
     ? (snapshot.data() as Partial<AuthUser> & { status?: string; createdAt?: unknown })
     : {};
-  // Admin role can never be self-assigned — only set server-side or by another admin
-  const requestedRole = data.role === 'admin' ? 'customer' : (data.role || 'customer');
-  const nextRole = forceRole || !existing.role ? requestedRole : existing.role;
+  const nextRole = existing.role || 'customer';
   const profile = profileFromFirebaseUser(firebaseUser, {
     ...existing,
     ...data,
@@ -158,6 +158,7 @@ async function ensureUserProfile(firebaseUser: FirebaseUser, data: Partial<AuthU
       role: profile.role,
       avatar: profile.avatar,
       address: profile.address,
+      restaurantId: profile.restaurantId,
       status: existing.status || 'active',
       createdAt: existing.createdAt || serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -253,10 +254,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: data.name,
           email,
           phone: data.phone,
-          role: data.role || 'customer',
+          role: 'customer',
           address: data.address,
-        },
-        true
+        }
       );
       setUser(profile);
     } catch (error) {
@@ -264,7 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithGoogle = async (role?: UserRole, forceRole = false) => {
+  const loginWithGoogle = async () => {
     const missingClientIdMessage = getMissingGoogleClientIdMessage();
 
     if (missingClientIdMessage) {
@@ -302,16 +302,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const credential = GoogleAuthProvider.credential(idToken);
       const firebaseCredential = await signInWithCredential(auth, credential);
-      const profile = await ensureUserProfile(firebaseCredential.user, { role: role || 'customer' }, forceRole);
+      const profile = await ensureUserProfile(firebaseCredential.user, { role: 'customer' });
       setUser(profile);
     } catch (error) {
       throw new Error(getAuthErrorMessage(error));
     }
   };
 
-  const loginWithApple = async (role?: UserRole, forceRole = false) => {
+  const loginWithApple = async () => {
     try {
-      const AppleAuthentication = await import('expo-apple-authentication');
       const isAvailable = await AppleAuthentication.isAvailableAsync();
 
       if (!isAvailable) {
@@ -344,8 +343,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await ensureUserProfile(userCredential.user, {
         name: fullName || undefined,
         email: appleCredential.email || userCredential.user.email || undefined,
-        role: role || 'customer',
-      }, forceRole);
+        role: 'customer',
+      });
       setUser(profile);
     } catch (error) {
       throw new Error(getAuthErrorMessage(error));
@@ -374,6 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone: data.phone,
         avatar: data.avatar,
         address: data.address,
+        restaurantId: data.restaurantId,
         updatedAt: serverTimestamp(),
       })
     );

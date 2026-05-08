@@ -57,8 +57,6 @@ export type TranslationKey =
   | 'orders'
   | 'onTheWay'
   | 'open'
-  | 'otpBody'
-  | 'otpTitle'
   | 'password'
   | 'pending'
   | 'paymentMethods'
@@ -100,7 +98,6 @@ export type TranslationKey =
   | 'topRestaurants'
   | 'tryAgain'
   | 'tryDifferentKeywords'
-  | 'verifyOtp'
   | 'vendor'
   | 'vendorDesc';
 
@@ -159,8 +156,6 @@ const translations: Record<AppLanguage, Record<TranslationKey, string>> = {
     orders: 'Orders',
     onTheWay: 'On the way',
     open: 'open',
-    otpBody: 'Phone OTP requires Firebase phone auth and reCAPTCHA verifier setup for the release build.',
-    otpTitle: 'OTP Verification',
     password: 'Password',
     pending: 'Pending',
     paymentMethods: 'Payment Methods',
@@ -202,7 +197,6 @@ const translations: Record<AppLanguage, Record<TranslationKey, string>> = {
     topRestaurants: 'Restaurants at Your Fingertips',
     tryAgain: 'Please try again.',
     tryDifferentKeywords: 'Try different keywords or filters',
-    verifyOtp: 'Verify with OTP instead',
     vendor: 'Restaurant',
     vendorDesc: 'Manage your restaurant',
   },
@@ -260,8 +254,6 @@ const translations: Record<AppLanguage, Record<TranslationKey, string>> = {
     orders: 'Oda',
     onTheWay: 'Iko njiani',
     open: 'imefunguliwa',
-    otpBody: 'OTP ya simu inahitaji Firebase phone auth na reCAPTCHA kwa toleo la release.',
-    otpTitle: 'Uthibitishaji wa OTP',
     password: 'Nenosiri',
     pending: 'Inasubiri',
     paymentMethods: 'Njia za Malipo',
@@ -303,7 +295,6 @@ const translations: Record<AppLanguage, Record<TranslationKey, string>> = {
     topRestaurants: 'Migahawa Ipo Kiganjani Mwako',
     tryAgain: 'Tafadhali jaribu tena.',
     tryDifferentKeywords: 'Jaribu maneno au vichujio tofauti',
-    verifyOtp: 'Thibitisha kwa OTP badala yake',
     vendor: 'Mgahawa',
     vendorDesc: 'Simamia mgahawa wako',
   },

@@ -1,8 +1,8 @@
 import React, { createContext, ReactNode, useEffect, useMemo, useState } from 'react';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { MOCK_RESTAURANTS } from '@/constants/mockData';
 import { db } from '@/services/firebase';
 import { useAuth } from '@/hooks/useAuth';
+import { registerForPushNotifications } from '@/services/notifications';
 
 export interface SavedAddress {
   id: string;
@@ -98,16 +98,7 @@ const defaultPromoCodes: PromoCode[] = [
   },
 ];
 
-const defaultReviews: CustomerReview[] = [
-  {
-    id: 'review-r1',
-    restaurantId: 'r1',
-    restaurantName: 'Chicken Republic',
-    rating: 5,
-    comment: 'Fast delivery and the food arrived hot.',
-    createdAt: '2026-05-04T16:00:00Z',
-  },
-];
+const defaultReviews: CustomerReview[] = [];
 
 const defaultNotificationSettings: NotificationSettings = {
   orderUpdates: true,
@@ -120,7 +111,7 @@ function createSeedData() {
   return {
     savedAddresses: [defaultAddress],
     paymentMethods: defaultPaymentMethods,
-    favouriteRestaurantIds: MOCK_RESTAURANTS.filter(r => r.isOpen).slice(0, 2).map(r => r.id),
+    favouriteRestaurantIds: [],
     promoCodes: defaultPromoCodes,
     reviews: defaultReviews,
     notificationSettings: defaultNotificationSettings,
@@ -248,8 +239,11 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
   };
 
   const enablePushNotifications = async () => {
-    updateNotificationSetting('pushEnabled', true);
-    return true;
+    if (!user) return false;
+    const token = await registerForPushNotifications(user.id);
+    const enabled = !!token;
+    updateNotificationSetting('pushEnabled', enabled);
+    return enabled;
   };
 
   const sendLocalNotification = async (title: string, body: string) => {

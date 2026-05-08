@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
-import { MOCK_ORDERS } from '@/constants/mockData';
+import { useOrders } from '@/hooks/useOrders';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { useRouter } from 'expo-router';
 
@@ -14,15 +15,22 @@ export default function VendorDashboard() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { formatMoney } = useCurrency();
+  const { orders, updateOrderStatus } = useOrders();
+  const { getVendorRestaurant } = useRestaurants();
   const { showAlert } = useAlert();
   const router = useRouter();
+  const vendorRestaurant = getVendorRestaurant();
+  const menuItems = vendorRestaurant?.menu || [];
 
-  const incomingOrders = MOCK_ORDERS.filter(o => o.status === 'pending');
+  const incomingOrders = orders.filter(o => o.status === 'pending');
+  const today = new Date().toDateString();
+  const todaysOrders = orders.filter(order => new Date(order.createdAt).toDateString() === today);
+  const todaysRevenue = todaysOrders.reduce((sum, order) => order.status === 'cancelled' ? sum : sum + order.total, 0);
   const vendorStats = [
-    { label: "Today's Revenue", value: formatMoney(47500), icon: 'attach-money', color: Colors.success, change: '+12%' },
-    { label: 'Total Orders', value: '23', icon: 'receipt-long', color: Colors.primary, change: '+5' },
+    { label: "Today's Revenue", value: formatMoney(todaysRevenue), icon: 'attach-money', color: Colors.success, change: 'Live' },
+    { label: 'Total Orders', value: String(orders.length), icon: 'receipt-long', color: Colors.primary, change: `${incomingOrders.length} new` },
     { label: 'Avg Rating', value: '4.8', icon: 'star', color: Colors.gold, change: '+0.1' },
-    { label: 'Active Menu', value: '18', icon: 'restaurant-menu', color: Colors.info, change: '2 off' },
+    { label: 'Active Menu', value: String(menuItems.filter(item => item.available).length), icon: 'restaurant-menu', color: Colors.info, change: `${menuItems.filter(item => !item.available).length} off` },
   ];
 
   return (
@@ -88,11 +96,17 @@ export default function VendorDashboard() {
             ))}
             <Text style={styles.orderTotal}>{formatMoney(order.total)} - {order.paymentMethod}</Text>
             <View style={styles.orderActions}>
-              <TouchableOpacity style={styles.rejectBtn} onPress={() => showAlert('Order Rejected', 'Order has been rejected.')}>
+              <TouchableOpacity
+                style={styles.rejectBtn}
+                onPress={() => updateOrderStatus(order.id, 'cancelled').catch(() => showAlert('Order update failed', 'Unable to reject this order.'))}
+              >
                 <MaterialIcons name="close" size={18} color={Colors.error} />
                 <Text style={styles.rejectText}>Reject</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.acceptBtn} onPress={() => showAlert('Order Accepted', 'Order accepted! Start preparing.')}>
+              <TouchableOpacity
+                style={styles.acceptBtn}
+                onPress={() => updateOrderStatus(order.id, 'accepted').then(() => showAlert('Order Accepted', 'Order accepted! Start preparing.')).catch(() => showAlert('Order update failed', 'Unable to accept this order.'))}
+              >
                 <MaterialIcons name="check" size={18} color={Colors.text} />
                 <Text style={styles.acceptText}>Accept</Text>
               </TouchableOpacity>

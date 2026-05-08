@@ -61,6 +61,7 @@
       "expo-asset",
       "expo-audio",
       "expo-font",
+      "expo-notifications",
       "expo-localization",
       "expo-mail-composer",
       "expo-secure-store",

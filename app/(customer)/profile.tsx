@@ -4,14 +4,15 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { MOCK_RESTAURANTS } from '@/constants/mockData';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomerData } from '@/hooks/useCustomerData';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
+import { requestRoleOnBackend } from '@/services/backend';
 
 type PanelKey =
   | 'savedAddresses'
@@ -51,13 +52,14 @@ export default function ProfileScreen() {
   const { language, toggleLanguage, t } = useLanguage();
   const { refreshLocationCurrency } = useCurrency();
   const { orders } = useOrders();
+  const { restaurants } = useRestaurants();
   const customerData = useCustomerData();
   const [activePanel, setActivePanel] = useState<PanelKey>(null);
   const [newAddress, setNewAddress] = useState('');
 
   const favouriteRestaurants = useMemo(
-    () => MOCK_RESTAURANTS.filter(restaurant => customerData.favouriteRestaurantIds.includes(restaurant.id)),
-    [customerData.favouriteRestaurantIds]
+    () => restaurants.filter(restaurant => customerData.favouriteRestaurantIds.includes(restaurant.id)),
+    [customerData.favouriteRestaurantIds, restaurants]
   );
   const deliveredOrders = orders.filter(order => order.status === 'delivered');
 
@@ -97,6 +99,15 @@ export default function ProfileScreen() {
       'Notifications',
       granted ? 'In-app notifications are enabled for order updates and account alerts.' : 'Notification permission was not granted.'
     );
+  };
+
+  const requestRole = async (role: 'vendor' | 'rider') => {
+    try {
+      await requestRoleOnBackend(role);
+      showAlert('Role request sent', `Your ${role} access request is pending admin approval.`);
+    } catch (error) {
+      showAlert('Role request', error instanceof Error ? error.message : 'Unable to send this request.');
+    }
   };
 
   return (
@@ -140,6 +151,21 @@ export default function ProfileScreen() {
           <Text style={styles.redeemText}>{t('redeem')}</Text>
         </TouchableOpacity>
       </View>
+
+      {user?.role === 'customer' ? (
+        <View style={styles.roleRequestCard}>
+          <Text style={styles.roleRequestTitle}>Work with RedRush</Text>
+          <Text style={styles.roleRequestText}>Request approval before accessing restaurant or rider tools.</Text>
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => requestRole('vendor')}>
+              <Text style={styles.secondaryBtnText}>Restaurant access</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => requestRole('rider')}>
+              <Text style={styles.primaryBtnText}>Rider access</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
 
       <Text style={styles.sectionTitle}>{t('account')}</Text>
       <View style={styles.menuSection}>
@@ -349,6 +375,9 @@ const styles = StyleSheet.create({
   statValue: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.extrabold },
   statLabel: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
   loyaltyCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: 'rgba(255,215,0,0.08)', borderRadius: BorderRadius.lg, padding: Spacing.md, borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)' },
+  roleRequestCard: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  roleRequestTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
+  roleRequestText: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: 4, marginBottom: Spacing.sm },
   loyaltyLeft: { flexDirection: 'row', alignItems: 'center' },
   loyaltyTitle: { color: Colors.gold, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
   loyaltyPoints: { color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 },

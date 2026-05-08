@@ -6,8 +6,8 @@ import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useOrders } from '@/hooks/useOrders';
 import { useAlert } from '@/template';
-import { MOCK_ORDERS } from '@/constants/mockData';
 
 const PENDING_APPROVALS = [
   { id: 'p1', name: 'Delicious Kitchen', type: 'Restaurant', submitted: '2 hours ago' },
@@ -21,9 +21,12 @@ export default function AdminOverview() {
   const router = useRouter();
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
+  const { orders } = useOrders();
+  const activeOrders = orders.filter(order => !['delivered', 'cancelled'].includes(order.status));
+  const totalRevenue = orders.reduce((sum, order) => order.status === 'cancelled' ? sum : sum + order.total, 0);
   const platformStats = [
-    { label: 'Total Revenue', value: `${formatMoney(4200000).replace(',000,000', '.2M')}`, icon: 'attach-money', color: Colors.success, change: '+23%' },
-    { label: 'Active Orders', value: '47', icon: 'receipt-long', color: Colors.primary, change: 'Live' },
+    { label: 'Total Revenue', value: formatMoney(totalRevenue), icon: 'attach-money', color: Colors.success, change: 'Live' },
+    { label: 'Active Orders', value: String(activeOrders.length), icon: 'receipt-long', color: Colors.primary, change: 'Live' },
     { label: 'Total Users', value: '12,483', icon: 'people', color: Colors.info, change: '+156 today' },
     { label: 'Active Riders', value: '89', icon: 'delivery-dining', color: Colors.warning, change: '67 online' },
     { label: 'Restaurants', value: '234', icon: 'restaurant', color: Colors.gold, change: '+5 pending' },
@@ -94,7 +97,7 @@ export default function AdminOverview() {
       {/* Recent Orders */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Orders</Text>
-        {MOCK_ORDERS.slice(0, 3).map(order => (
+        {orders.slice(0, 3).map(order => (
           <View key={order.id} style={styles.orderRow}>
             <View>
               <Text style={styles.orderRestaurant}>{order.restaurantName}</Text>
@@ -108,6 +111,7 @@ export default function AdminOverview() {
             </View>
           </View>
         ))}
+        {orders.length === 0 ? <Text style={styles.emptyText}>No live orders yet</Text> : null}
       </View>
 
       {/* Quick Actions */}
@@ -172,6 +176,7 @@ const styles = StyleSheet.create({
   orderTotal: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
   statusDot: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginTop: 2 },
   statusText: { color: Colors.text, fontSize: 9, fontWeight: FontWeight.bold, textTransform: 'uppercase' },
+  emptyText: { color: Colors.textMuted, fontSize: FontSize.sm },
   actionsGrid: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
   actionCard: { width: '47%', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: 'center', gap: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
   actionLabel: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.medium, textAlign: 'center' },

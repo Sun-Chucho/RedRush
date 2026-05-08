@@ -9,20 +9,11 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
-import { UserRole } from '@/constants/mockData';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 
-// Admin accounts can only be created by an existing admin — not via self-registration
-const ROLES: { value: UserRole; labelKey: 'customer' | 'vendor' | 'rider'; icon: string; descKey: 'customerDesc' | 'vendorDesc' | 'riderDesc' }[] = [
-  { value: 'customer', labelKey: 'customer', icon: 'person', descKey: 'customerDesc' },
-  { value: 'vendor', labelKey: 'vendor', icon: 'restaurant', descKey: 'vendorDesc' },
-  { value: 'rider', labelKey: 'rider', icon: 'delivery-dining', descKey: 'riderDesc' },
-];
-
 export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -46,11 +37,11 @@ export default function AuthScreen() {
         await login(email, password);
       } else {
         if (!name || !phone) {
-          showAlert(t('missingFields'), t('missingFieldsBody'));
-          setLoading(false);
-          return;
-        }
-        await register({ name, email, phone, password, role: selectedRole });
+            showAlert(t('missingFields'), t('missingFieldsBody'));
+            setLoading(false);
+            return;
+          }
+        await register({ name, email, phone, password, role: 'customer' });
       }
       router.replace('/');
     } catch (e) {
@@ -68,7 +59,7 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      await loginWithGoogle(mode === 'register' ? selectedRole : undefined, mode === 'register');
+      await loginWithGoogle();
       router.replace('/');
     } catch (e) {
       showAlert(t('googleSignIn'), e instanceof Error ? e.message : t('tryAgain'));
@@ -107,26 +98,6 @@ export default function AuthScreen() {
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* Role Selection */}
-        {mode === 'register' && (
-          <>
-            <Text style={styles.sectionLabel}>{t('signUpAs')}</Text>
-            <View style={styles.rolesGrid}>
-              {ROLES.map(r => (
-                <TouchableOpacity
-                  key={r.value}
-                  style={[styles.roleCard, selectedRole === r.value && styles.roleCardActive]}
-                  onPress={() => setSelectedRole(r.value)}
-                >
-                  <MaterialIcons name={r.icon as any} size={26} color={selectedRole === r.value ? Colors.primary : Colors.textMuted} />
-                  <Text style={[styles.roleLabel, selectedRole === r.value && styles.roleLabelActive]}>{t(r.labelKey)}</Text>
-                  <Text style={styles.roleDesc}>{t(r.descKey)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
 
         {/* Form */}
         <View style={styles.form}>
@@ -210,12 +181,6 @@ export default function AuthScreen() {
             )}
           </TouchableOpacity>
         </View>
-
-        {/* OTP */}
-        <TouchableOpacity style={styles.otpBtn} onPress={() => showAlert(t('otpTitle'), t('otpBody'))}>
-          <MaterialIcons name="sms" size={16} color={Colors.primary} />
-          <Text style={styles.otpText}>  {t('verifyOtp')}</Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -256,6 +221,4 @@ const styles = StyleSheet.create({
   socialBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, height: 48, borderWidth: 1, borderColor: Colors.border, gap: 8 },
   socialBtnDisabled: { opacity: 0.55 },
   socialText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
-  otpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.sm },
-  otpText: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.medium },
 });
