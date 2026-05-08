@@ -13,19 +13,19 @@ import { TranslationKey } from '@/contexts/LanguageContext';
 const slides: { id: number; image: number; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   {
     id: 1,
-    image: require('@/assets/images/home-1.png'),
+    image: require('@/assets/images/onboarding-1.png'),
     titleKey: 'orderFood',
     subtitleKey: 'startOrdering',
   },
   {
     id: 2,
-    image: require('@/assets/images/home-2.png'),
+    image: require('@/assets/images/onboarding-2.png'),
     titleKey: 'topRestaurants',
     subtitleKey: 'browseMenus',
   },
   {
     id: 3,
-    image: require('@/assets/images/home-3.png'),
+    image: require('@/assets/images/onboarding-3.png'),
     titleKey: 'realTimeTracking',
     subtitleKey: 'supportingOnboarding',
   },
