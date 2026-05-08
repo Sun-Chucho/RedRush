@@ -22,12 +22,11 @@ const PROMO_BANNERS: {
   subtitle?: string;
   titleKey?: TranslationKey;
   subtitleKey?: TranslationKey;
-  bg: string;
-  icon: string;
+  image: number;
 }[] = [
-  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', bg: Colors.primary, icon: 'delivery-dining' },
-  { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', bg: '#1A1A2E', icon: 'local-offer' },
-  { id: '3', title: 'MTN MoMo Pay', subtitle: 'Earn 500 cashback per order', bg: '#2A2A1A', icon: 'payment' },
+  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', image: require('@/assets/images/home-1.png') },
+  { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/assets/images/home-2.png') },
+  { id: '3', title: 'MTN MoMo Pay', subtitle: 'Earn 500 cashback per order', image: require('@/assets/images/home-3.png') },
 ];
 
 export default function CustomerHome() {
@@ -112,12 +111,13 @@ export default function CustomerHome() {
         {/* Promo Banners */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promoScroll} contentContainerStyle={styles.promoContent}>
           {PROMO_BANNERS.map(banner => (
-            <TouchableOpacity key={banner.id} style={[styles.promoBanner, { backgroundColor: banner.bg }]}>
-              <View>
+            <TouchableOpacity key={banner.id} style={styles.promoBanner}>
+              <Image source={banner.image} style={styles.promoImage} contentFit="cover" />
+              <View style={styles.promoImageOverlay} />
+              <View style={styles.promoTextBlock}>
                 <Text style={styles.promoTitle}>{banner.titleKey ? t(banner.titleKey) : banner.title}</Text>
                 <Text style={styles.promoSubtitle}>{banner.subtitleKey ? t(banner.subtitleKey) : banner.subtitle}</Text>
               </View>
-              <MaterialIcons name={banner.icon as any} size={40} color="rgba(255,255,255,0.3)" />
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -217,7 +217,10 @@ const styles = StyleSheet.create({
   filterBtn: { backgroundColor: 'rgba(204,0,0,0.15)', borderRadius: BorderRadius.sm, padding: 6 },
   promoScroll: { marginBottom: Spacing.md },
   promoContent: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
-  promoBanner: { width: 220, height: 90, borderRadius: BorderRadius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  promoBanner: { width: 240, height: 118, borderRadius: BorderRadius.lg, overflow: 'hidden', position: 'relative', justifyContent: 'flex-end' },
+  promoImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  promoImageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
+  promoTextBlock: { padding: Spacing.md },
   promoTitle: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold },
   promoSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.xs, marginTop: 2 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
