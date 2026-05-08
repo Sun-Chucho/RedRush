@@ -304,7 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: data.name,
           email,
           phone: data.phone,
-          role: data.role === 'admin' ? 'customer' : data.role || 'customer',
+          role: data.role === 'vendor' || data.role === 'rider' ? data.role : 'customer',
           address: data.address,
         }
       );

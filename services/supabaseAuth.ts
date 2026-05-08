@@ -13,6 +13,10 @@ type ProfileRow = {
   restaurant_id: string | null;
 };
 
+function safeSignupRole(role: Partial<AuthUser>['role']) {
+  return role === 'vendor' || role === 'rider' ? role : 'customer';
+}
+
 export function shouldUseSupabaseAuth() {
   return isSupabaseConfigured;
 }
@@ -80,7 +84,37 @@ async function ensureSupabaseProfile(userId: string, data: Partial<AuthUser>): P
   const { data: created, error } = await supabase.from('profiles').insert(payload).select('*').single();
   if (error) throw error;
 
+  await ensureSupabaseRoleDetails(userId, { ...data, role });
+
   return toAuthUser(created as ProfileRow, data.email);
+}
+
+async function ensureSupabaseRoleDetails(userId: string, data: Partial<AuthUser>) {
+  const role = data.role || 'customer';
+
+  try {
+    await supabase.from('customer_profile_data').upsert({ user_id: userId }).throwOnError();
+
+    if (role === 'vendor') {
+      await supabase
+        .from('vendor_profiles')
+        .upsert({
+          user_id: userId,
+          business_name: data.name || '',
+          business_phone: data.phone || '',
+          business_address: data.address || '',
+          restaurant_id: data.restaurantId || null,
+        })
+        .throwOnError();
+    }
+
+    if (role === 'rider') {
+      await supabase.from('rider_profiles').upsert({ user_id: userId }).throwOnError();
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : '';
+    if (!message.includes('schema cache') && !message.includes('could not find the table')) throw error;
+  }
 }
 
 export async function getCurrentSupabaseUser() {
@@ -116,6 +150,7 @@ export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { pass
   if (!shouldUseSupabaseAuth()) return null;
 
   const email = (data.email || '').trim();
+  const role = safeSignupRole(data.role);
   const { data: result, error } = await supabase.auth.signUp({
     email,
     password: data.password,
@@ -123,6 +158,7 @@ export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { pass
       data: {
         name: data.name,
         phone: data.phone,
+        role,
       },
     },
   });
@@ -134,7 +170,7 @@ export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { pass
     name: data.name,
     email,
     phone: data.phone,
-    role: data.role === 'admin' ? 'customer' : data.role || 'customer',
+    role,
     address: data.address,
   });
 }
