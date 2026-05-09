@@ -11,31 +11,49 @@ import {
   fetchSupabaseOrders,
   updateSupabaseOrderStatus,
 } from '@/services/supabaseOrders';
+import {
+  sendOrderStatusNotification,
+  sendNewOrderNotification,
+  sendRiderRequestNotification,
+} from '@/services/notifications';
 
 interface OrderContextType {
   orders: Order[];
   activeOrder: Order | null;
-  placeOrder: (items: CartItem[], restaurantId: string, restaurantName: string, address: string, paymentMethod: string, deliveryFee: number, serviceCharge?: number, discount?: number, promoCode?: string) => Promise<Order>;
-  updateOrderStatus: (orderId: string, status: Order['status'], extra?: Partial<Pick<Order, 'riderId' | 'riderName'>>) => Promise<void>;
+  placeOrder: (
+    items: CartItem[],
+    restaurantId: string,
+    restaurantName: string,
+    address: string,
+    paymentMethod: string,
+    deliveryFee: number,
+    serviceCharge?: number,
+    discount?: number,
+    promoCode?: string
+  ) => Promise<Order>;
+  updateOrderStatus: (
+    orderId: string,
+    status: Order['status'],
+    extra?: Partial<Pick<Order, 'riderId' | 'riderName' | 'prepTime' | 'deliveryTime'>>
+  ) => Promise<void>;
   assignRider: (orderId: string, riderId: string, riderName: string) => Promise<void>;
   getOrderById: (id: string) => Order | undefined;
+  setPrepAndDeliveryTime: (orderId: string, prepMinutes: number, deliveryMinutes: number) => Promise<void>;
 }
 
 export const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 function toIsoDate(value: unknown, fallback = Date.now()) {
-  if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
+  if (
+    value &&
+    typeof value === 'object' &&
+    'toDate' in value &&
+    typeof (value as { toDate: () => Date }).toDate === 'function'
+  ) {
     return (value as { toDate: () => Date }).toDate().toISOString();
   }
-
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
   return new Date(fallback).toISOString();
 }
 
@@ -61,6 +79,10 @@ function orderFromDoc(id: string, data: Partial<Order> & Record<string, unknown>
     promoCode: data.promoCode,
     riderId: data.riderId,
     riderName: data.riderName,
+    riderPhone: data.riderPhone as string | undefined,
+    customerPhone: data.customerPhone as string | undefined,
+    prepTime: data.prepTime as number | undefined,
+    deliveryTime: data.deliveryTime as number | undefined,
     acceptedAt: data.acceptedAt ? toIsoDate(data.acceptedAt) : undefined,
     preparingAt: data.preparingAt ? toIsoDate(data.preparingAt) : undefined,
     readyAt: data.readyAt ? toIsoDate(data.readyAt) : undefined,
@@ -72,7 +94,6 @@ function orderFromDoc(id: string, data: Partial<Order> & Record<string, unknown>
 
 function uniqueOrdersById(orders: Order[]) {
   const seen = new Set<string>();
-
   return orders.filter(order => {
     if (seen.has(order.id)) return false;
     seen.add(order.id);
@@ -86,9 +107,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [supabaseOrders, setSupabaseOrders] = useState<Order[] | null>(null);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [prevOrderStatuses, setPrevOrderStatuses] = useState<Record<string, string>>({});
   const vendorRestaurant = getVendorRestaurant();
   const vendorRestaurantId = vendorRestaurant?.id;
 
+  // ─── Firestore real-time subscription ───────────────────────────────────
   useEffect(() => {
     if (!user) {
       setOrders([]);
@@ -125,47 +148,81 @@ export function OrderProvider({ children }: { children: ReactNode }) {
           .flat()
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       );
-
       setOrders(liveOrders);
-      setActiveOrder(prev => (prev ? liveOrders.find(order => order.id === prev.id) || prev : prev));
+      setActiveOrder(prev => (prev ? liveOrders.find(o => o.id === prev.id) || prev : prev));
     };
 
-    const unsubscribes = orderQueries.map((ordersQuery, index) => onSnapshot(
-      ordersQuery,
-      snapshot => {
-        snapshots.set(index, snapshot.docs.map(orderDoc => orderFromDoc(orderDoc.id, orderDoc.data() as Partial<Order> & Record<string, unknown>)));
-        publish();
-      },
-      () => {
-        snapshots.set(index, []);
-        publish();
-      }
-    ));
+    const unsubscribes = orderQueries.map((q, index) =>
+      onSnapshot(
+        q,
+        snapshot => {
+          snapshots.set(index, snapshot.docs.map(doc => orderFromDoc(doc.id, doc.data() as Partial<Order> & Record<string, unknown>)));
+          publish();
+        },
+        () => {
+          snapshots.set(index, []);
+          publish();
+        }
+      )
+    );
 
-    return () => {
-      unsubscribes.forEach(unsubscribe => unsubscribe());
-    };
+    return () => unsubscribes.forEach(u => u());
   }, [user, user?.id, user?.role, vendorRestaurantId]);
 
+  // ─── Supabase initial fetch ──────────────────────────────────────────────
   useEffect(() => {
     let isMounted = true;
-
     fetchSupabaseOrders(user, vendorRestaurantId)
       .then(nextOrders => {
         if (!isMounted || nextOrders === null) return;
         setSupabaseOrders(nextOrders);
-        setActiveOrder(prev => (prev ? nextOrders.find(order => order.id === prev.id) || prev : prev));
+        setActiveOrder(prev => (prev ? nextOrders.find(o => o.id === prev.id) || prev : prev));
       })
       .catch(() => {
         if (isMounted) setSupabaseOrders(null);
       });
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [user, user?.id, user?.role, vendorRestaurantId]);
 
+  // ─── Push notification triggers on status changes ────────────────────────
   const visibleOrders = supabaseOrders || orders;
+
+  useEffect(() => {
+    if (!user || !visibleOrders.length) return;
+
+    visibleOrders.forEach(order => {
+      const prevStatus = prevOrderStatuses[order.id];
+      if (prevStatus && prevStatus !== order.status) {
+        // Customer receives order status updates
+        if (user.role === 'customer' && order.customerId === user.id) {
+          sendOrderStatusNotification(
+            order.status,
+            order.restaurantName,
+            order.riderName,
+            order.deliveryTime
+          ).catch(() => undefined);
+        }
+
+        // Vendor receives notification when order becomes pending
+        if (user.role === 'vendor' && order.restaurantId === vendorRestaurantId && order.status === 'pending') {
+          sendNewOrderNotification(1, order.restaurantName, order.total).catch(() => undefined);
+        }
+
+        // Rider receives notification when order becomes ready (nearby)
+        if (user.role === 'rider' && order.status === 'ready' && !order.riderId) {
+          sendRiderRequestNotification(
+            order.restaurantName,
+            Math.max(900, Math.round(order.deliveryFee * 0.8))
+          ).catch(() => undefined);
+        }
+      }
+    });
+
+    const statusMap: Record<string, string> = {};
+    visibleOrders.forEach(o => { statusMap[o.id] = o.status; });
+    setPrevOrderStatuses(statusMap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleOrders, user?.role]);
 
   const placeOrder = useCallback(async (
     items: CartItem[],
@@ -178,9 +235,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     discount = 0,
     promoCode?: string
   ): Promise<Order> => {
-    if (!user) {
-      throw new Error('Please sign in before placing an order.');
-    }
+    if (!user) throw new Error('Please sign in before placing an order.');
 
     try {
       const supabaseOrder = await createSupabaseOrder({
@@ -192,20 +247,19 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       });
 
       if (supabaseOrder) {
-        setSupabaseOrders(prev => uniqueOrdersById([supabaseOrder, ...(prev || []).filter(order => order.id !== supabaseOrder.id)]));
+        setSupabaseOrders(prev =>
+          uniqueOrdersById([supabaseOrder, ...(prev || []).filter(o => o.id !== supabaseOrder.id)])
+        );
         setActiveOrder(supabaseOrder);
         return supabaseOrder;
       }
 
       const createdOrder = await createOrderOnBackend<Partial<Order> & Record<string, unknown>>({
-        restaurantId,
-        address,
-        paymentMethod,
-        promoCode,
+        restaurantId, address, paymentMethod, promoCode,
         items: items.map(item => ({ menuItemId: item.menuItem.id, quantity: item.quantity })),
       });
       const savedOrder = orderFromDoc(String(createdOrder.id || ''), createdOrder);
-      setOrders(prev => uniqueOrdersById([savedOrder, ...prev.filter(order => order.id !== savedOrder.id)]));
+      setOrders(prev => uniqueOrdersById([savedOrder, ...prev.filter(o => o.id !== savedOrder.id)]));
       setActiveOrder(savedOrder);
       return savedOrder;
     } catch (error) {
@@ -216,21 +270,24 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const updateOrderStatus = useCallback(async (
     orderId: string,
     status: Order['status'],
-    extra: Partial<Pick<Order, 'riderId' | 'riderName'>> = {}
+    extra: Partial<Pick<Order, 'riderId' | 'riderName' | 'prepTime' | 'deliveryTime'>> = {}
   ) => {
     const optimisticExtra = status === 'picked_up' && user
-      ? { riderId: user.id, riderName: user.name, ...extra }
+      ? { riderId: user.id, riderName: user.name, riderPhone: user.phone, ...extra }
       : extra;
 
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...optimisticExtra, status } : o));
-    setSupabaseOrders(prev => prev ? prev.map(o => o.id === orderId ? { ...o, ...optimisticExtra, status } : o) : prev);
+    setSupabaseOrders(prev => prev
+      ? prev.map(o => o.id === orderId ? { ...o, ...optimisticExtra, status } : o)
+      : prev
+    );
     if (activeOrder?.id === orderId) {
       setActiveOrder(prev => prev ? { ...prev, ...optimisticExtra, status } : null);
     }
 
     if (await updateSupabaseOrderStatus(orderId, status)) {
-      const refreshedOrders = await fetchSupabaseOrders(user, vendorRestaurantId);
-      if (refreshedOrders !== null) setSupabaseOrders(refreshedOrders);
+      const refreshed = await fetchSupabaseOrders(user, vendorRestaurantId);
+      if (refreshed !== null) setSupabaseOrders(refreshed);
       return;
     }
 
@@ -241,16 +298,47 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     await updateOrderStatus(orderId, 'picked_up', { riderId, riderName });
   }, [updateOrderStatus]);
 
+  const setPrepAndDeliveryTime = useCallback(async (
+    orderId: string,
+    prepMinutes: number,
+    deliveryMinutes: number
+  ) => {
+    const estimatedDelivery = new Date(Date.now() + (prepMinutes + deliveryMinutes) * 60000).toISOString();
+
+    setOrders(prev => prev.map(o =>
+      o.id === orderId
+        ? { ...o, prepTime: prepMinutes, deliveryTime: deliveryMinutes, estimatedDelivery }
+        : o
+    ));
+    setSupabaseOrders(prev => prev
+      ? prev.map(o =>
+          o.id === orderId
+            ? { ...o, prepTime: prepMinutes, deliveryTime: deliveryMinutes, estimatedDelivery }
+            : o
+        )
+      : prev
+    );
+    if (activeOrder?.id === orderId) {
+      setActiveOrder(prev =>
+        prev ? { ...prev, prepTime: prepMinutes, deliveryTime: deliveryMinutes, estimatedDelivery } : null
+      );
+    }
+
+    // Persist to backend
+    await updateOrderStatusOnBackend({ orderId, status: undefined as unknown as Order['status'], prepTime: prepMinutes, deliveryTime: deliveryMinutes, estimatedDelivery } as Parameters<typeof updateOrderStatusOnBackend>[0]).catch(() => undefined);
+  }, [activeOrder?.id]);
+
   const getOrderById = useCallback((id: string) => visibleOrders.find(o => o.id === id), [visibleOrders]);
 
-  const value = useMemo(
-    () => ({ orders: visibleOrders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById }),
-    [visibleOrders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById]
-  );
+  const value = useMemo(() => ({
+    orders: visibleOrders,
+    activeOrder,
+    placeOrder,
+    updateOrderStatus,
+    assignRider,
+    getOrderById,
+    setPrepAndDeliveryTime,
+  }), [visibleOrders, activeOrder, placeOrder, updateOrderStatus, assignRider, getOrderById, setPrepAndDeliveryTime]);
 
-  return (
-    <OrderContext.Provider value={value}>
-      {children}
-    </OrderContext.Provider>
-  );
+  return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;
 }

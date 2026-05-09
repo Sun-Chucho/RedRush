@@ -73,6 +73,9 @@ export interface Order {
   estimatedDelivery: string;
   riderId?: string;
   riderName?: string;
+  riderPhone?: string;
+  prepTime?: number;
+  deliveryTime?: number;
   acceptedAt?: string;
   preparingAt?: string;
   readyAt?: string;

@@ -3,6 +3,6 @@ import { OrderContext } from '@/contexts/OrderContext';
 
 export function useOrders() {
   const context = useContext(OrderContext);
-  if (!context) throw new Error('useOrders must be used within OrderProvider');
+  if (!context) throw new Error('useOrders must be used within an OrderProvider');
   return context;
 }
