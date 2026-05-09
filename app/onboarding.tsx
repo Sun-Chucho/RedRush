@@ -80,11 +80,9 @@ export default function OnboardingScreen() {
       >
         {slides.map((slide) => (
           <View key={slide.id} style={[styles.slide, { width: screenWidth, height: screenHeight }]}>
-            <View style={styles.imageStage}>
-              <Image source={slide.image} style={styles.slideImageBackdrop} contentFit="cover" blurRadius={28} />
-              <View style={styles.slideImageShade} />
-              <Image source={slide.image} style={styles.slideImage} contentFit="contain" />
-            </View>
+            <Image source={slide.image} style={styles.slideImageBackdrop} contentFit="cover" blurRadius={22} />
+            <Image source={slide.image} style={styles.slideImage} contentFit="cover" />
+            <View style={styles.slideShade} />
             <View style={styles.slideContent}>
               <Text style={styles.slideTitle}>{t(slide.titleKey)}</Text>
               <Text style={styles.slideSubtitle}>{t(slide.subtitleKey)}</Text>
@@ -128,27 +126,14 @@ const styles = StyleSheet.create({
   skipText: { color: Colors.textSecondary, fontSize: FontSize.body, fontWeight: FontWeight.medium },
   slider: { flex: 1 },
   slide: { position: 'relative', backgroundColor: Colors.background },
-  imageStage: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 112 : 92,
-    left: 0,
-    right: 0,
-    bottom: 300,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
-    overflow: 'hidden',
-  },
-  slideImageBackdrop: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.72 },
-  slideImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
-  slideImage: { width: '100%', height: '100%' },
+  slideImageBackdrop: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.8, transform: [{ scale: 1.08 }] },
+  slideImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  slideShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
   slideContent: {
     position: 'absolute',
-    bottom: 142,
+    bottom: 136,
     left: Spacing.xl,
     right: Spacing.xl,
-    minHeight: 124,
-    justifyContent: 'flex-end',
   },
   slideTitle: {
     color: Colors.text, fontSize: FontSize.xxl, fontWeight: FontWeight.extrabold,

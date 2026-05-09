@@ -33,7 +33,7 @@ const SIGNUP_ROLES: { role: SignupRole; icon: keyof typeof MaterialIcons.glyphMa
   { role: 'rider', icon: 'delivery-dining', label: 'Rider', desc: 'Deliver orders' },
 ];
 
-const HERO_HEIGHT = Math.round(Dimensions.get('window').height * 0.46);
+const HERO_HEIGHT = Math.round(Dimensions.get('window').height * 0.42);
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -208,13 +208,13 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollView: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingBottom: Spacing.xxl },
-  hero: { height: HERO_HEIGHT, minHeight: 310, position: 'relative', overflow: 'hidden', backgroundColor: Colors.background },
+  scroll: { paddingBottom: Spacing.xl },
+  hero: { height: HERO_HEIGHT, minHeight: 280, position: 'relative', overflow: 'hidden', backgroundColor: Colors.background },
   heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   heroGradient: { ...StyleSheet.absoluteFillObject },
-  authPanel: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
-  topControls: { alignSelf: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
-  modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.lg },
+  authPanel: { paddingHorizontal: Spacing.md, paddingTop: 0 },
+  topControls: { alignSelf: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
+  modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.md },
   modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: BorderRadius.sm },
   modeBtnActive: { backgroundColor: Colors.primary },
   modeBtnText: { color: Colors.textMuted, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
