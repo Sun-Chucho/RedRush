@@ -19,7 +19,7 @@ export default function Index() {
   if (isLoading || !preloadDone) {
     return (
       <View style={styles.preload}>
-        <Image source={require('@/assets/images/logopre.png')} style={styles.preloadLogo} contentFit="contain" />
+        <Image source={require('@/assets/images/logo.png')} style={styles.preloadLogo} contentFit="contain" />
         <ActivityIndicator color={Colors.primary} style={styles.loader} />
       </View>
     );
