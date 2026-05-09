@@ -1,22 +1,62 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function VendorProfile() {
   const [notifications, setNotifications] = useState(true);
   const [autoAccept, setAutoAccept] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
+  const { getVendorRestaurant, updateVendorRestaurantLocation } = useRestaurants();
+  const restaurant = getVendorRestaurant();
+
+  const saveCurrentLocation = async () => {
+    setSavingLocation(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+
+      if (permission.status !== 'granted') {
+        showAlert('Location required', 'Allow location access so RedRush can save your shop position.');
+        return;
+      }
+
+      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const [place] = await Location.reverseGeocodeAsync(current.coords);
+      const address = [
+        place?.name,
+        place?.street,
+        place?.district,
+        place?.city,
+        place?.region,
+        place?.country,
+      ].filter(Boolean).join(', ') || `${current.coords.latitude.toFixed(6)}, ${current.coords.longitude.toFixed(6)}`;
+
+      await updateVendorRestaurantLocation({
+        address,
+        latitude: current.coords.latitude,
+        longitude: current.coords.longitude,
+      });
+
+      showAlert('Shop location saved', 'Customers near this area can now find your store more accurately.');
+    } catch (error) {
+      showAlert('Location not saved', error instanceof Error ? error.message : 'Unable to save shop location.');
+    } finally {
+      setSavingLocation(false);
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
@@ -62,7 +102,13 @@ export default function VendorProfile() {
         <Text style={styles.sectionTitle}>Restaurant Details</Text>
         {[
           { label: 'Cuisine Type', value: 'Fast Food, Nigerian' },
-          { label: 'Address', value: '12 Allen Avenue, Ikeja' },
+          { label: 'Address', value: restaurant?.address || user?.address || 'Not set' },
+          {
+            label: 'GPS Pin',
+            value: typeof restaurant?.latitude === 'number' && typeof restaurant?.longitude === 'number'
+              ? `${restaurant.latitude.toFixed(5)}, ${restaurant.longitude.toFixed(5)}`
+              : 'Not set',
+          },
           { label: 'Phone', value: '+234 801 234 5678' },
           { label: 'Opening Hours', value: '8:00 AM - 10:00 PM' },
           { label: 'Min Order', value: formatMoney(2000) },
@@ -73,6 +119,10 @@ export default function VendorProfile() {
             <Text style={styles.detailValue}>{d.value}</Text>
           </View>
         ))}
+        <TouchableOpacity style={[styles.locationBtn, savingLocation && styles.locationBtnDisabled]} onPress={saveCurrentLocation} disabled={savingLocation}>
+          <MaterialIcons name="my-location" size={18} color={Colors.text} />
+          <Text style={styles.locationBtnText}>{savingLocation ? 'Saving location...' : 'Use current location as shop address'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Settings */}
@@ -131,7 +181,10 @@ const styles = StyleSheet.create({
   detailsCard: { backgroundColor: Colors.surfaceCard, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.md },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
   detailLabel: { color: Colors.textMuted, fontSize: FontSize.sm },
-  detailValue: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.medium },
+  detailValue: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.medium, flex: 1, textAlign: 'right', marginLeft: Spacing.md },
+  locationBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.primary, borderRadius: BorderRadius.md, paddingVertical: 13, marginTop: Spacing.md },
+  locationBtnDisabled: { opacity: 0.7 },
+  locationBtnText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
   settingsCard: { backgroundColor: Colors.surfaceCard, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.md },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
   settingLabel: { color: Colors.text, fontSize: FontSize.body },

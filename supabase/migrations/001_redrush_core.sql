@@ -30,6 +30,8 @@ create table if not exists public.restaurants (
   image text,
   cover_image text,
   address text not null default '',
+  latitude double precision,
+  longitude double precision,
   is_open boolean not null default true,
   distance text not null default '0 km',
   promo text,

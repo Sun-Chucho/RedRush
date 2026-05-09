@@ -14,6 +14,8 @@ type RestaurantRow = {
   image: string | null;
   cover_image: string | null;
   address: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   is_open: boolean | null;
   distance: string | null;
   promo: string | null;
@@ -34,6 +36,11 @@ type MenuItemRow = {
 
 type MenuItemInput = Omit<MenuItem, 'id'>;
 type MenuItemUpdate = Partial<MenuItemInput>;
+export type RestaurantLocationInput = {
+  latitude: number;
+  longitude: number;
+  address: string;
+};
 
 const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80';
 const DEFAULT_COVER = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
@@ -59,6 +66,8 @@ function normalizeRestaurant(row: RestaurantRow, menu: MenuItem[]): Restaurant {
     image: row.image || DEFAULT_IMAGE,
     coverImage: row.cover_image || DEFAULT_COVER,
     address: row.address || 'Restaurant address',
+    latitude: typeof row.latitude === 'number' ? row.latitude : undefined,
+    longitude: typeof row.longitude === 'number' ? row.longitude : undefined,
     isOpen: row.is_open !== false,
     distance: row.distance || '0 km',
     promo: row.promo || undefined,
@@ -157,6 +166,8 @@ export async function ensureSupabaseVendorRestaurant(user: {
       image: template.image,
       cover_image: template.coverImage,
       address: user.address || 'Restaurant address',
+      latitude: template.latitude,
+      longitude: template.longitude,
       is_open: true,
       distance: '0 km',
       categories: ['Meals', 'Drinks'],
@@ -166,6 +177,26 @@ export async function ensureSupabaseVendorRestaurant(user: {
 
   if (error) throw error;
   return data.id as string;
+}
+
+export async function updateSupabaseVendorRestaurantLocation(
+  restaurantId: string,
+  location: RestaurantLocationInput
+) {
+  if (!shouldUseSupabaseRestaurants()) return false;
+
+  const { error } = await supabase
+    .from('restaurants')
+    .update({
+      address: location.address,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      distance: '0 km',
+    })
+    .eq('id', restaurantId);
+
+  if (error) throw error;
+  return true;
 }
 
 export async function createSupabaseMenuItem(restaurantId: string, item: MenuItemInput) {

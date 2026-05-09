@@ -16,8 +16,10 @@ import {
   deleteSupabaseMenuItem,
   ensureSupabaseVendorRestaurant,
   fetchSupabaseRestaurants,
+  RestaurantLocationInput,
   shouldUseSupabaseRestaurants,
   updateSupabaseMenuItem,
+  updateSupabaseVendorRestaurantLocation,
 } from '@/services/supabaseRestaurants';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -32,6 +34,7 @@ interface RestaurantContextType {
   getRestaurantById: (id: string) => Restaurant | undefined;
   getVendorRestaurant: () => Restaurant | undefined;
   ensureVendorRestaurant: () => Promise<string>;
+  updateVendorRestaurantLocation: (location: RestaurantLocationInput) => Promise<void>;
   createMenuItem: (restaurantId: string, item: MenuItemInput) => Promise<void>;
   updateMenuItem: (restaurantId: string, itemId: string, item: MenuItemUpdate) => Promise<void>;
   deleteMenuItem: (restaurantId: string, itemId: string) => Promise<void>;
@@ -48,6 +51,10 @@ function asString(value: unknown, fallback: string) {
 
 function asNumber(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function asOptionalNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function asBoolean(value: unknown, fallback: boolean) {
@@ -76,6 +83,8 @@ function normalizeRestaurant(id: string, data: Record<string, unknown>): Restaur
     image: asString(data.image, DEFAULT_IMAGE),
     coverImage: asString(data.coverImage, DEFAULT_COVER),
     address: asString(data.address, 'Restaurant address'),
+    latitude: asOptionalNumber(data.latitude),
+    longitude: asOptionalNumber(data.longitude),
     isOpen: asBoolean(data.isOpen, true),
     distance: asString(data.distance, '0 km'),
     promo: typeof data.promo === 'string' ? data.promo : undefined,
@@ -195,10 +204,10 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     if (!user) return undefined;
 
     return (
-      liveRestaurants.find(restaurant => restaurant.id === user.restaurantId) ||
-      liveRestaurants.find(restaurant => restaurant.ownerId === user.id)
+      restaurants.find(restaurant => restaurant.id === user.restaurantId) ||
+      restaurants.find(restaurant => restaurant.ownerId === user.id)
     );
-  }, [liveRestaurants, user]);
+  }, [restaurants, user]);
 
   const ensureVendorRestaurant = useCallback(async () => {
     if (!user || user.role !== 'vendor') {
@@ -235,6 +244,8 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
         image: template.image,
         coverImage: template.coverImage,
         address: user.address || 'Restaurant address',
+        latitude: template.latitude,
+        longitude: template.longitude,
         isOpen: true,
         distance: '0 km',
         promo: undefined,
@@ -247,6 +258,30 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
 
     return restaurantId;
   }, [restaurants, user]);
+
+  const updateVendorRestaurantLocation = useCallback(async (location: RestaurantLocationInput) => {
+    if (!user || user.role !== 'vendor') {
+      throw new Error('Only vendor accounts can update restaurant location.');
+    }
+
+    const restaurantId = await ensureVendorRestaurant();
+
+    if (await updateSupabaseVendorRestaurantLocation(restaurantId, location)) {
+      setSupabaseRestaurants(await fetchSupabaseRestaurants());
+      return;
+    }
+
+    await updateDoc(
+      doc(db, 'restaurants', restaurantId),
+      cleanPayload({
+        address: location.address,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        distance: '0 km',
+        updatedAt: serverTimestamp(),
+      })
+    );
+  }, [ensureVendorRestaurant, user]);
 
   const createMenuItem = useCallback(async (restaurantId: string, item: MenuItemInput) => {
     if (await createSupabaseMenuItem(restaurantId, item)) {
@@ -290,6 +325,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
       getRestaurantById,
       getVendorRestaurant,
       ensureVendorRestaurant,
+      updateVendorRestaurantLocation,
       createMenuItem,
       updateMenuItem,
       deleteMenuItem,
@@ -301,6 +337,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
       getRestaurantById,
       getVendorRestaurant,
       ensureVendorRestaurant,
+      updateVendorRestaurantLocation,
       createMenuItem,
       updateMenuItem,
       deleteMenuItem,

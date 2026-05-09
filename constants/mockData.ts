@@ -37,6 +37,8 @@ export interface Restaurant {
   image: string;
   coverImage: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   isOpen: boolean;
   distance: string;
   promo?: string;
