@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, StatusBar, Platform, useWindowDimensions,
+  ScrollView, StatusBar, Platform, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -36,7 +36,13 @@ export default function OnboardingScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const router = useRouter();
   const { t } = useLanguage();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [dims, setDims] = useState(Dimensions.get('window'));
+  useEffect(() => {
+    const sub = Dimensions.addEventListener('change', ({ window }) => setDims(window));
+    return () => sub?.remove();
+  }, []);
+  const screenWidth = Math.max(1, dims.width);
+  const screenHeight = Math.max(1, dims.height);
 
   const handleScroll = (event: any) => {
     const index = Math.max(0, Math.min(slides.length - 1, Math.round(event.nativeEvent.contentOffset.x / screenWidth)));

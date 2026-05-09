@@ -27,7 +27,10 @@ import {
   updateSupabaseProfile,
 } from '@/services/supabaseAuth';
 
-WebBrowser.maybeCompleteAuthSession();
+// Guard: maybeCompleteAuthSession was removed in newer expo-web-browser versions
+if (typeof WebBrowser.maybeCompleteAuthSession === 'function') {
+  WebBrowser.maybeCompleteAuthSession();
+}
 
 type NativeGoogleSignIn = typeof import('@react-native-google-signin/google-signin');
 
