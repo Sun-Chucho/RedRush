@@ -15,6 +15,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "compress:images": "node ./scripts/compress-images.js",
     "supabase:launch": "powershell -ExecutionPolicy Bypass -File ./scripts/apply-supabase-launch-sql.ps1"
   },
   "dependencies": {
@@ -149,6 +150,7 @@
     "redux": "^4.0.5",
     "redux-thunk": "^2.3.0",
     "semver": "^7.6.0",
+    "sharp": "^0.34.5",
     "snack-content": "^3.2.0",
     "tslib": "2.6.2",
     "url": "^0.11.0",

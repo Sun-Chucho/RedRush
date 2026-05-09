@@ -42,7 +42,10 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "supportsTablet": true,
+      "backgroundColor": "#151010",
+      "themeColor": "#FF6B35"
     },
     "plugins": [
       "expo-router",

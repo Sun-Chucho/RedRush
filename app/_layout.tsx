@@ -20,7 +20,8 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 export default function RootLayout() {
   const pathname = usePathname();
   const isAdminPath = pathname === '/admin' || pathname.startsWith('/(admin)') || ['/users', '/orders', '/analytics'].includes(pathname);
-  const usePhoneShell = Platform.OS === 'web' && !isAdminPath;
+  // Only use phone shell on mobile platforms, not on web
+  const usePhoneShell = false;
 
   return (
     <AlertProvider>
@@ -34,8 +35,8 @@ export default function RootLayout() {
                     <RestaurantProvider>
                       <SupportProvider>
                         <OrderProvider>
-                          <View style={[styles.webFrame, usePhoneShell && styles.webFramePhone]}>
-                            <View style={[styles.root, usePhoneShell && styles.phoneShell]}>
+                          <View style={[styles.webFrame]}>
+                            <View style={[styles.root]}>
                               <Stack screenOptions={{ headerShown: false }}>
                                 <Stack.Screen name="index" />
                                 <Stack.Screen name="onboarding" />
@@ -67,13 +68,22 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  webFrame: { flex: 1 },
+  webFrame: { 
+    flex: 1, 
+    width: '100%',
+    backgroundColor: Colors.background,
+  },
   webFramePhone: {
     alignItems: 'center',
     backgroundColor: '#151010',
     justifyContent: 'center',
   },
-  root: { flex: 1, width: '100%' },
+  root: { 
+    flex: 1, 
+    width: '100%',
+    maxWidth: '100%',
+    marginHorizontal: 'auto',
+  },
   phoneShell: {
     maxWidth: 430,
     minHeight: '100%',
