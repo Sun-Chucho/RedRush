@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { isSupabaseConfigured, supabase } from './supabase';
 import type {
   SavedAddress,
   SavedPaymentMethod,
@@ -10,7 +10,7 @@ import type {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function shouldUseSupabaseCustomerData(): boolean {
-  return !!supabase;
+  return isSupabaseConfigured;
 }
 
 export interface SupabaseCustomerProfileData {

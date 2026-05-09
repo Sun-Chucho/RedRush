@@ -9,6 +9,8 @@ import { createOrderOnBackend, updateOrderStatusOnBackend } from '@/services/bac
 import {
   createSupabaseOrder,
   fetchSupabaseOrders,
+  shouldUseSupabaseOrders,
+  updateSupabaseOrderTiming,
   updateSupabaseOrderStatus,
 } from '@/services/supabaseOrders';
 import {
@@ -119,6 +121,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (shouldUseSupabaseOrders()) {
+      setOrders([]);
+      return;
+    }
+
     const ordersRef = collection(db, 'orders');
     const orderQueries =
       user.role === 'customer'
@@ -179,13 +186,13 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         setActiveOrder(prev => (prev ? nextOrders.find(o => o.id === prev.id) || prev : prev));
       })
       .catch(() => {
-        if (isMounted) setSupabaseOrders(null);
+        if (isMounted) setSupabaseOrders(shouldUseSupabaseOrders() ? [] : null);
       });
     return () => { isMounted = false; };
   }, [user, user?.id, user?.role, vendorRestaurantId]);
 
   // ─── Push notification triggers on status changes ────────────────────────
-  const visibleOrders = supabaseOrders || orders;
+  const visibleOrders = supabaseOrders ?? orders;
 
   useEffect(() => {
     if (!user || !visibleOrders.length) return;
@@ -324,9 +331,14 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       );
     }
 
-    // Persist to backend
+    if (await updateSupabaseOrderTiming(orderId, prepMinutes, deliveryMinutes, estimatedDelivery)) {
+      const refreshed = await fetchSupabaseOrders(user, vendorRestaurantId);
+      if (refreshed !== null) setSupabaseOrders(refreshed);
+      return;
+    }
+
     await updateOrderStatusOnBackend({ orderId, status: undefined as unknown as Order['status'], prepTime: prepMinutes, deliveryTime: deliveryMinutes, estimatedDelivery } as Parameters<typeof updateOrderStatusOnBackend>[0]).catch(() => undefined);
-  }, [activeOrder?.id]);
+  }, [activeOrder?.id, user, vendorRestaurantId]);
 
   const getOrderById = useCallback((id: string) => visibleOrders.find(o => o.id === id), [visibleOrders]);
 

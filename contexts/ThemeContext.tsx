@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { Appearance } from 'react-native';
+import { Appearance, Platform } from 'react-native';
+import * as NavigationBar from 'expo-navigation-bar';
+import * as SystemUI from 'expo-system-ui';
 import { applyThemeColors, ThemeMode } from '@/constants/theme';
 
 type ThemeContextValue = {
@@ -19,11 +21,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>(getInitialMode);
   const [ready, setReady] = useState(false);
 
+  const applyNativeTheme = async (nextMode: ThemeMode) => {
+    applyThemeColors(nextMode);
+    Appearance.setColorScheme?.(nextMode);
+    await SystemUI.setBackgroundColorAsync(nextMode === 'dark' ? '#0A0A0A' : '#FFF8F8').catch(() => undefined);
+    if (Platform.OS === 'android') {
+      await NavigationBar.setBackgroundColorAsync(nextMode === 'dark' ? '#0A0A0A' : '#FFF8F8').catch(() => undefined);
+      await NavigationBar.setButtonStyleAsync(nextMode === 'dark' ? 'light' : 'dark').catch(() => undefined);
+    }
+  };
+
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
-      .then(stored => {
+      .then(async stored => {
         const nextMode = stored === 'light' || stored === 'dark' ? stored : getInitialMode();
-        applyThemeColors(nextMode);
+        await applyNativeTheme(nextMode);
         setMode(nextMode);
       })
       .finally(() => setReady(true));
@@ -31,7 +43,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const toggleTheme = async () => {
     const nextMode: ThemeMode = mode === 'dark' ? 'light' : 'dark';
-    applyThemeColors(nextMode);
+    await applyNativeTheme(nextMode);
     setMode(nextMode);
     await AsyncStorage.setItem(STORAGE_KEY, nextMode);
   };

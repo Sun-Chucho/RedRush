@@ -1,4 +1,5 @@
-import React, { createContext, useState, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useEffect, useState, ReactNode } from 'react';
 import { MenuItem } from '@/constants/mockData';
 
 export interface CartItem {
@@ -22,13 +23,41 @@ interface CartContextType {
 
 export const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const CART_STORAGE_KEY = 'redrush-cart-v1';
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   const total = items.reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  useEffect(() => {
+    AsyncStorage.getItem(CART_STORAGE_KEY)
+      .then(raw => {
+        if (!raw) return;
+        const saved = JSON.parse(raw) as {
+          items?: CartItem[];
+          restaurantId?: string | null;
+          restaurantName?: string | null;
+        };
+        if (Array.isArray(saved.items)) setItems(saved.items);
+        setRestaurantId(saved.restaurantId || null);
+        setRestaurantName(saved.restaurantName || null);
+      })
+      .catch(() => undefined)
+      .finally(() => setHydrated(true));
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify({ items, restaurantId, restaurantName })
+    ).catch(() => undefined);
+  }, [hydrated, items, restaurantId, restaurantName]);
 
   const addItem = (menuItem: MenuItem, resId: string, resName: string) => {
     if (restaurantId && restaurantId !== resId) {
@@ -71,6 +100,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([]);
     setRestaurantId(null);
     setRestaurantName(null);
+    AsyncStorage.removeItem(CART_STORAGE_KEY).catch(() => undefined);
   };
 
   return (

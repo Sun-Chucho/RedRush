@@ -71,38 +71,9 @@ interface CustomerDataContextType {
 
 export const CustomerDataContext = createContext<CustomerDataContextType | undefined>(undefined);
 
-const defaultAddress: SavedAddress = {
-  id: 'home',
-  label: 'Home',
-  details: '45 Saka Tinubu Street, Victoria Island',
-  isDefault: true,
-};
-
-const defaultPaymentMethods: SavedPaymentMethod[] = [
-  { id: 'momo', label: 'MTN Mobile Money', detail: 'Pay with MTN MoMo', type: 'mobile_money', isDefault: true },
-  { id: 'airtel', label: 'Airtel Money', detail: 'Pay with Airtel Money', type: 'mobile_money' },
-  { id: 'card', label: 'Debit/Credit Card', detail: 'Add card at checkout', type: 'card' },
-  { id: 'cash', label: 'Cash on Delivery', detail: 'Pay when your food arrives', type: 'cash' },
-];
-
-const defaultPromoCodes: PromoCode[] = [
-  {
-    id: 'welcome20',
-    code: 'WELCOME20',
-    title: '20% off your next order',
-    description: 'Valid on food subtotal before delivery and service charges.',
-    discountPercent: 20,
-    expiresAt: '2026-12-31',
-  },
-  {
-    id: 'rush10',
-    code: 'RUSH10',
-    title: '10% rush-hour discount',
-    description: 'Use on lunch and dinner orders above the minimum restaurant order.',
-    discountPercent: 10,
-    expiresAt: '2026-09-30',
-  },
-];
+const defaultAddress: SavedAddress[] = [];
+const defaultPaymentMethods: SavedPaymentMethod[] = [];
+const defaultPromoCodes: PromoCode[] = [];
 
 const defaultReviews: CustomerReview[] = [];
 
@@ -115,7 +86,7 @@ const defaultNotificationSettings: NotificationSettings = {
 
 function createSeedData() {
   return {
-    savedAddresses: [defaultAddress],
+    savedAddresses: defaultAddress,
     paymentMethods: defaultPaymentMethods,
     favouriteRestaurantIds: [],
     promoCodes: defaultPromoCodes,
@@ -130,7 +101,7 @@ function normalizeArray<T>(value: unknown, fallback: T[]) {
 
 export function CustomerDataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([defaultAddress]);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(defaultAddress);
   const [paymentMethods, setPaymentMethods] = useState<SavedPaymentMethod[]>(defaultPaymentMethods);
   const [favouriteRestaurantIds, setFavouriteRestaurantIds] = useState<string[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(defaultPromoCodes);
@@ -156,10 +127,10 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
       // Try Supabase first
       const supabaseData = await loadSupabaseCustomerData(user.id);
       if (supabaseData && !cancelled) {
-        setSavedAddresses(supabaseData.savedAddresses.length ? supabaseData.savedAddresses : seed.savedAddresses);
-        setPaymentMethods(supabaseData.paymentMethods.length ? supabaseData.paymentMethods : seed.paymentMethods);
+        setSavedAddresses(supabaseData.savedAddresses);
+        setPaymentMethods(supabaseData.paymentMethods);
         setFavouriteRestaurantIds(supabaseData.favouriteRestaurantIds);
-        setPromoCodes(supabaseData.promoCodes.length ? supabaseData.promoCodes : seed.promoCodes);
+        setPromoCodes(supabaseData.promoCodes);
         setReviews(supabaseData.reviews);
         setNotificationSettings({ ...seed.notificationSettings, ...supabaseData.notificationSettings });
         return;
@@ -179,12 +150,7 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
       setReviews(normalizeArray<CustomerReview>(data.reviews, seed.reviews));
       setNotificationSettings({ ...seed.notificationSettings, ...(data.notificationSettings as Partial<NotificationSettings> | undefined) });
 
-      if (!snapshot.exists()) {
-        await setDoc(ref, { ...seed, updatedAt: serverTimestamp() });
-      }
-
-      // Sync seed data to Supabase for future sessions
-      saveSupabaseCustomerData(user.id, seed).catch(() => undefined);
+      if (!snapshot.exists()) await setDoc(ref, { ...seed, updatedAt: serverTimestamp() });
     };
 
     load().catch(() => undefined);

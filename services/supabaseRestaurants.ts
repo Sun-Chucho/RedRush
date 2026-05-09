@@ -1,4 +1,4 @@
-import { MenuItem, MOCK_RESTAURANTS, Restaurant } from '@/constants/mockData';
+import { MenuItem, Restaurant } from '@/constants/mockData';
 import { isSupabaseConfigured, supabase } from './supabase';
 
 type RestaurantRow = {
@@ -40,6 +40,19 @@ export type RestaurantLocationInput = {
   latitude: number;
   longitude: number;
   address: string;
+};
+
+export type RestaurantProfileUpdate = {
+  name?: string;
+  cuisine?: string;
+  address?: string;
+  phone?: string;
+  deliveryTime?: string;
+  deliveryFee?: number;
+  minOrder?: number;
+  image?: string;
+  coverImage?: string;
+  isOpen?: boolean;
 };
 
 const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80';
@@ -153,21 +166,18 @@ export async function ensureSupabaseVendorRestaurant(user: {
   const { data: owned } = await supabase.from('restaurants').select('id').eq('owner_id', user.id).maybeSingle();
   if (owned?.id) return owned.id as string;
 
-  const template = MOCK_RESTAURANTS[0];
   const { data, error } = await supabase
     .from('restaurants')
     .insert({
       owner_id: user.id,
       name: user.name || 'My Restaurant',
-      cuisine: template.cuisine,
-      delivery_time: template.deliveryTime,
-      delivery_fee: template.deliveryFee,
-      min_order: template.minOrder,
-      image: template.image,
-      cover_image: template.coverImage,
+      cuisine: 'Restaurant',
+      delivery_time: '25-40 min',
+      delivery_fee: 0,
+      min_order: 0,
+      image: null,
+      cover_image: null,
       address: user.address || 'Restaurant address',
-      latitude: template.latitude,
-      longitude: template.longitude,
       is_open: true,
       distance: '0 km',
       categories: ['Meals', 'Drinks'],
@@ -176,6 +186,8 @@ export async function ensureSupabaseVendorRestaurant(user: {
     .single();
 
   if (error) throw error;
+  await supabase.from('profiles').update({ restaurant_id: data.id }).eq('id', user.id).throwOnError();
+  await supabase.from('vendor_profiles').update({ restaurant_id: data.id }).eq('user_id', user.id).throwOnError();
   return data.id as string;
 }
 
@@ -195,6 +207,27 @@ export async function updateSupabaseVendorRestaurantLocation(
     })
     .eq('id', restaurantId);
 
+  if (error) throw error;
+  return true;
+}
+
+export async function updateSupabaseVendorRestaurantProfile(restaurantId: string, patch: RestaurantProfileUpdate) {
+  if (!shouldUseSupabaseRestaurants()) return false;
+
+  const payload: Record<string, unknown> = {};
+  if (patch.name !== undefined) payload.name = patch.name;
+  if (patch.cuisine !== undefined) payload.cuisine = patch.cuisine;
+  if (patch.address !== undefined) payload.address = patch.address;
+  if (patch.deliveryTime !== undefined) payload.delivery_time = patch.deliveryTime;
+  if (patch.deliveryFee !== undefined) payload.delivery_fee = Math.max(0, Math.round(Number(patch.deliveryFee) || 0));
+  if (patch.minOrder !== undefined) payload.min_order = Math.max(0, Math.round(Number(patch.minOrder) || 0));
+  if (patch.image !== undefined) payload.image = patch.image;
+  if (patch.coverImage !== undefined) payload.cover_image = patch.coverImage;
+  if (patch.isOpen !== undefined) payload.is_open = patch.isOpen;
+
+  if (!Object.keys(payload).length) return true;
+
+  const { error } = await supabase.from('restaurants').update(payload).eq('id', restaurantId);
   if (error) throw error;
   return true;
 }

@@ -50,7 +50,7 @@ function toAuthUser(row: ProfileRow, fallbackEmail = ''): AuthUser {
 }
 
 function toProfilePayload(data: Partial<AuthUser>) {
-  return {
+  return Object.fromEntries(Object.entries({
     name: data.name,
     email: data.email,
     phone: data.phone,
@@ -58,7 +58,7 @@ function toProfilePayload(data: Partial<AuthUser>) {
     avatar: data.avatar,
     address: data.address,
     restaurant_id: data.restaurantId,
-  };
+  }).filter(([, value]) => value !== undefined));
 }
 
 async function ensureSupabaseProfile(userId: string, data: Partial<AuthUser>): Promise<AuthUser> {
@@ -229,7 +229,10 @@ export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { pass
 export async function updateSupabaseProfile(userId: string, data: Partial<AuthUser>) {
   if (!shouldUseSupabaseAuth()) return false;
 
-  const { error } = await supabase.from('profiles').update(toProfilePayload(data)).eq('id', userId);
+  const payload = toProfilePayload(data);
+  if (!Object.keys(payload).length) return true;
+
+  const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
   if (error) throw error;
 
   return true;

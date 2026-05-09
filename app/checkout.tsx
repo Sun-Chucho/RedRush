@@ -23,8 +23,11 @@ export default function CheckoutScreen() {
     setDefaultAddress,
     sendLocalNotification,
   } = useCustomerData();
+  const checkoutPaymentMethods = paymentMethods.length
+    ? paymentMethods
+    : [{ id: 'cash', label: 'Cash on Delivery', detail: 'Pay when your food arrives', type: 'cash' as const, isDefault: true }];
   const defaultAddress = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
-  const defaultPayment = paymentMethods.find(p => p.isDefault) || paymentMethods[0];
+  const defaultPayment = checkoutPaymentMethods.find(p => p.isDefault) || checkoutPaymentMethods[0];
   const [address, setAddress] = useState(defaultAddress?.details || '');
   const [selectedAddress, setSelectedAddress] = useState(defaultAddress?.id || '');
   const [selectedPayment, setSelectedPayment] = useState(defaultPayment?.id || 'cash');
@@ -82,7 +85,7 @@ export default function CheckoutScreen() {
         addSavedAddress({ label: 'Recent delivery', details: address.trim(), isDefault: true });
       }
 
-      const paymentLabel = paymentMethods.find(p => p.id === selectedPayment)?.label || 'Cash';
+      const paymentLabel = checkoutPaymentMethods.find(p => p.id === selectedPayment)?.label || 'Cash on Delivery';
       const order = await placeOrder(
         items,
         restaurantId,
@@ -227,7 +230,7 @@ export default function CheckoutScreen() {
             <MaterialIcons name="payment" size={18} color={Colors.primary} />
             <Text style={styles.sectionTitle}>Payment Method</Text>
           </View>
-          {paymentMethods.map(pm => (
+          {checkoutPaymentMethods.map(pm => (
             <TouchableOpacity
               key={pm.id}
               style={[styles.paymentOption, selectedPayment === pm.id && styles.paymentOptionActive]}

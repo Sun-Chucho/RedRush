@@ -22,6 +22,8 @@ type OrderRow = {
   address: string;
   rider_id: string | null;
   rider_name: string | null;
+  prep_time: number | null;
+  delivery_time: number | null;
   estimated_delivery: string | null;
   accepted_at: string | null;
   preparing_at: string | null;
@@ -117,6 +119,8 @@ function toOrder(row: OrderRow): Order {
     estimatedDelivery: toIsoDate(row.estimated_delivery, Date.now() + 40 * 60000),
     riderId: row.rider_id || undefined,
     riderName: row.rider_name || undefined,
+    prepTime: row.prep_time || undefined,
+    deliveryTime: row.delivery_time || undefined,
     acceptedAt: row.accepted_at || undefined,
     preparingAt: row.preparing_at || undefined,
     readyAt: row.ready_at || undefined,
@@ -289,5 +293,29 @@ export async function updateSupabaseOrderStatus(orderId: string, status: Order['
   const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
   if (error) throw error;
 
+  return true;
+}
+
+export async function updateSupabaseOrderTiming(
+  orderId: string,
+  prepMinutes: number,
+  deliveryMinutes: number,
+  estimatedDelivery: string
+) {
+  if (!shouldUseSupabaseOrders()) return false;
+
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) return false;
+
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      prep_time: prepMinutes,
+      delivery_time: deliveryMinutes,
+      estimated_delivery: estimatedDelivery,
+    })
+    .eq('id', orderId);
+
+  if (error) throw error;
   return true;
 }

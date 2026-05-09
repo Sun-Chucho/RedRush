@@ -6,6 +6,7 @@ import * as Location from 'expo-location';
 import { doc, onSnapshot, serverTimestamp, setDoc, Unsubscribe } from 'firebase/firestore';
 import { db } from './firebase';
 import { isSupabaseConfigured, supabase } from './supabase';
+import { saveRiderProfileSettings } from './supabaseProfileSettings';
 
 export interface RiderCoords {
   latitude: number;
@@ -108,6 +109,7 @@ export function stopRiderTracking(): void {
  * Set rider offline in Firestore (without clearing coords)
  */
 export async function setRiderOffline(riderId: string): Promise<void> {
+  saveRiderProfileSettings(riderId, { isOnline: false }).catch(() => undefined);
   publishRiderLocationToSupabase(
     riderId,
     { latitude: 0, longitude: 0, heading: 0, speed: 0, updatedAt: new Date().toISOString() },

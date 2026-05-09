@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,11 +16,15 @@ export default function VendorDashboard() {
   const { user } = useAuth();
   const { formatMoney } = useCurrency();
   const { orders, updateOrderStatus } = useOrders();
-  const { getVendorRestaurant } = useRestaurants();
+  const { getVendorRestaurant, updateVendorRestaurantProfile } = useRestaurants();
   const { showAlert } = useAlert();
   const router = useRouter();
   const vendorRestaurant = getVendorRestaurant();
   const menuItems = vendorRestaurant?.menu || [];
+
+  useEffect(() => {
+    if (typeof vendorRestaurant?.isOpen === 'boolean') setIsOpen(vendorRestaurant.isOpen);
+  }, [vendorRestaurant?.isOpen]);
 
   const incomingOrders = orders.filter(o => o.status === 'pending');
   const today = new Date().toDateString();
@@ -44,8 +48,14 @@ export default function VendorDashboard() {
         <TouchableOpacity
           style={[styles.statusToggle, { backgroundColor: isOpen ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' }]}
           onPress={() => {
-            setIsOpen(!isOpen);
-            showAlert(isOpen ? 'Store Closed' : 'Store Open', isOpen ? 'Your store is now offline.' : 'Your store is now accepting orders!');
+            const next = !isOpen;
+            setIsOpen(next);
+            updateVendorRestaurantProfile({ isOpen: next })
+              .then(() => showAlert(next ? 'Store Open' : 'Store Closed', next ? 'Your store is now accepting orders!' : 'Your store is now offline.'))
+              .catch(() => {
+                setIsOpen(isOpen);
+                showAlert('Store status', 'Unable to update store status.');
+              });
           }}
         >
           <View style={[styles.statusDot, { backgroundColor: isOpen ? Colors.success : Colors.error }]} />

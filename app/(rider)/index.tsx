@@ -16,6 +16,13 @@ import { sendRiderRequestNotification, sendRiderAssignedNotification, registerFo
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import * as Location from 'expo-location';
+import {
+  emptyRiderSettings,
+  isRiderReadyForDeliveries,
+  loadRiderProfileSettings,
+  RiderProfileSettings,
+  saveRiderProfileSettings,
+} from '@/services/supabaseProfileSettings';
 
 const LAGOS_DEFAULT = { latitude: 6.4541, longitude: 3.3947 };
 
@@ -47,6 +54,7 @@ export default function RiderHome() {
   const [hasRequest, setHasRequest] = useState(false);
   const [myCoords, setMyCoords] = useState(LAGOS_DEFAULT);
   const [locationGranted, setLocationGranted] = useState(false);
+  const [settings, setSettings] = useState<RiderProfileSettings>(emptyRiderSettings);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const insets = useSafeAreaInsets();
@@ -59,6 +67,7 @@ export default function RiderHome() {
     o => o.riderId === user?.id && ['picked_up', 'accepted', 'preparing'].includes(o.status)
   );
   const readyOrder = orders.find(o => o.status === 'ready' && !o.riderId);
+  const profileReady = isRiderReadyForDeliveries(settings);
 
   const request = readyOrder
     ? {
@@ -95,6 +104,7 @@ export default function RiderHome() {
   useEffect(() => {
     if (user?.id) {
       registerForPushNotifications(user.id).catch(() => undefined);
+      loadRiderProfileSettings(user.id).then(setSettings).catch(() => undefined);
     }
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -120,6 +130,12 @@ export default function RiderHome() {
   }, [readyOrder, isOnline, hasRequest]);
 
   const handleToggle = async (val: boolean) => {
+    if (val && !profileReady) {
+      showAlert('Complete rider setup', 'Add vehicle details, a payout method, and at least one document in Profile before taking rides.');
+      setIsOnline(false);
+      return;
+    }
+
     setIsOnline(val);
     if (val) {
       if (user?.id) {
@@ -133,6 +149,7 @@ export default function RiderHome() {
           isOnline: true,
           updatedAt: serverTimestamp(),
         }).catch(() => undefined);
+        await saveRiderProfileSettings(user.id, { isOnline: true }).catch(() => undefined);
       }
       if (readyOrder) setHasRequest(true);
       showAlert('You are Online!', 'Your location is being tracked. You will receive nearby delivery requests.');
@@ -220,7 +237,9 @@ export default function RiderHome() {
               ? locationGranted
                 ? 'Online — GPS active, waiting for nearby requests...'
                 : 'Online — Enable location for full tracking'
-              : 'Toggle online to start receiving orders'}
+              : profileReady
+                ? 'Toggle online to start receiving orders'
+                : 'Complete rider setup in Profile before taking rides'}
           </Text>
         </View>
         <View style={styles.statsRow}>

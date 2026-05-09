@@ -6,11 +6,25 @@ import { useThemeMode } from '@/contexts/ThemeContext';
 
 export function ThemeToggle({ style, showLabel = false }: { style?: ViewStyle; showLabel?: boolean }) {
   const { mode, toggleTheme } = useThemeMode();
+  const isDark = mode === 'dark';
 
   return (
-    <TouchableOpacity style={[styles.button, showLabel && styles.labelButton, style]} onPress={toggleTheme} accessibilityRole="button">
-      <MaterialIcons name={mode === 'dark' ? 'light-mode' : 'dark-mode'} size={18} color={Colors.text} />
-      {showLabel ? <Text style={styles.label}>{mode === 'dark' ? 'Light mode' : 'Dark mode'}</Text> : null}
+    <TouchableOpacity
+      style={[
+        styles.button,
+        {
+          backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(204,0,0,0.08)',
+          borderColor: Colors.border,
+        },
+        showLabel && styles.labelButton,
+        style,
+      ]}
+      onPress={toggleTheme}
+      accessibilityRole="button"
+      accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      <MaterialIcons name={isDark ? 'light-mode' : 'dark-mode'} size={18} color={Colors.text} />
+      {showLabel ? <Text style={[styles.label, { color: Colors.text }]}>{isDark ? 'Light mode' : 'Dark mode'}</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -18,8 +32,6 @@ export function ThemeToggle({ style, showLabel = false }: { style?: ViewStyle; s
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderColor: Colors.border,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
     height: 36,

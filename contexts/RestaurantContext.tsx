@@ -19,6 +19,7 @@ import {
   RestaurantLocationInput,
   shouldUseSupabaseRestaurants,
   updateSupabaseMenuItem,
+  updateSupabaseVendorRestaurantProfile,
   updateSupabaseVendorRestaurantLocation,
 } from '@/services/supabaseRestaurants';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,6 +36,7 @@ interface RestaurantContextType {
   getVendorRestaurant: () => Restaurant | undefined;
   ensureVendorRestaurant: () => Promise<string>;
   updateVendorRestaurantLocation: (location: RestaurantLocationInput) => Promise<void>;
+  updateVendorRestaurantProfile: (patch: Partial<Omit<Restaurant, 'id' | 'menu' | 'categories'>>) => Promise<void>;
   createMenuItem: (restaurantId: string, item: MenuItemInput) => Promise<void>;
   updateMenuItem: (restaurantId: string, itemId: string, item: MenuItemUpdate) => Promise<void>;
   deleteMenuItem: (restaurantId: string, itemId: string) => Promise<void>;
@@ -129,18 +131,26 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     if (shouldUseSupabaseRestaurants()) {
+      setIsLoading(true);
       fetchSupabaseRestaurants()
         .then(restaurants => {
           if (!isMounted) return;
           setSupabaseRestaurants(restaurants);
+          setRestaurantBases([]);
+          setMenuByRestaurantId({});
           setIsLoading(false);
           setError(null);
         })
         .catch(err => {
           if (!isMounted) return;
-          setSupabaseRestaurants(null);
-          setError(`Supabase unavailable, using Firebase fallback: ${err.message}`);
+          setSupabaseRestaurants([]);
+          setIsLoading(false);
+          setError(err instanceof Error ? err.message : 'Unable to load restaurants.');
         });
+
+      return () => {
+        isMounted = false;
+      };
     }
 
     const unsubscribe = onSnapshot(
@@ -165,6 +175,8 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
   const restaurantIds = useMemo(() => restaurantBases.map(restaurant => restaurant.id).sort().join('|'), [restaurantBases]);
 
   useEffect(() => {
+    if (shouldUseSupabaseRestaurants()) return undefined;
+
     if (!restaurantIds) {
       setMenuByRestaurantId({});
       return undefined;
@@ -283,6 +295,35 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     );
   }, [ensureVendorRestaurant, user]);
 
+  const updateVendorRestaurantProfile = useCallback(async (patch: Partial<Omit<Restaurant, 'id' | 'menu' | 'categories'>>) => {
+    if (!user || user.role !== 'vendor') {
+      throw new Error('Only vendor accounts can update restaurant details.');
+    }
+
+    const restaurantId = await ensureVendorRestaurant();
+
+    if (await updateSupabaseVendorRestaurantProfile(restaurantId, patch)) {
+      setSupabaseRestaurants(await fetchSupabaseRestaurants());
+      return;
+    }
+
+    await updateDoc(
+      doc(db, 'restaurants', restaurantId),
+      cleanPayload({
+        name: patch.name,
+        cuisine: patch.cuisine,
+        address: patch.address,
+        deliveryTime: patch.deliveryTime,
+        deliveryFee: patch.deliveryFee,
+        minOrder: patch.minOrder,
+        image: patch.image,
+        coverImage: patch.coverImage,
+        isOpen: patch.isOpen,
+        updatedAt: serverTimestamp(),
+      })
+    );
+  }, [ensureVendorRestaurant, user]);
+
   const createMenuItem = useCallback(async (restaurantId: string, item: MenuItemInput) => {
     if (await createSupabaseMenuItem(restaurantId, item)) {
       setSupabaseRestaurants(await fetchSupabaseRestaurants());
@@ -326,6 +367,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
       getVendorRestaurant,
       ensureVendorRestaurant,
       updateVendorRestaurantLocation,
+      updateVendorRestaurantProfile,
       createMenuItem,
       updateMenuItem,
       deleteMenuItem,
@@ -338,6 +380,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
       getVendorRestaurant,
       ensureVendorRestaurant,
       updateVendorRestaurantLocation,
+      updateVendorRestaurantProfile,
       createMenuItem,
       updateMenuItem,
       deleteMenuItem,

@@ -13,7 +13,6 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
-import { requestRoleOnBackend } from '@/services/backend';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { pickCompressAndUploadImage } from '@/services/cloudinary';
 
@@ -59,6 +58,8 @@ export default function ProfileScreen() {
   const customerData = useCustomerData();
   const [activePanel, setActivePanel] = useState<PanelKey>(null);
   const [newAddress, setNewAddress] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({ name: user?.name || '', phone: user?.phone || '', address: user?.address || '' });
 
   const favouriteRestaurants = useMemo(
     () => restaurants.filter(restaurant => customerData.favouriteRestaurantIds.includes(restaurant.id)),
@@ -115,12 +116,22 @@ export default function ProfileScreen() {
     );
   };
 
-  const requestRole = async (role: 'vendor' | 'rider') => {
+  const openProfileEdit = () => {
+    setProfileDraft({ name: user?.name || '', phone: user?.phone || '', address: user?.address || '' });
+    setEditOpen(true);
+  };
+
+  const saveProfileEdit = async () => {
     try {
-      await requestRoleOnBackend(role);
-      showAlert('Role request sent', `Your ${role} access request is pending admin approval.`);
+      await updateProfile({
+        name: profileDraft.name.trim() || user?.name,
+        phone: profileDraft.phone.trim(),
+        address: profileDraft.address.trim(),
+      });
+      setEditOpen(false);
+      showAlert('Profile saved', 'Your profile has been updated.');
     } catch (error) {
-      showAlert('Role request', error instanceof Error ? error.message : 'Unable to send this request.');
+      showAlert('Profile', error instanceof Error ? error.message : 'Unable to save profile.');
     }
   };
 
@@ -142,7 +153,7 @@ export default function ProfileScreen() {
           <Text style={styles.profileEmail}>{user?.email}</Text>
           <Text style={styles.profilePhone}>{user?.phone}</Text>
         </View>
-        <TouchableOpacity style={styles.editBtn} onPress={() => showAlert(t('editProfile'), 'Profile edits are saved from the account record in Firebase Auth and Firestore.')}>
+        <TouchableOpacity style={styles.editBtn} onPress={openProfileEdit}>
           <MaterialIcons name="edit" size={20} color={Colors.primary} />
         </TouchableOpacity>
       </View>
@@ -172,21 +183,6 @@ export default function ProfileScreen() {
           <Text style={styles.redeemText}>{t('redeem')}</Text>
         </TouchableOpacity>
       </View>
-
-      {user?.role === 'customer' ? (
-        <View style={styles.roleRequestCard}>
-          <Text style={styles.roleRequestTitle}>Work with RedRush</Text>
-          <Text style={styles.roleRequestText}>Request approval before accessing restaurant or rider tools.</Text>
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={() => requestRole('vendor')}>
-              <Text style={styles.secondaryBtnText}>Restaurant access</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => requestRole('rider')}>
-              <Text style={styles.primaryBtnText}>Rider access</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
 
       <Text style={styles.sectionTitle}>{t('account')}</Text>
       <View style={styles.menuSection}>
@@ -249,16 +245,21 @@ export default function ProfileScreen() {
           </>
         ) : null}
 
-        {activePanel === 'paymentMethods' ? customerData.paymentMethods.map(method => (
-          <TouchableOpacity key={method.id} style={styles.dataRow} onPress={() => customerData.setDefaultPaymentMethod(method.id)}>
-            <MaterialIcons name={method.type === 'card' ? 'credit-card' : method.type === 'cash' ? 'payments' : 'phone-android'} size={22} color={Colors.primary} />
-            <View style={styles.dataText}>
-              <Text style={styles.dataTitle}>{method.label}</Text>
-              <Text style={styles.dataSub}>{method.detail}</Text>
-            </View>
-            {method.isDefault ? <MaterialIcons name="check-circle" size={20} color={Colors.success} /> : null}
-          </TouchableOpacity>
-        )) : null}
+        {activePanel === 'paymentMethods' ? (
+          <>
+            {customerData.paymentMethods.map(method => (
+              <TouchableOpacity key={method.id} style={styles.dataRow} onPress={() => customerData.setDefaultPaymentMethod(method.id)}>
+                <MaterialIcons name={method.type === 'card' ? 'credit-card' : method.type === 'cash' ? 'payments' : 'phone-android'} size={22} color={Colors.primary} />
+                <View style={styles.dataText}>
+                  <Text style={styles.dataTitle}>{method.label}</Text>
+                  <Text style={styles.dataSub}>{method.detail}</Text>
+                </View>
+                {method.isDefault ? <MaterialIcons name="check-circle" size={20} color={Colors.success} /> : null}
+              </TouchableOpacity>
+            ))}
+            {customerData.paymentMethods.length === 0 ? <EmptyPanel text="No saved payment methods yet. Checkout still supports cash while online payment is pending." /> : null}
+          </>
+        ) : null}
 
         {activePanel === 'favouriteRestaurants' ? (
           <>
@@ -350,11 +351,28 @@ export default function ProfileScreen() {
 
         {activePanel === 'aboutRedRush' ? (
           <View style={styles.infoBlock}>
-            <Text style={styles.infoText}>RedRush is a multi-role food delivery app for customers, vendors, riders, and administrators. This build uses Firebase Auth and Firestore for signed-in user profiles, orders, customer preferences, and operations data.</Text>
+            <Text style={styles.infoText}>RedRush is a multi-role food delivery app for customers, vendors, riders, and administrators. This build uses Supabase for signed-in user profiles, orders, customer preferences, and operations data.</Text>
             <Text style={styles.infoText}>Version 1.0.0 - Expo SDK 54 - React Native 0.81.</Text>
           </View>
         ) : null}
       </PanelModal>
+
+      <Modal visible={editOpen} transparent animationType="slide" onRequestClose={() => setEditOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setEditOpen(false)}><MaterialIcons name="close" size={24} color={Colors.text} /></TouchableOpacity>
+            </View>
+            <TextInput style={styles.input} value={profileDraft.name} onChangeText={name => setProfileDraft(prev => ({ ...prev, name }))} placeholder="Full name" placeholderTextColor={Colors.textMuted} />
+            <TextInput style={styles.input} value={profileDraft.phone} onChangeText={phone => setProfileDraft(prev => ({ ...prev, phone }))} placeholder="Phone" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
+            <TextInput style={styles.input} value={profileDraft.address} onChangeText={address => setProfileDraft(prev => ({ ...prev, address }))} placeholder="Default address" placeholderTextColor={Colors.textMuted} />
+            <TouchableOpacity style={styles.primaryFullBtn} onPress={saveProfileEdit}>
+              <Text style={styles.primaryBtnText}>Save Profile</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <View style={{ height: Spacing.xl }} />
     </ScrollView>

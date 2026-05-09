@@ -20,11 +20,16 @@ update public.customer_profile_data
 set
   saved_addresses = '[]'::jsonb,
   payment_methods = '[]'::jsonb,
-  favorite_restaurant_ids = '[]'::jsonb,
+  favourite_restaurant_ids = '{}',
   promo_codes = '[]'::jsonb,
   reviews = '[]'::jsonb,
-  notifications = '[]'::jsonb,
-  preferences = '{}'::jsonb;
+  notification_settings = '{
+    "orderUpdates": true,
+    "promos": true,
+    "account": true,
+    "pushEnabled": false
+  }'::jsonb,
+  last_notification = null;
 
 update public.vendor_profiles
 set restaurant_id = null
