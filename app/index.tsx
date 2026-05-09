@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 
-const PRELOAD_MS = 8000;
+const PRELOAD_MS = 4000;
 
 export default function Index() {
   const { isAuthenticated, isLoading, user } = useAuth();

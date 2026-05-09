@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import AdminOverview from './(admin)';
 
 export default function AdminEntry() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -15,7 +16,7 @@ export default function AdminEntry() {
   }
 
   if (!isAuthenticated) return <Redirect href="/auth" />;
-  if (user?.role === 'admin') return <Redirect href="/(admin)" />;
+  if (user?.role === 'admin') return <AdminOverview />;
 
   return <Redirect href="/" />;
 }
