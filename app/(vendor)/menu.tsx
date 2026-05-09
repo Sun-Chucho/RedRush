@@ -8,6 +8,7 @@ import { MenuItem } from '@/constants/mockData';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
+import { pickCompressAndUploadImage } from '@/services/cloudinary';
 
 const DEFAULT_ITEM_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80';
 
@@ -17,6 +18,7 @@ const emptyDraft = {
   price: '',
   category: 'Meals',
   preparationTime: '15',
+  image: DEFAULT_ITEM_IMAGE,
 };
 
 export default function VendorMenu() {
@@ -64,8 +66,18 @@ export default function VendorMenu() {
       price: String(item.price),
       category: item.category,
       preparationTime: String(item.preparationTime),
+      image: item.image,
     });
     setShowModal(true);
+  };
+
+  const uploadItemImage = async () => {
+    try {
+      const url = await pickCompressAndUploadImage('dish');
+      if (url) setDraft(prev => ({ ...prev, image: url }));
+    } catch (error) {
+      showAlert('Image upload', error instanceof Error ? error.message : 'Unable to upload this image.');
+    }
   };
 
   const toggleAvailability = async (item: MenuItem) => {
@@ -114,7 +126,7 @@ export default function VendorMenu() {
         price,
         category: draft.category.trim() || 'Meals',
         preparationTime: Number.isFinite(preparationTime) && preparationTime > 0 ? preparationTime : 15,
-        image: editingItem?.image || DEFAULT_ITEM_IMAGE,
+        image: draft.image || editingItem?.image || DEFAULT_ITEM_IMAGE,
         available: editingItem?.available ?? true,
       };
 
@@ -255,9 +267,12 @@ export default function VendorMenu() {
                 <Text style={styles.fieldLabel}>Preparation Time (min)</Text>
                 <TextInput style={styles.fieldInput} placeholder="Enter preparation time" placeholderTextColor={Colors.textMuted} value={draft.preparationTime} onChangeText={preparationTime => setDraft(prev => ({ ...prev, preparationTime }))} keyboardType="numeric" />
               </View>
-              <TouchableOpacity style={styles.imgPicker} onPress={() => showAlert('Upload Image', 'Photo upload requires Firebase Storage rules and a production media picker. This draft item can still be saved with the default image.')}>
-                <MaterialIcons name="add-photo-alternate" size={32} color={Colors.primary} />
-                <Text style={styles.imgPickerText}>Add Item Photo</Text>
+              <TouchableOpacity style={styles.imgPicker} onPress={uploadItemImage}>
+                <Image source={{ uri: draft.image || DEFAULT_ITEM_IMAGE }} style={styles.imgPickerPreview} contentFit="cover" />
+                <View style={styles.imgPickerOverlay}>
+                  <MaterialIcons name="add-photo-alternate" size={28} color={Colors.text} />
+                  <Text style={styles.imgPickerText}>{draft.image === DEFAULT_ITEM_IMAGE ? 'Add Item Photo' : 'Change Item Photo'}</Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveBtn}
@@ -314,8 +329,10 @@ const styles = StyleSheet.create({
   categoryChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   categoryChipText: { color: Colors.textSecondary, fontSize: FontSize.xs, fontWeight: FontWeight.medium },
   categoryChipTextActive: { color: Colors.text, fontWeight: FontWeight.semibold },
-  imgPicker: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.border, borderStyle: 'dashed', borderRadius: BorderRadius.lg, height: 100, marginBottom: Spacing.md, gap: Spacing.sm },
-  imgPickerText: { color: Colors.textMuted, fontSize: FontSize.sm },
+  imgPicker: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.border, borderStyle: 'dashed', borderRadius: BorderRadius.lg, height: 128, marginBottom: Spacing.md, overflow: 'hidden', backgroundColor: Colors.surfaceCard },
+  imgPickerPreview: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  imgPickerOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, backgroundColor: 'rgba(0,0,0,0.42)' },
+  imgPickerText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
   saveBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 14, alignItems: 'center', marginBottom: Spacing.xl },
   saveBtnText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
 });

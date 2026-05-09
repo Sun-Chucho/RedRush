@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,6 +15,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
 import { requestRoleOnBackend } from '@/services/backend';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { pickCompressAndUploadImage } from '@/services/cloudinary';
 
 type PanelKey =
   | 'savedAddresses'
@@ -47,7 +49,7 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
   const { language, toggleLanguage, t } = useLanguage();
@@ -72,6 +74,17 @@ export default function ProfileScreen() {
       { text: t('cancel'), style: 'cancel' },
       { text: t('signOut'), style: 'destructive', onPress: () => { logout(); router.replace('/auth'); } },
     ]);
+  };
+
+  const uploadAvatar = async () => {
+    try {
+      const url = await pickCompressAndUploadImage('profile');
+      if (!url) return;
+      await updateProfile({ avatar: url });
+      showAlert('Profile photo saved', 'Your image has been updated.');
+    } catch (error) {
+      showAlert('Image upload', error instanceof Error ? error.message : 'Unable to upload this image.');
+    }
   };
 
   const addCurrentLocation = async () => {
@@ -114,9 +127,16 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
       <View style={styles.profileHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user?.name?.[0] || 'U'}</Text>
-        </View>
+        <TouchableOpacity style={styles.avatar} onPress={uploadAvatar} activeOpacity={0.85}>
+          {user?.avatar ? (
+            <Image source={{ uri: user.avatar }} style={styles.avatarImage} contentFit="cover" />
+          ) : (
+            <Text style={styles.avatarText}>{user?.name?.[0] || 'U'}</Text>
+          )}
+          <View style={styles.avatarEditBadge}>
+            <MaterialIcons name="photo-camera" size={13} color={Colors.text} />
+          </View>
+        </TouchableOpacity>
         <View style={styles.profileInfo}>
           <Text style={styles.profileName}>{user?.name}</Text>
           <Text style={styles.profileEmail}>{user?.email}</Text>
@@ -369,7 +389,9 @@ function EmptyPanel({ text }: { text: string }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   profileHeader: { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, backgroundColor: Colors.surfaceCard, margin: Spacing.md, borderRadius: BorderRadius.lg, ...Shadow.md },
-  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%' },
+  avatarEditBadge: { position: 'absolute', right: -2, bottom: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.surfaceCard },
   avatarText: { color: Colors.text, fontSize: FontSize.xxl, fontWeight: FontWeight.bold },
   profileInfo: { flex: 1, marginLeft: Spacing.md },
   profileName: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },

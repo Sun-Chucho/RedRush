@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,18 +11,30 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { pickCompressAndUploadImage } from '@/services/cloudinary';
 
 export default function VendorProfile() {
   const [notifications, setNotifications] = useState(true);
   const [autoAccept, setAutoAccept] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
   const { getVendorRestaurant, updateVendorRestaurantLocation } = useRestaurants();
   const restaurant = getVendorRestaurant();
+
+  const uploadAvatar = async () => {
+    try {
+      const url = await pickCompressAndUploadImage('vendor');
+      if (!url) return;
+      await updateProfile({ avatar: url });
+      showAlert('Profile image saved', 'Your vendor image has been updated.');
+    } catch (error) {
+      showAlert('Image upload', error instanceof Error ? error.message : 'Unable to upload this image.');
+    }
+  };
 
   const saveCurrentLocation = async () => {
     setSavingLocation(true);
@@ -62,9 +75,16 @@ export default function VendorProfile() {
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
       {/* Restaurant Header */}
       <View style={styles.storeCard}>
-        <View style={styles.storeLogo}>
-          <MaterialIcons name="restaurant" size={36} color={Colors.primary} />
-        </View>
+        <TouchableOpacity style={styles.storeLogo} onPress={uploadAvatar} activeOpacity={0.85}>
+          {user?.avatar ? (
+            <Image source={{ uri: user.avatar }} style={styles.storeLogoImage} contentFit="cover" />
+          ) : (
+            <MaterialIcons name="restaurant" size={36} color={Colors.primary} />
+          )}
+          <View style={styles.avatarEditBadge}>
+            <MaterialIcons name="photo-camera" size={13} color={Colors.text} />
+          </View>
+        </TouchableOpacity>
         <View style={styles.storeInfo}>
           <Text style={styles.storeName}>{user?.name}</Text>
           <Text style={styles.storeEmail}>{user?.email}</Text>
@@ -166,7 +186,9 @@ export default function VendorProfile() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   storeCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, margin: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, gap: Spacing.md, ...Shadow.md },
-  storeLogo: { width: 64, height: 64, borderRadius: BorderRadius.md, backgroundColor: 'rgba(204,0,0,0.1)', justifyContent: 'center', alignItems: 'center' },
+  storeLogo: { width: 64, height: 64, borderRadius: BorderRadius.md, backgroundColor: 'rgba(204,0,0,0.1)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  storeLogoImage: { width: '100%', height: '100%' },
+  avatarEditBadge: { position: 'absolute', right: -2, bottom: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.surfaceCard },
   storeInfo: { flex: 1 },
   storeName: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   storeEmail: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },

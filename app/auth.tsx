@@ -50,7 +50,7 @@ export default function AuthScreen() {
   const { showAlert } = useAlert();
   const { t } = useLanguage();
   const { mode: themeMode } = useThemeMode();
-  const heroImage = mode === 'register' ? require('@/assets/images/onboarding-2.png') : require('@/assets/images/onboarding-1.png');
+  const heroImage = mode === 'register' ? require('@/assets/images/sign-1.png') : require('@/assets/images/sign-2.png');
   const themed = {
     screen: { backgroundColor: Colors.background },
     modeToggle: { backgroundColor: Colors.surfaceElevated },
@@ -96,13 +96,6 @@ export default function AuthScreen() {
             locations={[0, 0.34, 0.72, 1]}
             style={styles.heroGradient}
           />
-          <View style={styles.heroContent}>
-            <View style={styles.logoRow}>
-              <Image source={require('@/assets/images/logo.png')} style={styles.logoIcon} contentFit="contain" />
-              <Text style={styles.logoName}>RedRush</Text>
-            </View>
-            <Text style={styles.subtitle}>{t('foodDeliveryFast')}</Text>
-          </View>
         </View>
 
         <View style={[styles.authPanel, themed.screen]}>
@@ -217,11 +210,6 @@ const styles = StyleSheet.create({
   hero: { height: HERO_HEIGHT, minHeight: 310, position: 'relative', overflow: 'hidden', backgroundColor: Colors.background },
   heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   heroGradient: { ...StyleSheet.absoluteFillObject },
-  heroContent: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
-  logoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
-  logoIcon: { width: 52, height: 52 },
-  logoName: { color: Colors.text, fontSize: 28, fontWeight: FontWeight.extrabold, marginLeft: 10 },
-  subtitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.regular },
   authPanel: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
   topControls: { alignSelf: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.lg },

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -7,20 +8,41 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useAlert } from '@/template';
+import { pickCompressAndUploadImage } from '@/services/cloudinary';
 
 export default function RiderProfile() {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const router = useRouter();
   const { formatMoney } = useCurrency();
+  const { showAlert } = useAlert();
+
+  const uploadAvatar = async () => {
+    try {
+      const url = await pickCompressAndUploadImage('profile');
+      if (!url) return;
+      await updateProfile({ avatar: url });
+      showAlert('Profile photo saved', 'Your rider photo has been updated.');
+    } catch (error) {
+      showAlert('Image upload', error instanceof Error ? error.message : 'Unable to upload this image.');
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
       {/* Profile */}
       <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <MaterialIcons name="delivery-dining" size={36} color={Colors.primary} />
-        </View>
+        <TouchableOpacity style={styles.avatar} onPress={uploadAvatar} activeOpacity={0.85}>
+          {user?.avatar ? (
+            <Image source={{ uri: user.avatar }} style={styles.avatarImage} contentFit="cover" />
+          ) : (
+            <MaterialIcons name="delivery-dining" size={36} color={Colors.primary} />
+          )}
+          <View style={styles.avatarEditBadge}>
+            <MaterialIcons name="photo-camera" size={13} color={Colors.text} />
+          </View>
+        </TouchableOpacity>
         <View style={styles.profileInfo}>
           <Text style={styles.name}>{user?.name}</Text>
           <Text style={styles.email}>{user?.email}</Text>
@@ -96,7 +118,9 @@ export default function RiderProfile() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   profileCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, margin: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, gap: Spacing.md, ...Shadow.md },
-  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(204,0,0,0.1)', justifyContent: 'center', alignItems: 'center' },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(204,0,0,0.1)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%' },
+  avatarEditBadge: { position: 'absolute', right: -2, bottom: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.surfaceCard },
   profileInfo: { flex: 1 },
   name: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   email: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
