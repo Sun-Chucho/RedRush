@@ -81,6 +81,8 @@ export default function OnboardingScreen() {
         {slides.map((slide) => (
           <View key={slide.id} style={[styles.slide, { width: screenWidth, height: screenHeight }]}>
             <View style={styles.imageStage}>
+              <Image source={slide.image} style={styles.slideImageBackdrop} contentFit="cover" blurRadius={28} />
+              <View style={styles.slideImageShade} />
               <Image source={slide.image} style={styles.slideImage} contentFit="contain" />
             </View>
             <View style={styles.slideContent}>
@@ -135,7 +137,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.sm,
+    overflow: 'hidden',
   },
+  slideImageBackdrop: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.72 },
+  slideImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
   slideImage: { width: '100%', height: '100%' },
   slideContent: {
     position: 'absolute',

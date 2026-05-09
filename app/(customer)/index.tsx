@@ -151,6 +151,8 @@ export default function CustomerHome() {
           {PROMO_BANNERS.map(banner => (
             <TouchableOpacity key={banner.id} style={styles.promoBanner}>
               <View style={styles.promoImageFrame}>
+                <Image source={banner.image} style={styles.promoImageBackdrop} contentFit="cover" blurRadius={22} />
+                <View style={styles.promoImageShade} />
                 <Image source={banner.image} style={styles.promoImage} contentFit="contain" />
               </View>
               <View style={styles.promoTextBlock}>
@@ -257,7 +259,9 @@ const styles = StyleSheet.create({
   promoScroll: { marginBottom: Spacing.md },
   promoContent: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
   promoBanner: { width: 180, height: 286, borderRadius: BorderRadius.lg, overflow: 'hidden', backgroundColor: Colors.surfaceCard, borderWidth: 1, borderColor: Colors.border },
-  promoImageFrame: { height: 222, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  promoImageFrame: { height: 222, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  promoImageBackdrop: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.7 },
+  promoImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
   promoImage: { width: '100%', height: '100%' },
   promoTextBlock: { minHeight: 64, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, justifyContent: 'center' },
   promoTitle: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold },
