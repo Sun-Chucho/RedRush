@@ -80,7 +80,6 @@ function orderFromDoc(id: string, data: Partial<Order> & Record<string, unknown>
     riderId: data.riderId,
     riderName: data.riderName,
     riderPhone: data.riderPhone as string | undefined,
-    customerPhone: data.customerPhone as string | undefined,
     prepTime: data.prepTime as number | undefined,
     deliveryTime: data.deliveryTime as number | undefined,
     acceptedAt: data.acceptedAt ? toIsoDate(data.acceptedAt) : undefined,
