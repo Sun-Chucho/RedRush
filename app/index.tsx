@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Href, Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -19,7 +19,7 @@ export default function Index() {
   if (isLoading || !preloadDone) {
     return (
       <View style={styles.preload}>
-        <Image source={require('@/assets/images/logo.png')} style={styles.preloadLogo} contentFit="contain" />
+        <Image source={require('@/assets/images/logopre.png')} style={styles.preloadLogo} contentFit="contain" />
         <ActivityIndicator color={Colors.primary} style={styles.loader} />
       </View>
     );
@@ -32,7 +32,7 @@ export default function Index() {
   if (user?.role === 'customer') return <Redirect href="/(customer)" />;
   if (user?.role === 'vendor') return <Redirect href="/(vendor)" />;
   if (user?.role === 'rider') return <Redirect href="/(rider)" />;
-  if (user?.role === 'admin') return <Redirect href="/(admin)" />;
+  if (user?.role === 'admin') return <Redirect href={'/admin' as Href} />;
 
   return <Redirect href="/onboarding" />;
 }

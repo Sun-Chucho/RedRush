@@ -15,7 +15,7 @@ import {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
@@ -47,6 +47,7 @@ export default function AuthScreen() {
 
   const { login, register } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams<{ next?: string }>();
   const { showAlert } = useAlert();
   const { t } = useLanguage();
   const { mode: themeMode } = useThemeMode();
@@ -77,7 +78,8 @@ export default function AuthScreen() {
       } else {
         await register({ name, email, phone, password, role: signupRole });
       }
-      router.replace('/');
+      const nextHref = typeof params.next === 'string' && params.next.startsWith('/') ? params.next : '/';
+      router.replace(nextHref as Href);
     } catch (e) {
       showAlert(t('authFailed'), e instanceof Error ? e.message : t('tryAgain'));
     } finally {
