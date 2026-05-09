@@ -50,7 +50,7 @@ export default function AuthScreen() {
   const { showAlert } = useAlert();
   const { t } = useLanguage();
   const { mode: themeMode } = useThemeMode();
-  const heroImage = mode === 'register' ? require('@/assets/images/onboarding-2.png') : require('@/assets/images/onboarding-1.png');
+  const heroImage = mode === 'register' ? require('@/assets/images/sign-1.png') : require('@/assets/images/sign-2.png');
   const themed = {
     screen: { backgroundColor: Colors.background },
     modeToggle: { backgroundColor: Colors.surfaceElevated },
