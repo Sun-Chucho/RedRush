@@ -16,6 +16,7 @@ import { CustomerDataProvider } from '@/contexts/CustomerDataContext';
 import { SupportProvider } from '@/contexts/SupportContext';
 import { RestaurantProvider } from '@/contexts/RestaurantContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { Colors } from '@/constants/theme';
 
 export default function RootLayout() {
   const pathname = usePathname();
