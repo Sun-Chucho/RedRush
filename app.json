@@ -15,7 +15,8 @@
       "bundleIdentifier": "com.redrush.app",
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "RedRush uses your location to choose KES or TZS pricing and show nearby delivery tracking."
+        "NSLocationWhenInUseUsageDescription": "RedRush uses your location to choose KES or TZS pricing and show nearby delivery tracking.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
