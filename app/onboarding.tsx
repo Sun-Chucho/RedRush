@@ -10,22 +10,29 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
 
+// Preload all slide images + auth images on module load so they show instantly
+const HOME_1 = require('@/home-1.jpeg');
+const HOME_2 = require('@/home-2.jpeg');
+const HOME_3 = require('@/home-3.jpeg');
+// Also prefetch auth images so switching to auth screen is instant
+Image.prefetch([require('@/sign-1.jpeg'), require('@/sign-2.jpeg')] as any).catch(() => undefined);
+
 const slides: { id: number; image: number; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   {
     id: 1,
-    image: require('@/home-1.jpeg'),
+    image: HOME_1,
     titleKey: 'orderFood',
     subtitleKey: 'startOrdering',
   },
   {
     id: 2,
-    image: require('@/home-2.jpeg'),
+    image: HOME_2,
     titleKey: 'topRestaurants',
     subtitleKey: 'browseMenus',
   },
   {
     id: 3,
-    image: require('@/home-3.jpeg'),
+    image: HOME_3,
     titleKey: 'realTimeTracking',
     subtitleKey: 'supportingOnboarding',
   },

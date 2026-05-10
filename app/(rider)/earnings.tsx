@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+/**
+ * Rider Earnings Screen — real Supabase data with period filtering
+ */
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -8,48 +11,121 @@ import { useAlert } from '@/template';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrders } from '@/hooks/useOrders';
 
-const PERIODS = ['Week', 'Month', 'Year'];
+type Period = 'Week' | 'Month' | 'Year';
+const PERIODS: Period[] = ['Week', 'Month', 'Year'];
+
+interface DailyBar {
+  label: string;
+  earnings: number;
+  deliveries: number;
+}
+
+function getPeriodStart(period: Period): Date {
+  const now = new Date();
+  if (period === 'Week') {
+    const d = new Date(now);
+    d.setDate(now.getDate() - 6);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  if (period === 'Month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  }
+  return new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+}
+
+function formatLabel(date: Date, period: Period): string {
+  if (period === 'Week') return date.toLocaleDateString([], { weekday: 'short' });
+  if (period === 'Month') return date.toLocaleDateString([], { day: 'numeric' });
+  return date.toLocaleDateString([], { month: 'short' });
+}
 
 export default function RiderEarnings() {
-  const [period, setPeriod] = useState('Week');
+  const [period, setPeriod] = useState<Period>('Week');
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
   const { user } = useAuth();
-  const { orders } = useOrders();
+  const { orders, loadOrders } = useOrders();
 
-  const deliveredOrders = orders.filter(order => order.riderId === user?.id && order.status === 'delivered');
-  const totalDeliveries = deliveredOrders.length;
-  const totalEarnings = deliveredOrders.reduce((sum, order) => sum + Math.max(900, Math.round(order.deliveryFee * 0.8)), 0);
-  const averageEarnings = totalDeliveries ? Math.round(totalEarnings / totalDeliveries) : 0;
-  const chartRows = Object.values(
-    deliveredOrders.reduce<Record<string, { date: string; earnings: number; deliveries: number }>>((acc, order) => {
-      const key = new Date(order.deliveredAt || order.createdAt).toLocaleDateString(undefined, { weekday: 'short' });
-      const earnings = Math.max(900, Math.round(order.deliveryFee * 0.8));
-      acc[key] = acc[key] || { date: key, earnings: 0, deliveries: 0 };
-      acc[key].earnings += earnings;
-      acc[key].deliveries += 1;
-      return acc;
-    }, {})
-  );
-  const maxEarnings = Math.max(...chartRows.map(d => d.earnings), 1);
+  // Filter delivered orders by this rider in the selected period
+  const periodStart = getPeriodStart(period);
+
+  const myDeliveries = orders.filter(o => {
+    if (o.riderId !== user?.id) return false;
+    if (o.status !== 'delivered') return false;
+    const d = new Date(o.deliveredAt || o.createdAt || '');
+    return d >= periodStart;
+  });
+
+  const totalEarnings = myDeliveries.reduce((sum, o) => sum + Math.max(200, Math.round((o.deliveryFee || 0) * 0.8)), 0);
+  const totalDeliveries = myDeliveries.length;
+  const avgPerTrip = totalDeliveries ? Math.round(totalEarnings / totalDeliveries) : 0;
+
+  // Build chart bars
+  const chartBars: DailyBar[] = (() => {
+    const map: Record<string, DailyBar> = {};
+
+    for (const o of myDeliveries) {
+      const date = new Date(o.deliveredAt || o.createdAt || '');
+      const label = formatLabel(date, period);
+      const earned = Math.max(200, Math.round((o.deliveryFee || 0) * 0.8));
+      if (!map[label]) map[label] = { label, earnings: 0, deliveries: 0 };
+      map[label].earnings += earned;
+      map[label].deliveries += 1;
+    }
+
+    return Object.values(map).slice(-7); // max 7 bars
+  })();
+
+  const maxEarnings = Math.max(...chartBars.map(d => d.earnings), 1);
+
+  // All-time delivered for lifetime total
+  const lifetimeOrders = orders.filter(o => o.riderId === user?.id && o.status === 'delivered');
+  const lifetimeEarnings = lifetimeOrders.reduce((sum, o) => sum + Math.max(200, Math.round((o.deliveryFee || 0) * 0.8)), 0);
+
+  // Bonus logic: needs 5 deliveries this week
+  const weekStart = getPeriodStart('Week');
+  const weekDeliveries = orders.filter(o => {
+    if (o.riderId !== user?.id || o.status !== 'delivered') return false;
+    return new Date(o.deliveredAt || o.createdAt || '') >= weekStart;
+  }).length;
+  const bonusGoal = 5;
+  const bonusProgress = Math.min(weekDeliveries, bonusGoal);
+  const bonusEarned = bonusProgress >= bonusGoal;
+  const bonusAmount = 3000;
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadOrders?.().catch(() => undefined);
+    setRefreshing(false);
+  }, [loadOrders]);
 
   return (
-    <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.container, { paddingTop: insets.top }]}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+    >
       <Text style={styles.title}>My Earnings</Text>
 
-      {/* Period */}
+      {/* Period Selector */}
       <View style={styles.periodRow}>
         {PERIODS.map(p => (
-          <TouchableOpacity key={p} style={[styles.periodBtn, period === p && styles.periodBtnActive]} onPress={() => setPeriod(p)}>
+          <TouchableOpacity
+            key={p}
+            style={[styles.periodBtn, period === p && styles.periodBtnActive]}
+            onPress={() => setPeriod(p)}
+          >
             <Text style={[styles.periodText, period === p && styles.periodTextActive]}>{p}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Total Card */}
+      {/* Total Earnings Card */}
       <View style={styles.totalCard}>
-        <Text style={styles.totalLabel}>Total Earnings ({period})</Text>
+        <Text style={styles.totalLabel}>Earnings · This {period}</Text>
         <Text style={styles.totalValue}>{formatMoney(totalEarnings)}</Text>
         <View style={styles.totalStats}>
           <View style={styles.totalStat}>
@@ -58,68 +134,129 @@ export default function RiderEarnings() {
           </View>
           <View style={styles.totalStatDivider} />
           <View style={styles.totalStat}>
-            <Text style={styles.totalStatValue}>{formatMoney(averageEarnings)}</Text>
-            <Text style={styles.totalStatLabel}>Avg per trip</Text>
+            <Text style={styles.totalStatValue}>{formatMoney(avgPerTrip)}</Text>
+            <Text style={styles.totalStatLabel}>Avg / trip</Text>
           </View>
           <View style={styles.totalStatDivider} />
           <View style={styles.totalStat}>
-            <Text style={styles.totalStatValue}>4.9 ⭐</Text>
-            <Text style={styles.totalStatLabel}>Rating</Text>
+            <Text style={styles.totalStatValue}>{lifetimeOrders.length}</Text>
+            <Text style={styles.totalStatLabel}>All-time trips</Text>
           </View>
         </View>
       </View>
 
       {/* Bar Chart */}
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Daily Breakdown</Text>
+        <Text style={styles.chartTitle}>
+          {period === 'Week' ? 'Daily' : period === 'Month' ? 'By Day' : 'By Month'} Breakdown
+        </Text>
         <View style={styles.chart}>
-          {chartRows.length ? chartRows.map((d, i) => {
-            const height = Math.max(8, (d.earnings / maxEarnings) * 100);
+          {chartBars.length > 0 ? chartBars.map((d, i) => {
+            const barH = Math.max(6, (d.earnings / maxEarnings) * 110);
+            const isLatest = i === chartBars.length - 1;
             return (
-              <View key={d.date} style={styles.barCol}>
-                <Text style={styles.barVal}>{formatMoney(Math.round(d.earnings / 1000) * 1000).replace(',000', 'k')}</Text>
+              <View key={d.label} style={styles.barCol}>
+                <Text style={styles.barVal}>
+                  {d.earnings >= 1000
+                    ? `${(d.earnings / 1000).toFixed(1)}k`
+                    : String(d.earnings)}
+                </Text>
                 <View style={styles.barTrack}>
-                  <View style={[styles.bar, { height, backgroundColor: i === 5 ? Colors.primary : Colors.primary + '55' }]} />
+                  <View style={[
+                    styles.bar,
+                    { height: barH, backgroundColor: isLatest ? Colors.primary : Colors.primary + '55' }
+                  ]} />
                 </View>
-                <Text style={styles.barDay}>{d.date}</Text>
+                <Text style={styles.barDay}>{d.label}</Text>
                 <Text style={styles.barDeliveries}>{d.deliveries}</Text>
               </View>
             );
           }) : (
             <View style={styles.emptyChart}>
-              <Text style={styles.emptyText}>No delivered trips yet.</Text>
+              <MaterialIcons name="bar-chart" size={36} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>
+                {totalDeliveries === 0
+                  ? `No deliveries this ${period.toLowerCase()} yet.`
+                  : 'No chart data available.'}
+              </Text>
             </View>
           )}
         </View>
-        <Text style={styles.chartNote}>Numbers below bars = deliveries count</Text>
+        {chartBars.length > 0 ? (
+          <Text style={styles.chartNote}>Numbers below bars = deliveries count</Text>
+        ) : null}
       </View>
 
-      {/* Payout */}
+      {/* Payout Balance Card */}
       <View style={styles.payoutCard}>
         <View style={styles.payoutHeader}>
           <MaterialIcons name="account-balance-wallet" size={22} color={Colors.primary} />
-          <Text style={styles.payoutTitle}>Payout Balance</Text>
+          <Text style={styles.payoutTitle}>Lifetime Payout Balance</Text>
         </View>
-        <Text style={styles.payoutBalance}>{formatMoney(totalEarnings)}</Text>
-        <Text style={styles.payoutNote}>Available for withdrawal</Text>
-        <TouchableOpacity style={styles.withdrawBtn} onPress={() => showAlert('Withdrawal', `Withdrawal request for ${formatMoney(totalEarnings)} has been queued for Mobile Money payout review.`)}>
+        <Text style={styles.payoutBalance}>{formatMoney(lifetimeEarnings)}</Text>
+        <Text style={styles.payoutNote}>Available for withdrawal · Updated in real time</Text>
+        <TouchableOpacity
+          style={styles.withdrawBtn}
+          onPress={() =>
+            showAlert(
+              'Withdrawal Request',
+              `Withdrawal for ${formatMoney(lifetimeEarnings)} queued for Mobile Money payout review. You will receive payment within 24 hours.`
+            )
+          }
+        >
           <MaterialIcons name="phone-android" size={18} color={Colors.text} />
           <Text style={styles.withdrawText}>Withdraw via Mobile Money</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Bonus */}
+      {/* Weekly Bonus Card */}
       <View style={styles.bonusCard}>
-        <MaterialIcons name="local-fire-department" size={28} color={Colors.warning} />
+        <MaterialIcons
+          name={bonusEarned ? 'emoji-events' : 'local-fire-department'}
+          size={28}
+          color={Colors.warning}
+        />
         <View style={styles.bonusInfo}>
-          <Text style={styles.bonusTitle}>Weekend Bonus Active 🔥</Text>
-          <Text style={styles.bonusDesc}>Complete 5 more deliveries to earn {formatMoney(3000)} bonus</Text>
+          <Text style={styles.bonusTitle}>
+            {bonusEarned ? 'Bonus Earned! 🎉' : 'Weekly Bonus Active 🔥'}
+          </Text>
+          <Text style={styles.bonusDesc}>
+            {bonusEarned
+              ? `You completed ${bonusGoal}+ deliveries — ${formatMoney(bonusAmount)} bonus credited!`
+              : `Complete ${bonusGoal - bonusProgress} more deliveries to earn ${formatMoney(bonusAmount)} bonus`}
+          </Text>
           <View style={styles.bonusProgress}>
-            <View style={[styles.bonusFill, { width: '60%' }]} />
+            <View style={[styles.bonusFill, { width: `${(bonusProgress / bonusGoal) * 100}%` }]} />
           </View>
-          <Text style={styles.bonusCount}>3/5 deliveries done</Text>
+          <Text style={styles.bonusCount}>{bonusProgress}/{bonusGoal} deliveries done</Text>
         </View>
       </View>
+
+      {/* Delivery History */}
+      {myDeliveries.length > 0 ? (
+        <View style={styles.historyCard}>
+          <Text style={styles.historyTitle}>Delivery History · {period}</Text>
+          {myDeliveries.slice(0, 10).map((o, i) => {
+            const earned = Math.max(200, Math.round((o.deliveryFee || 0) * 0.8));
+            return (
+              <View key={`${o.id}-${i}`} style={styles.historyRow}>
+                <View style={styles.historyIcon}>
+                  <MaterialIcons name="delivery-dining" size={16} color={Colors.primary} />
+                </View>
+                <View style={styles.historyInfo}>
+                  <Text style={styles.historyRestaurant}>{o.restaurantName}</Text>
+                  <Text style={styles.historyDate}>
+                    {new Date(o.deliveredAt || o.createdAt || '').toLocaleDateString([], {
+                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+                <Text style={styles.historyAmount}>+{formatMoney(earned)}</Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
 
       <View style={{ height: 30 }} />
     </ScrollView>
@@ -129,11 +266,13 @@ export default function RiderEarnings() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
+
   periodRow: { flexDirection: 'row', marginHorizontal: Spacing.md, backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.md },
   periodBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: BorderRadius.sm },
   periodBtnActive: { backgroundColor: Colors.primary },
   periodText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   periodTextActive: { color: Colors.text },
+
   totalCard: { backgroundColor: Colors.primary, borderRadius: BorderRadius.xl, marginHorizontal: Spacing.md, padding: Spacing.lg, marginBottom: Spacing.md, ...Shadow.lg },
   totalLabel: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.sm },
   totalValue: { color: Colors.text, fontSize: 36, fontWeight: FontWeight.extrabold, marginVertical: 6 },
@@ -142,9 +281,10 @@ const styles = StyleSheet.create({
   totalStatValue: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   totalStatLabel: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.xs, marginTop: 2 },
   totalStatDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.2)' },
+
   chartCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, marginBottom: Spacing.md, ...Shadow.md },
   chartTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginBottom: Spacing.md },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', height: 140 },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', minHeight: 140 },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   barVal: { color: Colors.textMuted, fontSize: 9, textAlign: 'center', marginBottom: 4 },
   barTrack: { width: '70%', justifyContent: 'flex-end' },
@@ -152,8 +292,9 @@ const styles = StyleSheet.create({
   barDay: { color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 4 },
   barDeliveries: { color: Colors.primary, fontSize: 9, fontWeight: FontWeight.bold },
   chartNote: { color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'center', marginTop: Spacing.sm },
-  emptyChart: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: Colors.textMuted, fontSize: FontSize.sm },
+  emptyChart: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.lg, gap: Spacing.sm },
+  emptyText: { color: Colors.textMuted, fontSize: FontSize.sm, textAlign: 'center' },
+
   payoutCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, marginBottom: Spacing.md, ...Shadow.md },
   payoutHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   payoutTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
@@ -161,11 +302,21 @@ const styles = StyleSheet.create({
   payoutNote: { color: Colors.textMuted, fontSize: FontSize.xs, marginBottom: Spacing.md },
   withdrawBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 12, gap: Spacing.sm },
   withdrawText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-  bonusCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, gap: Spacing.md, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
+
+  bonusCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.warning + '12', borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, gap: Spacing.md, borderWidth: 1, borderColor: Colors.warning + '30', marginBottom: Spacing.md },
   bonusInfo: { flex: 1 },
   bonusTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   bonusDesc: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: 4 },
   bonusProgress: { height: 6, backgroundColor: Colors.surfaceElevated, borderRadius: 3, overflow: 'hidden', marginTop: Spacing.sm },
   bonusFill: { height: '100%', backgroundColor: Colors.warning, borderRadius: 3 },
   bonusCount: { color: Colors.warning, fontSize: FontSize.xs, fontWeight: FontWeight.semibold, marginTop: 4 },
+
+  historyCard: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, marginBottom: Spacing.md, ...Shadow.md },
+  historyTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
+  historyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border, gap: Spacing.sm },
+  historyIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.primary + '18', justifyContent: 'center', alignItems: 'center' },
+  historyInfo: { flex: 1 },
+  historyRestaurant: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
+  historyDate: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
+  historyAmount: { color: Colors.success, fontSize: FontSize.body, fontWeight: FontWeight.bold },
 });

@@ -30,6 +30,9 @@ const RESTAURANT_COORDS = { latitude: -1.2833, longitude: 36.8172 };
 const CUSTOMER_COORDS   = { latitude: -1.2921, longitude: 36.8219 };
 const RIDER_DEFAULT     = { latitude: -1.2868, longitude: 36.8201 };
 
+/** Orders that can still be cancelled by the customer */
+const CANCELLABLE_STATUSES = ['pending', 'accepted'];
+
 function callNumber(phone: string) {
   Linking.openURL(`tel:${phone}`).catch(() => undefined);
 }
@@ -46,7 +49,7 @@ function openMapsTo(address: string) {
 
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getOrderById } = useOrders();
+  const { getOrderById, updateOrderStatus } = useOrders();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { showAlert } = useAlert();
@@ -57,6 +60,7 @@ export default function OrderTrackingScreen() {
   const [riderCoords, setRiderCoords] = useState<RiderCoords | null>(null);
   const [showRating, setShowRating] = useState(false);
   const [alreadyRated, setAlreadyRated] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Check if already rated
@@ -98,6 +102,32 @@ export default function OrderTrackingScreen() {
     };
   }, [riderCoords]);
 
+  const handleCancelOrder = useCallback(() => {
+    if (!order || cancelling) return;
+    showAlert(
+      'Cancel Order?',
+      'Are you sure you want to cancel this order? This cannot be undone.',
+      [
+        { text: 'Keep Order', style: 'cancel' },
+        {
+          text: 'Cancel Order',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              await updateOrderStatus(order.id, 'cancelled');
+              showAlert('Order Cancelled', 'Your order has been cancelled successfully.');
+            } catch {
+              showAlert('Error', 'Unable to cancel order. Please try again.');
+            } finally {
+              setCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [order, cancelling, showAlert, updateOrderStatus]);
+
   const handleSubmitReview = useCallback(async (data: {
     rating: number;
     foodRating: number;
@@ -129,6 +159,7 @@ export default function OrderTrackingScreen() {
   const currentStepIndex = STEPS.findIndex(s => s.key === order.status);
   const isLive = ['accepted', 'preparing', 'ready', 'picked_up'].includes(order.status);
   const isActive = !['delivered', 'cancelled'].includes(order.status);
+  const canCancel = CANCELLABLE_STATUSES.includes(order.status);
   const showRiderOnMap = order.status === 'picked_up';
 
   const formatTime = (isoString: string) =>
@@ -138,6 +169,8 @@ export default function OrderTrackingScreen() {
   const totalEta = (order.prepTime || 0) + (order.deliveryTime || 0);
   const etaLabel = order.status === 'delivered'
     ? 'Delivered'
+    : order.status === 'cancelled'
+    ? 'Cancelled'
     : totalEta > 0
     ? `~${totalEta} min`
     : `ETA: ${formatTime(order.estimatedDelivery)}`;
@@ -166,6 +199,14 @@ export default function OrderTrackingScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* ── Cancelled Banner ── */}
+        {order.status === 'cancelled' ? (
+          <View style={styles.cancelledBanner}>
+            <MaterialIcons name="cancel" size={22} color={Colors.error} />
+            <Text style={styles.cancelledText}>This order has been cancelled.</Text>
+          </View>
+        ) : null}
+
         {/* ── Full Map ── */}
         <View style={styles.mapShell}>
           <MapView
@@ -334,6 +375,20 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
+        {/* ── Cancel Order CTA — only for pending/accepted ── */}
+        {canCancel ? (
+          <TouchableOpacity
+            style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
+            onPress={handleCancelOrder}
+            disabled={cancelling}
+          >
+            <MaterialIcons name="cancel" size={18} color={Colors.error} />
+            <Text style={styles.cancelBtnText}>
+              {cancelling ? 'Cancelling...' : 'Cancel Order'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* ── Delivered: Review CTA ── */}
         {order.status === 'delivered' ? (
           alreadyRated ? (
@@ -382,6 +437,9 @@ const styles = StyleSheet.create({
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary + '20', borderRadius: BorderRadius.full, paddingHorizontal: 8, paddingVertical: 3 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary },
   liveBadgeText: { color: Colors.primary, fontSize: 10, fontWeight: FontWeight.extrabold },
+
+  cancelledBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.error + '18', marginHorizontal: Spacing.md, marginTop: Spacing.md, borderRadius: BorderRadius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.error + '44' },
+  cancelledText: { color: Colors.error, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
 
   mapShell: { height: 260, margin: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.md },
   map: { flex: 1 },
@@ -440,6 +498,10 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm, marginTop: Spacing.xs },
   totalLabel: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   totalValue: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.extrabold },
+
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: Spacing.md, padding: Spacing.md, backgroundColor: Colors.error + '12', borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: Colors.error + '44', gap: Spacing.sm, marginBottom: Spacing.sm },
+  cancelBtnDisabled: { opacity: 0.5 },
+  cancelBtnText: { color: Colors.error, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
 
   reviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: Spacing.md, padding: Spacing.md, backgroundColor: Colors.gold + '18', borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: Colors.gold + '44', gap: Spacing.sm, marginBottom: Spacing.md },
   reviewBtnText: { color: Colors.gold, fontSize: FontSize.body, fontWeight: FontWeight.semibold },

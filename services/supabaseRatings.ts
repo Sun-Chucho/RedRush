@@ -1,22 +1,22 @@
 /**
- * Rating & review service — Supabase only
+ * Review/Rating service using Supabase
  */
 import { isSupabaseConfigured, supabase } from './supabase';
 
 export interface Review {
   id: string;
   orderId: string;
+  userId: string;
   restaurantId: string;
   restaurantName: string;
-  customerId: string;
-  rating: number;        // 1–5
-  foodRating: number;    // 1–5
-  deliveryRating: number;// 1–5
+  rating: number;
+  foodRating: number;
+  deliveryRating: number;
   comment: string;
   createdAt: string;
 }
 
-export interface SubmitReviewPayload {
+export interface SubmitReviewParams {
   orderId: string;
   restaurantId: string;
   restaurantName: string;
@@ -26,53 +26,62 @@ export interface SubmitReviewPayload {
   comment: string;
 }
 
-/** Submit a new review */
+/** Submit a post-delivery review */
 export async function submitReview(
-  customerId: string,
-  payload: SubmitReviewPayload
-): Promise<Review | null> {
-  if (!isSupabaseConfigured) return null;
-
-  // Prevent duplicate reviews for same order
-  const { data: existing } = await supabase
-    .from('reviews')
-    .select('id')
-    .eq('order_id', payload.orderId)
-    .eq('customer_id', customerId)
-    .maybeSingle();
-
-  if (existing) return null; // already reviewed
-
-  const overallRating = Math.round((payload.rating + payload.foodRating + payload.deliveryRating) / 3);
+  userId: string,
+  params: SubmitReviewParams
+): Promise<{ data: Review | null; error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { data: null, error: 'Backend not connected' };
+  }
 
   const { data, error } = await supabase
     .from('reviews')
-    .insert({
-      order_id: payload.orderId,
-      restaurant_id: payload.restaurantId,
-      restaurant_name: payload.restaurantName,
-      customer_id: customerId,
-      rating: overallRating,
-      food_rating: payload.foodRating,
-      delivery_rating: payload.deliveryRating,
-      comment: payload.comment.trim(),
-    })
+    .upsert(
+      {
+        order_id: params.orderId,
+        user_id: userId,
+        restaurant_id: params.restaurantId,
+        restaurant_name: params.restaurantName,
+        rating: params.rating,
+        food_rating: params.foodRating,
+        delivery_rating: params.deliveryRating,
+        comment: params.comment.trim(),
+      },
+      { onConflict: 'order_id,user_id' }
+    )
     .select('*')
     .single();
 
   if (error) {
     console.warn('[ratings] submitReview error:', error.message);
-    return null;
+    return { data: null, error: error.message };
   }
 
-  // Update restaurant average_rating
-  updateRestaurantRating(payload.restaurantId).catch(() => undefined);
+  return { data: mapReview(data), error: null };
+}
 
-  return mapRow(data);
+/** Check if user has already reviewed an order */
+export async function hasReviewedOrder(
+  orderId: string,
+  userId: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+
+  const { count } = await supabase
+    .from('reviews')
+    .select('id', { count: 'exact', head: true })
+    .eq('order_id', orderId)
+    .eq('user_id', userId);
+
+  return (count || 0) > 0;
 }
 
 /** Fetch reviews for a restaurant */
-export async function fetchRestaurantReviews(restaurantId: string): Promise<Review[]> {
+export async function fetchRestaurantReviews(
+  restaurantId: string,
+  limit = 20
+): Promise<Review[]> {
   if (!isSupabaseConfigured) return [];
 
   const { data, error } = await supabase
@@ -80,52 +89,40 @@ export async function fetchRestaurantReviews(restaurantId: string): Promise<Revi
     .select('*')
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false })
-    .limit(50);
+    .limit(limit);
 
-  if (error) return [];
-  return (data || []).map(mapRow);
+  if (error) {
+    console.warn('[ratings] fetchRestaurantReviews error:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapReview);
 }
 
-/** Check if a customer already reviewed an order */
-export async function hasReviewedOrder(orderId: string, customerId: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
-  const { data } = await supabase
-    .from('reviews')
-    .select('id')
-    .eq('order_id', orderId)
-    .eq('customer_id', customerId)
-    .maybeSingle();
-  return !!data;
-}
+/** Get average rating for a restaurant */
+export async function getRestaurantAverageRating(
+  restaurantId: string
+): Promise<{ average: number; count: number }> {
+  if (!isSupabaseConfigured) return { average: 0, count: 0 };
 
-async function updateRestaurantRating(restaurantId: string) {
-  if (!isSupabaseConfigured) return;
-
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('reviews')
     .select('rating')
     .eq('restaurant_id', restaurantId);
 
-  if (!data || !data.length) return;
+  if (error || !data || data.length === 0) return { average: 0, count: 0 };
 
-  const avg = data.reduce((s, r) => s + (r.rating || 0), 0) / data.length;
-
-  await supabase
-    .from('restaurants')
-    .update({
-      rating: Math.round(avg * 10) / 10,
-      review_count: data.length,
-    })
-    .eq('id', restaurantId);
+  const sum = data.reduce((acc, r) => acc + r.rating, 0);
+  return { average: Math.round((sum / data.length) * 10) / 10, count: data.length };
 }
 
-function mapRow(row: Record<string, any>): Review {
+function mapReview(row: Record<string, any>): Review {
   return {
     id: row.id,
     orderId: row.order_id,
+    userId: row.user_id,
     restaurantId: row.restaurant_id,
     restaurantName: row.restaurant_name || '',
-    customerId: row.customer_id,
     rating: row.rating || 0,
     foodRating: row.food_rating || 0,
     deliveryRating: row.delivery_rating || 0,
