@@ -24,9 +24,9 @@ const PROMO_BANNERS: {
   subtitleKey?: TranslationKey;
   image: number;
 }[] = [
-  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', image: require('@/home-1.png') /* generated */ },
-  { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/home-2.png') },
-  { id: '3', title: 'MTN MoMo Pay', subtitle: 'Earn 500 cashback per order', image: require('@/home-3.png') },
+  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', image: require('@/home-1.jpeg') },
+  { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/home-2.jpeg') },
+  { id: '3', title: 'MTN MoMo Pay', subtitle: 'Earn 500 cashback per order', image: require('@/home-3.jpeg') },
 ];
 
 const NEARBY_RADIUS_KM = 12;
