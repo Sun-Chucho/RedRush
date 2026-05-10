@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated,
   Linking, Platform,
@@ -10,9 +10,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useCustomerData } from '@/hooks/useCustomerData';
+import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { RiderCoords, subscribeToRiderLocation } from '@/services/riderLocation';
+import { submitReview, hasReviewedOrder } from '@/services/supabaseRatings';
+import RatingModal from '@/components/RatingModal';
+import FloatingChatButton from '@/components/FloatingChatButton';
 
 const STEPS = [
   { key: 'pending',   label: 'Order Placed',    icon: 'receipt',          desc: 'Your order has been received' },
@@ -48,15 +51,24 @@ export default function OrderTrackingScreen() {
   const router = useRouter();
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
-  const { addReview } = useCustomerData();
+  const { user } = useAuth();
+
   const order = getOrderById(id || '');
   const [riderCoords, setRiderCoords] = useState<RiderCoords | null>(null);
+  const [showRating, setShowRating] = useState(false);
+  const [alreadyRated, setAlreadyRated] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const prevStatusRef = useRef<string | null>(null);
+
+  // Check if already rated
+  useEffect(() => {
+    if (order?.status === 'delivered' && user?.id && order?.id) {
+      hasReviewedOrder(order.id, user.id).then(rated => setAlreadyRated(rated));
+    }
+  }, [order?.status, user?.id, order?.id]);
 
   // Live rider GPS subscription
   useEffect(() => {
-    if (!order?.riderId || !['picked_up'].includes(order.status)) {
+    if (!order?.riderId || order.status !== 'picked_up') {
       setRiderCoords(null);
       return undefined;
     }
@@ -86,6 +98,22 @@ export default function OrderTrackingScreen() {
     };
   }, [riderCoords]);
 
+  const handleSubmitReview = useCallback(async (data: {
+    rating: number;
+    foodRating: number;
+    deliveryRating: number;
+    comment: string;
+  }) => {
+    if (!user || !order) return;
+    await submitReview(user.id, {
+      orderId: order.id,
+      restaurantId: order.restaurantId,
+      restaurantName: order.restaurantName,
+      ...data,
+    });
+    setAlreadyRated(true);
+  }, [user, order]);
+
   if (!order) {
     return (
       <View style={styles.notFound}>
@@ -100,13 +128,13 @@ export default function OrderTrackingScreen() {
 
   const currentStepIndex = STEPS.findIndex(s => s.key === order.status);
   const isLive = ['accepted', 'preparing', 'ready', 'picked_up'].includes(order.status);
+  const isActive = !['delivered', 'cancelled'].includes(order.status);
   const showRiderOnMap = order.status === 'picked_up';
 
   const formatTime = (isoString: string) =>
     new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const mapCenter = showRiderOnMap ? route.rider : RESTAURANT_COORDS;
-
   const totalEta = (order.prepTime || 0) + (order.deliveryTime || 0);
   const etaLabel = order.status === 'delivered'
     ? 'Delivered'
@@ -149,21 +177,16 @@ export default function OrderTrackingScreen() {
               longitudeDelta: 0.032,
             }}
           >
-            {/* Restaurant pin */}
             <Marker coordinate={RESTAURANT_COORDS} title={order.restaurantName}>
               <View style={styles.restaurantMarker}>
                 <MaterialIcons name="restaurant" size={16} color={Colors.text} />
               </View>
             </Marker>
-
-            {/* Customer pin */}
             <Marker coordinate={CUSTOMER_COORDS} title="Your location">
               <View style={styles.customerMarker}>
                 <MaterialIcons name="home" size={16} color={Colors.text} />
               </View>
             </Marker>
-
-            {/* Rider pin — only when picked_up */}
             {showRiderOnMap ? (
               <>
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
@@ -173,38 +196,19 @@ export default function OrderTrackingScreen() {
                     </View>
                   </Marker>
                 </Animated.View>
-                {/* Route: rider → customer */}
-                <Polyline
-                  coordinates={route.riderToCustomer}
-                  strokeColor={Colors.primary}
-                  strokeWidth={4}
-                  lineDashPattern={[1]}
-                />
+                <Polyline coordinates={route.riderToCustomer} strokeColor={Colors.primary} strokeWidth={4} lineDashPattern={[1]} />
               </>
             ) : null}
-
-            {/* Route: restaurant → rider (before pickup) */}
             {!showRiderOnMap && order.status !== 'delivered' && order.status !== 'cancelled' ? (
-              <Polyline
-                coordinates={[RESTAURANT_COORDS, CUSTOMER_COORDS]}
-                strokeColor={Colors.border}
-                strokeWidth={3}
-                lineDashPattern={[6, 4]}
-              />
+              <Polyline coordinates={[RESTAURANT_COORDS, CUSTOMER_COORDS]} strokeColor={Colors.border} strokeWidth={3} lineDashPattern={[6, 4]} />
             ) : null}
           </MapView>
-
-          {/* Map overlay badges */}
           <View style={styles.mapTopLeft}>
             <View style={styles.mapBadge}>
               {riderCoords ? <View style={styles.mapDot} /> : null}
-              <Text style={styles.mapBadgeText}>
-                {riderCoords ? 'Live GPS' : 'Route preview'}
-              </Text>
+              <Text style={styles.mapBadgeText}>{riderCoords ? 'Live GPS' : 'Route preview'}</Text>
             </View>
           </View>
-
-          {/* ETA chip */}
           <View style={styles.mapEtaChip}>
             <MaterialIcons name="access-time" size={13} color={Colors.primary} />
             <Text style={styles.mapEtaText}>{etaLabel}</Text>
@@ -224,7 +228,6 @@ export default function OrderTrackingScreen() {
             </View>
           </View>
 
-          {/* Prep + delivery breakdown */}
           {order.prepTime || order.deliveryTime ? (
             <View style={styles.timeBreakdown}>
               <View style={styles.timeChip}>
@@ -245,7 +248,6 @@ export default function OrderTrackingScreen() {
             </View>
           ) : null}
 
-          {/* Rider card */}
           {order.riderName ? (
             <View style={styles.riderCard}>
               <View style={styles.riderAvatar}>
@@ -254,9 +256,7 @@ export default function OrderTrackingScreen() {
               <View style={styles.riderInfo}>
                 <Text style={styles.riderName}>{order.riderName}</Text>
                 <Text style={styles.riderLabel}>Your Delivery Rider</Text>
-                {order.riderPhone ? (
-                  <Text style={styles.riderPhone}>{order.riderPhone}</Text>
-                ) : null}
+                {order.riderPhone ? <Text style={styles.riderPhone}>{order.riderPhone}</Text> : null}
               </View>
               <View style={styles.riderActions}>
                 <TouchableOpacity
@@ -268,14 +268,6 @@ export default function OrderTrackingScreen() {
                   }
                 >
                   <MaterialIcons name="phone" size={20} color={Colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.riderBtn}
-                  onPress={() =>
-                    showAlert('Message Rider', `In-app messaging coming soon. Call ${order.riderName} directly.`)
-                  }
-                >
-                  <MaterialIcons name="chat" size={20} color={Colors.primary} />
                 </TouchableOpacity>
                 {order.address ? (
                   <TouchableOpacity
@@ -295,31 +287,17 @@ export default function OrderTrackingScreen() {
           <Text style={styles.stepsTitle}>Order Progress</Text>
           {STEPS.map((step, index) => {
             const isCompleted = index <= currentStepIndex;
-            const isActive    = index === currentStepIndex;
+            const isActiveStep = index === currentStepIndex;
             return (
               <View key={step.key} style={styles.stepRow}>
                 <View style={styles.stepIconCol}>
-                  <View
-                    style={[
-                      styles.stepIcon,
-                      isCompleted && styles.stepIconDone,
-                      isActive && styles.stepIconActive,
-                    ]}
-                  >
-                    {isActive ? (
+                  <View style={[styles.stepIcon, isCompleted && styles.stepIconDone, isActiveStep && styles.stepIconActive]}>
+                    {isActiveStep ? (
                       <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                        <MaterialIcons
-                          name={step.icon as any}
-                          size={16}
-                          color={Colors.text}
-                        />
+                        <MaterialIcons name={step.icon as any} size={16} color={Colors.text} />
                       </Animated.View>
                     ) : (
-                      <MaterialIcons
-                        name={step.icon as any}
-                        size={16}
-                        color={isCompleted ? Colors.text : Colors.textMuted}
-                      />
+                      <MaterialIcons name={step.icon as any} size={16} color={isCompleted ? Colors.text : Colors.textMuted} />
                     )}
                   </View>
                   {index < STEPS.length - 1 ? (
@@ -327,12 +305,10 @@ export default function OrderTrackingScreen() {
                   ) : null}
                 </View>
                 <View style={styles.stepInfo}>
-                  <Text style={[styles.stepLabel, isCompleted && styles.stepLabelActive]}>
-                    {step.label}
-                  </Text>
+                  <Text style={[styles.stepLabel, isCompleted && styles.stepLabelActive]}>{step.label}</Text>
                   <Text style={styles.stepDesc}>{step.desc}</Text>
                 </View>
-                {isActive ? (
+                {isActiveStep ? (
                   <Animated.View style={[styles.activePulse, { transform: [{ scale: pulseAnim }] }]} />
                 ) : isCompleted ? (
                   <MaterialIcons name="check" size={16} color={Colors.success} />
@@ -360,25 +336,34 @@ export default function OrderTrackingScreen() {
 
         {/* ── Delivered: Review CTA ── */}
         {order.status === 'delivered' ? (
-          <TouchableOpacity
-            style={styles.reviewBtn}
-            onPress={() => {
-              addReview({
-                restaurantId: order.restaurantId,
-                restaurantName: order.restaurantName,
-                rating: 5,
-                comment: 'Great food and smooth delivery.',
-              });
-              showAlert('Review saved', `Thanks for reviewing ${order.restaurantName}.`);
-            }}
-          >
-            <MaterialIcons name="star" size={20} color={Colors.gold} />
-            <Text style={styles.reviewBtnText}>Rate Your Experience</Text>
-          </TouchableOpacity>
+          alreadyRated ? (
+            <View style={styles.ratedBadge}>
+              <MaterialIcons name="check-circle" size={18} color={Colors.success} />
+              <Text style={styles.ratedText}>You rated this order</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.reviewBtn} onPress={() => setShowRating(true)}>
+              <MaterialIcons name="star" size={20} color={Colors.gold} />
+              <Text style={styles.reviewBtnText}>Rate Your Experience</Text>
+            </TouchableOpacity>
+          )
         ) : null}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
+
+      {/* Floating Chat Button — only on active orders */}
+      {isActive ? (
+        <FloatingChatButton orderId={order.id} bottom={20} right={20} />
+      ) : null}
+
+      {/* Rating Modal */}
+      <RatingModal
+        visible={showRating}
+        restaurantName={order.restaurantName}
+        onDismiss={() => setShowRating(false)}
+        onSubmit={handleSubmitReview}
+      />
     </View>
   );
 }
@@ -398,7 +383,6 @@ const styles = StyleSheet.create({
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary },
   liveBadgeText: { color: Colors.primary, fontSize: 10, fontWeight: FontWeight.extrabold },
 
-  // Map
   mapShell: { height: 260, margin: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.md },
   map: { flex: 1 },
   mapTopLeft: { position: 'absolute', top: 12, left: 12 },
@@ -408,12 +392,10 @@ const styles = StyleSheet.create({
   mapEtaChip: { position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surface, borderRadius: BorderRadius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
   mapEtaText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
 
-  // Map markers
   restaurantMarker: { width: 34, height: 34, borderRadius: 8, backgroundColor: Colors.warning, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.text },
-  customerMarker:   { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.text },
-  riderMarker:      { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: Colors.text },
+  customerMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.text },
+  riderMarker: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: Colors.text },
 
-  // Order card
   orderCard: { backgroundColor: Colors.surfaceCard, marginHorizontal: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, ...Shadow.md },
   orderCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
   orderId: { color: Colors.textMuted, fontSize: FontSize.xs },
@@ -434,7 +416,6 @@ const styles = StyleSheet.create({
   riderActions: { flexDirection: 'row', gap: Spacing.sm },
   riderBtn: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
 
-  // Progress steps
   stepsContainer: { backgroundColor: Colors.surfaceCard, marginHorizontal: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, ...Shadow.md },
   stepsTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginBottom: Spacing.md },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Spacing.xs, position: 'relative' },
@@ -450,7 +431,6 @@ const styles = StyleSheet.create({
   stepDesc: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
   activePulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary, marginTop: 12 },
 
-  // Items card
   itemsCard: { backgroundColor: Colors.surfaceCard, marginHorizontal: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, ...Shadow.md },
   itemsTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs, gap: Spacing.sm },
@@ -461,7 +441,8 @@ const styles = StyleSheet.create({
   totalLabel: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   totalValue: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.extrabold },
 
-  // Review
   reviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: Spacing.md, padding: Spacing.md, backgroundColor: Colors.gold + '18', borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: Colors.gold + '44', gap: Spacing.sm, marginBottom: Spacing.md },
   reviewBtnText: { color: Colors.gold, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
+  ratedBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: Spacing.md, padding: Spacing.md, backgroundColor: Colors.success + '15', borderRadius: BorderRadius.lg, gap: Spacing.sm, marginBottom: Spacing.md },
+  ratedText: { color: Colors.success, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
 });

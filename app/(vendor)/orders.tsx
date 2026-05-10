@@ -9,6 +9,7 @@ import { useAlert } from '@/template';
 import { Order } from '@/constants/mockData';
 import { sendOrderStatusNotification, sendNewOrderNotification, registerForPushNotifications } from '@/services/notifications';
 import { useAuth } from '@/hooks/useAuth';
+import FloatingChatButton from '@/components/FloatingChatButton';
 
 const TABS = ['All', 'Pending', 'Preparing', 'Ready', 'Completed'];
 const STATUS_COLOR: Record<string, string> = {
@@ -202,6 +203,11 @@ export default function VendorOrders() {
           </View>
         }
       />
+
+      {/* Floating chat for most recent active order */}
+      {filtered.filter(o => ['pending','accepted','preparing','ready'].includes(o.status)).slice(0, 1).map(o => (
+        <FloatingChatButton key={o.id} orderId={o.id} bottom={100} right={20} />
+      ))}
 
       {/* Prep Time Modal */}
       <Modal visible={!!prepModalOrder} transparent animationType="slide" onRequestClose={() => setPrepModalOrder(null)}>
