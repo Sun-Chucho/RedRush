@@ -12,9 +12,8 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 import { useAlert } from '@/template';
 import { startRiderTracking, stopRiderTracking, setRiderOffline } from '@/services/riderLocation';
+import { setRiderOnlineStatus } from '@/services/dispatchService';
 import { sendRiderRequestNotification, sendRiderAssignedNotification, registerForPushNotifications } from '@/services/notifications';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { db } from '@/services/firebase';
 import * as Location from 'expo-location';
 import {
   emptyRiderSettings,
@@ -39,7 +38,6 @@ function openMapsDirections(destination: string, lat?: number, lng?: number) {
       : `google.navigation:q=${encoded}`;
   }
   Linking.openURL(url).catch(() => {
-    // Fallback to Google Maps web
     const query = lat && lng ? `${lat},${lng}` : encodeURIComponent(destination);
     Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${query}`);
   });
@@ -145,10 +143,7 @@ export default function RiderHome() {
           setIsOnline(false);
           return;
         }
-        await updateDoc(doc(db, 'users', user.id), {
-          isOnline: true,
-          updatedAt: serverTimestamp(),
-        }).catch(() => undefined);
+        await setRiderOnlineStatus(user.id, true).catch(() => undefined);
         await saveRiderProfileSettings(user.id, { isOnline: true }).catch(() => undefined);
       }
       if (readyOrder) setHasRequest(true);
@@ -157,9 +152,7 @@ export default function RiderHome() {
       stopRiderTracking();
       if (user?.id) {
         setRiderOffline(user.id);
-        await updateDoc(doc(db, 'users', user.id), {
-          isOnline: false, updatedAt: serverTimestamp(),
-        }).catch(() => undefined);
+        await setRiderOnlineStatus(user.id, false).catch(() => undefined);
       }
       setHasRequest(false);
       showAlert('You are Offline', 'Location tracking stopped. No new requests will arrive.');
@@ -315,7 +308,6 @@ export default function RiderHome() {
             ))}
           </View>
 
-          {/* Customer phone — visible after accepting */}
           {request.customerPhone ? (
             <TouchableOpacity style={styles.phoneRow} onPress={() => callNumber(request.customerPhone!)}>
               <MaterialIcons name="phone" size={16} color={Colors.success} />
@@ -382,7 +374,6 @@ export default function RiderHome() {
             </View>
           </View>
 
-          {/* Mutual phone numbers */}
           <View style={styles.contactRow}>
             {activeDelivery.customerPhone ? (
               <TouchableOpacity

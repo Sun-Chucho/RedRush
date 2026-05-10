@@ -1,6 +1,4 @@
 import React, { createContext, ReactNode, useEffect, useMemo, useState } from 'react';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { db } from '@/services/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { registerForPushNotifications } from '@/services/notifications';
 import {
@@ -136,21 +134,14 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Fallback to Firebase
-      const ref = doc(db, 'users', user.id, 'profileData', 'customer');
-      const snapshot = await getDoc(ref);
-      const data = snapshot.exists() ? snapshot.data() : {};
-
+      // No Supabase data yet — use seed defaults
       if (cancelled) return;
-
-      setSavedAddresses(normalizeArray<SavedAddress>(data.savedAddresses, seed.savedAddresses));
-      setPaymentMethods(normalizeArray<SavedPaymentMethod>(data.paymentMethods, seed.paymentMethods));
-      setFavouriteRestaurantIds(normalizeArray<string>(data.favouriteRestaurantIds, seed.favouriteRestaurantIds));
-      setPromoCodes(normalizeArray<PromoCode>(data.promoCodes, seed.promoCodes));
-      setReviews(normalizeArray<CustomerReview>(data.reviews, seed.reviews));
-      setNotificationSettings({ ...seed.notificationSettings, ...(data.notificationSettings as Partial<NotificationSettings> | undefined) });
-
-      if (!snapshot.exists()) await setDoc(ref, { ...seed, updatedAt: serverTimestamp() });
+      setSavedAddresses(seed.savedAddresses);
+      setPaymentMethods(seed.paymentMethods);
+      setFavouriteRestaurantIds(seed.favouriteRestaurantIds);
+      setPromoCodes(seed.promoCodes);
+      setReviews(seed.reviews);
+      setNotificationSettings(seed.notificationSettings);
     };
 
     load().catch(() => undefined);
@@ -175,8 +166,7 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
       saveSupabaseCustomerData(user.id, supabasePatch as Partial<import('@/services/supabaseCustomerData').SupabaseCustomerProfileData>).catch(() => undefined);
     }
 
-    // Also save to Firebase for backward compatibility
-    setDoc(doc(db, 'users', user.id, 'profileData', 'customer'), { ...patch, updatedAt: serverTimestamp() }, { merge: true }).catch(() => undefined);
+    // Supabase-only — no Firebase fallback
   };
 
   const setDefaultAddress = (addressId: string) => {

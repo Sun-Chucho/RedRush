@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { collection, onSnapshot } from 'firebase/firestore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { db } from '@/services/firebase';
 import { SupportMessage, SupportThread, useSupport } from '@/contexts/SupportContext';
 import { useAlert } from '@/template';
 import {
@@ -22,56 +20,19 @@ export default function AdminSupportScreen() {
   const [draft, setDraft] = useState('');
 
   useEffect(() => {
-    // Try Supabase realtime first
-    const unsubSupabase = subscribeToSupabaseAdminThreads(nextThreads => {
+    const unsub = subscribeToSupabaseAdminThreads(nextThreads => {
       setThreads(nextThreads);
       setSelectedThreadId(prev => prev || nextThreads[0]?.id || null);
     });
-
-    if (unsubSupabase) return unsubSupabase;
-
-    // Fallback to Firebase
-    const unsubscribe = onSnapshot(
-      collection(db, 'supportThreads'),
-      snapshot => {
-        const nextThreads = snapshot.docs
-          .map(threadDoc => ({ id: threadDoc.id, ...threadDoc.data() } as SupportThread))
-          .sort((a, b) => dateValue(b.updatedAt) - dateValue(a.updatedAt));
-        setThreads(nextThreads);
-        setSelectedThreadId(prev => prev || nextThreads[0]?.id || null);
-      },
-      () => undefined
-    );
-
-    return unsubscribe;
+    return () => { if (unsub) unsub(); };
   }, []);
 
   useEffect(() => {
-    if (!selectedThreadId) {
-      setMessages([]);
-      return undefined;
-    }
-
-    // Try Supabase realtime first
-    const unsubSupabase = subscribeToSupabaseMessages(selectedThreadId, nextMessages => {
+    if (!selectedThreadId) { setMessages([]); return; }
+    const unsub = subscribeToSupabaseMessages(selectedThreadId, nextMessages => {
       setMessages(nextMessages);
     });
-
-    if (unsubSupabase) return unsubSupabase;
-
-    // Fallback to Firebase
-    const unsubscribe = onSnapshot(
-      collection(db, 'supportThreads', selectedThreadId, 'messages'),
-      snapshot => {
-        const nextMessages = snapshot.docs
-          .map(messageDoc => ({ id: messageDoc.id, ...messageDoc.data() } as SupportMessage))
-          .sort((a, b) => dateValue(a.createdAt) - dateValue(b.createdAt));
-        setMessages(nextMessages);
-      },
-      () => undefined
-    );
-
-    return unsubscribe;
+    return () => { if (unsub) unsub(); };
   }, [selectedThreadId]);
 
   const selectedThread = threads.find(thread => thread.id === selectedThreadId) || null;

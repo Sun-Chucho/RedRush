@@ -1,10 +1,5 @@
-// Polyfill maybeCompleteAuthSession for expo-web-browser API changes
-import * as WebBrowser from 'expo-web-browser';
-if (typeof (WebBrowser as any).maybeCompleteAuthSession !== 'function') {
-  (WebBrowser as any).maybeCompleteAuthSession = () => ({ type: 'failed', message: 'polyfilled' });
-}
 import { Stack, usePathname } from 'expo-router';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AlertProvider } from '@/template';
 import { AuthProvider } from '@/contexts/AuthContext';

@@ -1,38 +1,10 @@
-import React, { createContext, ReactNode, useEffect, useMemo, useState } from 'react';
-import { Platform } from 'react-native';
-// expo-apple-authentication is loaded dynamically to avoid web bundle errors
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
-import {
-  createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  OAuthProvider,
-  onAuthStateChanged,
-  signInWithCredential,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile as updateFirebaseProfile,
-  User as FirebaseUser,
-} from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+/**
+ * AuthContext — Supabase-only authentication
+ * Firebase has been fully removed from auth flow.
+ */
+import React, { createContext, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { UserRole } from '@/constants/mockData';
-import { auth, db } from '@/services/firebase';
-import {
-  getCurrentSupabaseUser,
-  loginWithSupabaseEmail,
-  logoutSupabase,
-  registerWithSupabaseEmail,
-  shouldUseSupabaseAuth,
-  updateSupabaseProfile,
-} from '@/services/supabaseAuth';
-
-// Guard: maybeCompleteAuthSession was removed in newer expo-web-browser versions
-if (typeof WebBrowser.maybeCompleteAuthSession === 'function') {
-  WebBrowser.maybeCompleteAuthSession();
-}
-
-type NativeGoogleSignIn = typeof import('@react-native-google-signin/google-signin');
+import { isSupabaseConfigured, supabase } from '@/services/supabase';
 
 export interface AuthUser {
   id: string;
@@ -49,410 +21,286 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  isGoogleSignInReady: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: Partial<AuthUser> & { password: string }) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
-  loginWithApple: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const GOOGLE_CLIENT_IDS = {
-  androidClientId:
-    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim() ||
-    '276964904825-77c1v72s3tmqt7o6imjv231rp4pi34jj.apps.googleusercontent.com',
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim(),
-  webClientId:
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ||
-    '276964904825-8bk4qptfdkarvkr55qrdaekcafu1se91.apps.googleusercontent.com',
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+type ProfileRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  role: UserRole | null;
+  avatar: string | null;
+  address: string | null;
+  restaurant_id: string | null;
 };
 
-const GOOGLE_ANDROID_REDIRECT_SCHEME =
-  'com.googleusercontent.apps.276964904825-77c1v72s3tmqt7o6imjv231rp4pi34jj';
-
-const GOOGLE_REDIRECT_OPTIONS =
-  Platform.OS === 'android'
-    ? {
-        native: `${GOOGLE_ANDROID_REDIRECT_SCHEME}:/oauth2redirect`,
-      }
-    : undefined;
-
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-
-function getMissingGoogleClientIdMessage() {
-  if (Platform.OS === 'android' && !GOOGLE_CLIENT_IDS.androidClientId) {
-    return 'Google Sign-In needs EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID for Android. Create an Android OAuth client for package com.redrush.app in Firebase/Google Cloud, then add it to your Expo environment.';
-  }
-
-  if (Platform.OS === 'ios' && !GOOGLE_CLIENT_IDS.iosClientId) {
-    return 'Google Sign-In needs EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID for iOS. Create an iOS OAuth client for bundle com.redrush.app in Firebase/Google Cloud, then add it to your Expo environment.';
-  }
-
-  if (Platform.OS === 'web' && !GOOGLE_CLIENT_IDS.webClientId) {
-    return 'Google Sign-In needs EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID for web. Create a Web OAuth client in Firebase/Google Cloud, then add it to your Expo environment.';
-  }
-
-  return null;
-}
-
-function cleanPayload<T extends Record<string, unknown>>(payload: T): Partial<T> {
-  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)) as Partial<T>;
-}
-
-function defaultNameForRole(role: UserRole) {
+function defaultNameForRole(role: UserRole): string {
   if (role === 'vendor') return 'RedRush Vendor';
   if (role === 'rider') return 'RedRush Rider';
   if (role === 'admin') return 'RedRush Admin';
   return 'RedRush Customer';
 }
 
-function profileFromFirebaseUser(firebaseUser: FirebaseUser, profile?: Partial<AuthUser>): AuthUser {
-  const role = profile?.role || 'customer';
-
+function toAuthUser(row: ProfileRow, fallbackEmail = ''): AuthUser {
+  const role = row.role || 'customer';
   return {
-    id: firebaseUser.uid,
-    name: profile?.name || firebaseUser.displayName || defaultNameForRole(role),
-    email: profile?.email || firebaseUser.email || '',
-    phone: profile?.phone || firebaseUser.phoneNumber || '',
+    id: row.id,
+    name: row.name || defaultNameForRole(role),
+    email: row.email || fallbackEmail,
+    phone: row.phone || '',
     role,
-    avatar: profile?.avatar || firebaseUser.photoURL || undefined,
-    address: profile?.address,
-    restaurantId: profile?.restaurantId,
+    avatar: row.avatar || undefined,
+    address: row.address || undefined,
+    restaurantId: row.restaurant_id || undefined,
   };
 }
 
-function getAuthErrorMessage(error: unknown) {
-  const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: string }).code) : '';
-  const message = error instanceof Error ? error.message : 'Authentication failed. Please try again.';
-
-  if (code.includes('auth/email-already-in-use')) return 'That email is already registered. Please sign in instead.';
-  if (code.includes('auth/invalid-email')) return 'Please enter a valid email address.';
-  if (code.includes('auth/invalid-credential') || code.includes('auth/wrong-password')) {
-    return 'The email or password is incorrect.';
-  }
-  if (code.includes('auth/user-not-found')) return 'No account exists for that email.';
-  if (code.includes('auth/weak-password')) return 'Password must be at least 6 characters.';
-  if (code.includes('auth/network-request-failed')) return 'Network error. Check your connection and try again.';
-  if (code.includes('permission-denied') || message.toLowerCase().includes('insufficient permission')) {
-    return 'Your account signed in, but Firestore blocked the user profile. The security rules need to allow this user profile read/write.';
-  }
-  if (code.includes('auth/popup-closed-by-user') || code.includes('auth/cancelled-popup-request')) {
-    return 'Sign-in was cancelled.';
-  }
-
-  return message;
+function safeRole(role?: UserRole | string | null): UserRole {
+  if (role === 'vendor' || role === 'rider') return role;
+  if (role === 'admin') return 'admin';
+  return 'customer';
 }
 
-async function ensureUserProfile(firebaseUser: FirebaseUser, data: Partial<AuthUser>) {
-  const userRef = doc(db, 'users', firebaseUser.uid);
-  const snapshot = await getDoc(userRef);
-  const existing = snapshot.exists()
-    ? (snapshot.data() as Partial<AuthUser> & { status?: string; createdAt?: unknown })
-    : {};
-  const nextRole = existing.role || 'customer';
-  const profile = profileFromFirebaseUser(firebaseUser, {
-    ...existing,
-    ...data,
-    role: nextRole,
-  });
-
-  await setDoc(
-    userRef,
-    cleanPayload({
-      id: profile.id,
-      name: profile.name,
-      email: profile.email,
-      phone: profile.phone,
-      role: profile.role,
-      avatar: profile.avatar,
-      address: profile.address,
-      restaurantId: profile.restaurantId,
-      status: existing.status || 'active',
-      createdAt: existing.createdAt || serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }),
-    { merge: true }
-  );
-
-  return profile;
+function getSupabaseErrorMessage(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (msg.toLowerCase().includes('invalid login credentials')) return 'Incorrect email or password.';
+  if (msg.toLowerCase().includes('email not confirmed')) return 'Please confirm your email before signing in.';
+  if (msg.toLowerCase().includes('user already registered')) return 'An account with this email already exists.';
+  if (msg.toLowerCase().includes('password should be at least')) return 'Password must be at least 6 characters.';
+  if (msg.toLowerCase().includes('network')) return 'Network error. Check your connection and try again.';
+  return msg || 'Authentication failed. Please try again.';
 }
 
-async function getNativeGoogleIdToken() {
-  const { GoogleSignin } = (await import('@react-native-google-signin/google-signin')) as NativeGoogleSignIn;
+async function ensureProfile(
+  userId: string,
+  data: Partial<AuthUser> & { email?: string }
+): Promise<AuthUser> {
+  // Try to load existing profile
+  const { data: existing, error: selectError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
 
-  GoogleSignin.configure({
-    webClientId: GOOGLE_CLIENT_IDS.webClientId,
-    offlineAccess: false,
-  });
+  if (selectError && !selectError.message.includes('No rows')) throw selectError;
 
-  if (Platform.OS === 'android') {
-    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  if (existing) {
+    return toAuthUser(existing as ProfileRow, data.email);
   }
 
-  const result = await GoogleSignin.signIn();
+  // Create new profile
+  const role = safeRole(data.role);
+  const payload = {
+    id: userId,
+    name: data.name || defaultNameForRole(role),
+    email: data.email || '',
+    phone: data.phone || '',
+    role,
+    avatar: data.avatar || null,
+    address: data.address || null,
+    restaurant_id: data.restaurantId || null,
+    status: 'active',
+  };
 
-  if (result.type !== 'success') {
-    throw new Error('Google Sign-In was cancelled.');
-  }
+  const { data: created, error: insertError } = await supabase
+    .from('profiles')
+    .insert(payload)
+    .select('*')
+    .single();
 
-  const idToken = result.data.idToken;
+  if (insertError) throw insertError;
 
-  if (!idToken) {
-    throw new Error('Google did not return an identity token. Check the Firebase web OAuth client ID.');
-  }
+  // Create role-specific sub-profile
+  await createRoleProfile(userId, data).catch(() => undefined);
 
-  return idToken;
+  return toAuthUser(created as ProfileRow, data.email);
 }
+
+async function createRoleProfile(userId: string, data: Partial<AuthUser>) {
+  const role = safeRole(data.role);
+  // Always create customer profile data
+  await supabase.from('customer_profile_data').upsert({ user_id: userId });
+
+  if (role === 'vendor') {
+    await supabase.from('vendor_profiles').upsert({
+      user_id: userId,
+      business_name: data.name || '',
+      business_phone: data.phone || '',
+      business_address: data.address || '',
+      restaurant_id: data.restaurantId || null,
+    });
+  }
+
+  if (role === 'rider') {
+    await supabase.from('rider_profiles').upsert({
+      user_id: userId,
+      is_online: false,
+      vehicle_type: 'motorcycle',
+    });
+  }
+}
+
+// ─── Provider ───────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [googleRequest, , promptGoogleAsync] = Google.useIdTokenAuthRequest(GOOGLE_CLIENT_IDS, GOOGLE_REDIRECT_OPTIONS);
 
+  // Session restore on mount
   useEffect(() => {
-    if (shouldUseSupabaseAuth()) {
-      getCurrentSupabaseUser()
-        .then(currentUser => {
-          if (currentUser) setUser(currentUser);
-        })
-        .finally(() => setIsLoading(false));
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async currentUser => {
-      if (shouldUseSupabaseAuth() && user) {
-        return;
+    // Load existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        try {
+          const profile = await ensureProfile(session.user.id, {
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name,
+            phone: session.user.user_metadata?.phone,
+            role: session.user.user_metadata?.role,
+          });
+          setUser(profile);
+        } catch {
+          setUser(null);
+        }
       }
+      setIsLoading(false);
+    });
 
-      if (!currentUser) {
-        if (!shouldUseSupabaseAuth()) setUser(null);
+    // Listen for auth state changes (login/logout from other tabs, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        setUser(null);
         setIsLoading(false);
         return;
       }
 
-      try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        const snapshot = await getDoc(userRef);
-
-        if (snapshot.exists()) {
-          setUser(profileFromFirebaseUser(currentUser, snapshot.data() as Partial<AuthUser>));
-        } else {
-          setUser(await ensureUserProfile(currentUser, { role: 'customer' }));
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        try {
+          const profile = await ensureProfile(session.user.id, {
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name,
+            phone: session.user.user_metadata?.phone,
+            role: session.user.user_metadata?.role,
+          });
+          setUser(profile);
+        } catch {
+          // Profile creation may fail on schema mismatch — still consider signed in
         }
-      } catch {
-        setUser(profileFromFirebaseUser(currentUser));
-      } finally {
         setIsLoading(false);
       }
     });
 
-    return unsubscribe;
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    try {
-      const emailAddress = email.trim();
-      if (shouldUseSupabaseAuth()) {
-        try {
-          const supabaseProfile = await loginWithSupabaseEmail(emailAddress, password);
-          if (supabaseProfile) {
-            setUser(supabaseProfile);
-            return;
-          }
-        } catch (supabaseError) {
-          const message = supabaseError instanceof Error ? supabaseError.message.toLowerCase() : '';
-          if (!message.includes('relation') && !message.includes('schema cache') && !message.includes('failed to fetch')) {
-            throw supabaseError;
-          }
-        }
-      }
+  const login = useCallback(async (email: string, password: string) => {
+    if (!isSupabaseConfigured) throw new Error('Backend not configured. Please contact support.');
 
-      const credential = await signInWithEmailAndPassword(auth, emailAddress, password);
-      const profile = await ensureUserProfile(credential.user, { email: emailAddress });
-      setUser(profile);
-    } catch (error) {
-      throw new Error(getAuthErrorMessage(error));
-    }
-  };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
 
-  const register = async (data: Partial<AuthUser> & { password: string }) => {
-    try {
-      if (shouldUseSupabaseAuth()) {
-        try {
-          const supabaseProfile = await registerWithSupabaseEmail(data);
-          if (supabaseProfile) {
-            setUser(supabaseProfile);
-            return;
-          }
-        } catch (supabaseError) {
-          const message = supabaseError instanceof Error ? supabaseError.message.toLowerCase() : '';
-          if (!message.includes('relation') && !message.includes('schema cache') && !message.includes('failed to fetch')) {
-            throw supabaseError;
-          }
-        }
-      }
+    if (error) throw new Error(getSupabaseErrorMessage(error));
+    if (!data.user) throw new Error('Sign in failed. Please try again.');
 
-      const email = (data.email || '').trim();
-      const credential = await createUserWithEmailAndPassword(auth, email, data.password);
+    const profile = await ensureProfile(data.user.id, {
+      email: data.user.email || email,
+      name: data.user.user_metadata?.name,
+      phone: data.user.user_metadata?.phone,
+      role: data.user.user_metadata?.role,
+    });
+    setUser(profile);
+  }, []);
 
-      if (data.name) {
-        await updateFirebaseProfile(credential.user, { displayName: data.name });
-      }
+  const register = useCallback(async (data: Partial<AuthUser> & { password: string }) => {
+    if (!isSupabaseConfigured) throw new Error('Backend not configured. Please contact support.');
 
-      const profile = await ensureUserProfile(
-        credential.user,
-        {
+    const email = (data.email || '').trim();
+    const role = safeRole(data.role);
+
+    // Sign up via Supabase auth
+    const { data: result, error } = await supabase.auth.signUp({
+      email,
+      password: data.password,
+      options: {
+        data: {
           name: data.name,
-          email,
           phone: data.phone,
-          role: data.role === 'vendor' || data.role === 'rider' ? data.role : 'customer',
-          address: data.address,
-        }
-      );
-      setUser(profile);
-    } catch (error) {
-      throw new Error(getAuthErrorMessage(error));
-    }
-  };
+          role,
+        },
+      },
+    });
 
-  const loginWithGoogle = async () => {
-    const missingClientIdMessage = getMissingGoogleClientIdMessage();
+    if (error) throw new Error(getSupabaseErrorMessage(error));
+    if (!result.user) throw new Error('Unable to create account. Please try again.');
 
-    if (missingClientIdMessage) {
-      throw new Error(missingClientIdMessage);
+    // Some Supabase configs require email confirmation — handle gracefully
+    if (!result.session) {
+      // Account created but email confirmation required
+      throw new Error('Account created! Please check your email to confirm your account, then sign in.');
     }
 
-    if (Platform.OS !== 'web' && isExpoGo) {
-      throw new Error(
-        'Google Sign-In cannot run inside Expo Go because Google requires the native Google Sign-In SDK for policy-compliant Android sign-in. Build and open the RedRush development app instead of Expo Go, then try Google Sign-In again.'
-      );
-    }
+    const profile = await ensureProfile(result.user.id, {
+      name: data.name,
+      email,
+      phone: data.phone,
+      role,
+      address: data.address,
+    });
+    setUser(profile);
+  }, []);
 
-    if (Platform.OS === 'web' && !googleRequest) {
-      throw new Error('Google Sign-In is still loading. Please try again in a moment.');
-    }
-
-    try {
-      let idToken: string | undefined;
-
-      if (Platform.OS === 'web') {
-        const result = await promptGoogleAsync();
-
-        if (result.type !== 'success') {
-          throw new Error('Google Sign-In was cancelled.');
-        }
-
-        idToken = result.params?.id_token;
-      } else {
-        idToken = await getNativeGoogleIdToken();
-      }
-
-      if (!idToken) {
-        throw new Error('Google did not return an identity token. Check your Firebase OAuth client configuration.');
-      }
-
-      const credential = GoogleAuthProvider.credential(idToken);
-      const firebaseCredential = await signInWithCredential(auth, credential);
-      const profile = await ensureUserProfile(firebaseCredential.user, { role: 'customer' });
-      setUser(profile);
-    } catch (error) {
-      throw new Error(getAuthErrorMessage(error));
-    }
-  };
-
-  const loginWithApple = async () => {
-    try {
-      const AppleAuthentication = await import('expo-apple-authentication');
-      const isAvailable = await AppleAuthentication.isAvailableAsync();
-
-      if (!isAvailable) {
-        throw new Error(
-          Platform.OS === 'ios'
-            ? 'Apple Sign-In is not available on this device.'
-            : 'Apple Sign-In requires an iOS native build. Configure Apple web OAuth before enabling it on Android.'
-        );
-      }
-
-      const appleCredential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-
-      if (!appleCredential.identityToken) {
-        throw new Error('Apple did not return an identity token.');
-      }
-
-      const provider = new OAuthProvider('apple.com');
-      const firebaseCredential = provider.credential({
-        idToken: appleCredential.identityToken,
-      });
-      const userCredential = await signInWithCredential(auth, firebaseCredential);
-      const fullName = appleCredential.fullName
-        ? [appleCredential.fullName.givenName, appleCredential.fullName.familyName].filter(Boolean).join(' ')
-        : undefined;
-      const profile = await ensureUserProfile(userCredential.user, {
-        name: fullName || undefined,
-        email: appleCredential.email || userCredential.user.email || undefined,
-        role: 'customer',
-      });
-      setUser(profile);
-    } catch (error) {
-      throw new Error(getAuthErrorMessage(error));
-    }
-  };
-
-  const logout = async () => {
-    await logoutSupabase();
-    await signOut(auth);
+  const logout = useCallback(async () => {
     setUser(null);
-  };
+    await supabase.auth.signOut();
+  }, []);
 
-  const updateProfile = async (data: Partial<AuthUser>) => {
+  const updateProfile = useCallback(async (data: Partial<AuthUser>) => {
     if (!user) return;
 
-    const nextUser = { ...user, ...data };
-    setUser(nextUser);
+    // Optimistic update
+    setUser(prev => (prev ? { ...prev, ...data } : null));
 
-    if (auth.currentUser && data.name) {
-      await updateFirebaseProfile(auth.currentUser, { displayName: data.name });
+    const payload: Record<string, unknown> = {};
+    if (data.name !== undefined) payload.name = data.name;
+    if (data.phone !== undefined) payload.phone = data.phone;
+    if (data.avatar !== undefined) payload.avatar = data.avatar;
+    if (data.address !== undefined) payload.address = data.address;
+    if (data.restaurantId !== undefined) payload.restaurant_id = data.restaurantId;
+
+    if (Object.keys(payload).length) {
+      const { error } = await supabase.from('profiles').update(payload).eq('id', user.id);
+      if (error) {
+        // Roll back optimistic update
+        setUser(prev => (prev ? { ...prev, ...Object.fromEntries(Object.keys(data).map(k => [k, (user as Record<string,unknown>)[k]])) } : null));
+        throw error;
+      }
     }
+  }, [user]);
 
-    if (await updateSupabaseProfile(user.id, data)) {
-      return;
-    }
-
-    await updateDoc(
-      doc(db, 'users', user.id),
-      cleanPayload({
-        name: data.name,
-        phone: data.phone,
-        avatar: data.avatar,
-        address: data.address,
-        restaurantId: data.restaurantId,
-        updatedAt: serverTimestamp(),
-      })
-    );
-  };
-
-  const value = useMemo(
-    () => ({
-      user,
-      isAuthenticated: !!user,
-      isLoading,
-      isGoogleSignInReady: Platform.OS === 'web' ? !!googleRequest : true,
-      login,
-      register,
-      loginWithGoogle,
-      loginWithApple,
-      logout,
-      updateProfile,
-    }),
-    [user, isLoading, googleRequest]
-  );
+  const value = useMemo(() => ({
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    login,
+    register,
+    logout,
+    updateProfile,
+  }), [user, isLoading, login, register, logout, updateProfile]);
 
   return (
     <AuthContext.Provider value={value}>

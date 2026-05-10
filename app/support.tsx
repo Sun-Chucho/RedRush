@@ -3,9 +3,7 @@ import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, 
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { db } from '@/services/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { SupportMessage, SupportThread, useSupport } from '@/contexts/SupportContext';
 import { useAlert } from '@/template';
@@ -27,56 +25,20 @@ export default function SupportChatScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!user) return undefined;
-
-    // Try Supabase realtime first
-    const unsubSupabase = subscribeToSupabaseThreads(user.id, threads => {
+    if (!user) return;
+    const unsub = subscribeToSupabaseThreads(user.id, threads => {
       const openThread = threads.find(item => item.status === 'open') || threads[0] || null;
       setThread(openThread);
     });
-
-    if (unsubSupabase) return unsubSupabase;
-
-    // Fallback to Firebase
-    const unsubscribe = onSnapshot(
-      query(collection(db, 'supportThreads'), where('userId', '==', user.id)),
-      snapshot => {
-        const threads = snapshot.docs.map(threadDoc => ({ id: threadDoc.id, ...threadDoc.data() } as SupportThread));
-        const openThread = threads.find(item => item.status === 'open') || threads[0] || null;
-        setThread(openThread);
-      },
-      () => undefined
-    );
-
-    return unsubscribe;
+    return () => { if (unsub) unsub(); };
   }, [user]);
 
   useEffect(() => {
-    if (!thread) {
-      setMessages([]);
-      return undefined;
-    }
-
-    // Try Supabase realtime first
-    const unsubSupabase = subscribeToSupabaseMessages(thread.id, nextMessages => {
+    if (!thread) { setMessages([]); return; }
+    const unsub = subscribeToSupabaseMessages(thread.id, nextMessages => {
       setMessages(nextMessages);
     });
-
-    if (unsubSupabase) return unsubSupabase;
-
-    // Fallback to Firebase
-    const unsubscribe = onSnapshot(
-      collection(db, 'supportThreads', thread.id, 'messages'),
-      snapshot => {
-        const nextMessages = snapshot.docs
-          .map(messageDoc => ({ id: messageDoc.id, ...messageDoc.data() } as SupportMessage))
-          .sort((a, b) => dateValue(a.createdAt) - dateValue(b.createdAt));
-        setMessages(nextMessages);
-      },
-      () => undefined
-    );
-
-    return unsubscribe;
+    return () => { if (unsub) unsub(); };
   }, [thread]);
 
   const submit = async () => {

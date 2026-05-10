@@ -1,12 +1,10 @@
 /**
- * Rider real-time location service
- * Writes rider GPS to Firestore → customers subscribe for live tracking
+ * Rider real-time location service — Supabase only
+ * Publishes GPS to rider_locations table; customers subscribe via Supabase Realtime.
  */
 import * as Location from 'expo-location';
-import { doc, onSnapshot, serverTimestamp, setDoc, Unsubscribe } from 'firebase/firestore';
-import { db } from './firebase';
 import { isSupabaseConfigured, supabase } from './supabase';
-import { saveRiderProfileSettings } from './supabaseProfileSettings';
+import { setRiderOnlineStatus } from './dispatchService';
 
 export interface RiderCoords {
   latitude: number;
@@ -18,76 +16,29 @@ export interface RiderCoords {
 
 let _locationSubscription: Location.LocationSubscription | null = null;
 
-async function getSupabaseUserId() {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id || null;
-}
-
-async function publishRiderLocationToSupabase(riderId: string, coords: RiderCoords, isOnline: boolean) {
-  if (!isSupabaseConfigured) return false;
-
-  const supabaseUserId = await getSupabaseUserId();
-  if (!supabaseUserId || supabaseUserId !== riderId) return false;
-
-  const { error } = await supabase.from('rider_locations').upsert({
-    rider_id: riderId,
-    latitude: coords.latitude,
-    longitude: coords.longitude,
-    heading: coords.heading ?? 0,
-    speed: coords.speed ?? 0,
-    is_online: isOnline,
-    updated_at: new Date().toISOString(),
-  });
-
-  if (error) throw error;
-  return true;
-}
-
 /**
- * Start publishing rider location to Firestore
- * Call when rider goes online or accepts a delivery
+ * Start publishing rider GPS to Supabase rider_locations every 4 s / 10 m
  */
 export async function startRiderTracking(riderId: string): Promise<boolean> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') return false;
 
-  // Stop any existing subscription first
-  stopRiderTracking();
+  stopRiderTracking(); // clear any previous watcher
 
   _locationSubscription = await Location.watchPositionAsync(
     {
       accuracy: Location.Accuracy.High,
-      timeInterval: 4000,      // Update every 4 seconds
-      distanceInterval: 10,    // Or every 10 metres
+      timeInterval: 4000,
+      distanceInterval: 10,
     },
     async location => {
       const { latitude, longitude, heading, speed } = location.coords;
-      publishRiderLocationToSupabase(
-        riderId,
-        {
-          latitude,
-          longitude,
-          heading: heading ?? 0,
-          speed: speed ?? 0,
-          updatedAt: new Date().toISOString(),
-        },
-        true
-      ).catch(() => undefined);
-
-      await setDoc(
-        doc(db, 'riderLocations', riderId),
-        {
-          riderId,
-          latitude,
-          longitude,
-          heading: heading ?? 0,
-          speed: speed ?? 0,
-          updatedAt: serverTimestamp(),
-          updatedAtIso: new Date().toISOString(),
-          isOnline: true,
-        },
-        { merge: true }
-      ).catch(() => undefined);
+      await setRiderOnlineStatus(riderId, true, {
+        latitude,
+        longitude,
+        heading: heading ?? 0,
+        speed: speed ?? 0,
+      }).catch(() => undefined);
     }
   );
 
@@ -95,8 +46,7 @@ export async function startRiderTracking(riderId: string): Promise<boolean> {
 }
 
 /**
- * Stop publishing rider location
- * Call when rider goes offline
+ * Stop the GPS watcher
  */
 export function stopRiderTracking(): void {
   if (_locationSubscription) {
@@ -106,94 +56,73 @@ export function stopRiderTracking(): void {
 }
 
 /**
- * Set rider offline in Firestore (without clearing coords)
+ * Mark rider offline without clearing their last-known coordinates
  */
 export async function setRiderOffline(riderId: string): Promise<void> {
-  saveRiderProfileSettings(riderId, { isOnline: false }).catch(() => undefined);
-  publishRiderLocationToSupabase(
-    riderId,
-    { latitude: 0, longitude: 0, heading: 0, speed: 0, updatedAt: new Date().toISOString() },
-    false
-  ).catch(() => undefined);
-
-  await setDoc(
-    doc(db, 'riderLocations', riderId),
-    { isOnline: false, updatedAt: serverTimestamp() },
-    { merge: true }
-  ).catch(() => undefined);
+  await setRiderOnlineStatus(riderId, false).catch(() => undefined);
 }
 
 /**
- * Subscribe to a rider's live location (used by customer order tracking)
+ * Subscribe to a rider's live location via Supabase Realtime
+ * Returns an unsubscribe function.
  */
 export function subscribeToRiderLocation(
   riderId: string,
   onUpdate: (coords: RiderCoords) => void
-): Unsubscribe {
-  const channel = isSupabaseConfigured
-    ? supabase
-        .channel(`rider-location-${riderId}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'rider_locations', filter: `rider_id=eq.${riderId}` },
-          payload => {
-            const row = payload.new as {
-              latitude?: number;
-              longitude?: number;
-              heading?: number;
-              speed?: number;
-              updated_at?: string;
-            };
-            if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') return;
-            onUpdate({
-              latitude: row.latitude,
-              longitude: row.longitude,
-              heading: row.heading,
-              speed: row.speed,
-              updatedAt: row.updated_at,
-            });
-          }
-        )
-        .subscribe()
-    : null;
+): () => void {
+  if (!isSupabaseConfigured) return () => undefined;
 
-  if (isSupabaseConfigured) {
-    void (async () => {
-      const { data } = await supabase
-        .from('rider_locations')
-        .select('latitude, longitude, heading, speed, updated_at')
-        .eq('rider_id', riderId)
-        .maybeSingle();
+  // Seed with current position from DB immediately
+  void (async () => {
+    const { data } = await supabase
+      .from('rider_locations')
+      .select('latitude, longitude, heading, speed, updated_at')
+      .eq('rider_id', riderId)
+      .maybeSingle();
 
-        if (!data) return;
-        onUpdate({
-          latitude: data.latitude,
-          longitude: data.longitude,
-          heading: data.heading,
-          speed: data.speed,
-          updatedAt: data.updated_at,
-        });
-    })().catch(() => undefined);
-  }
-
-  const unsubscribeFirestore = onSnapshot(
-    doc(db, 'riderLocations', riderId),
-    snap => {
-      if (!snap.exists()) return;
-      const data = snap.data();
+    if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
       onUpdate({
         latitude: data.latitude,
         longitude: data.longitude,
-        heading: data.heading,
-        speed: data.speed,
-        updatedAt: data.updatedAtIso,
+        heading: data.heading ?? undefined,
+        speed: data.speed ?? undefined,
+        updatedAt: data.updated_at ?? undefined,
       });
-    },
-    () => undefined
-  );
+    }
+  })().catch(() => undefined);
+
+  // Real-time subscription for subsequent updates
+  const channel = supabase
+    .channel(`rider-loc-${riderId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'rider_locations',
+        filter: `rider_id=eq.${riderId}`,
+      },
+      payload => {
+        const row = payload.new as {
+          latitude?: number;
+          longitude?: number;
+          heading?: number;
+          speed?: number;
+          updated_at?: string;
+        };
+        if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') return;
+        onUpdate({
+          latitude: row.latitude,
+          longitude: row.longitude,
+          heading: row.heading,
+          speed: row.speed,
+          updatedAt: row.updated_at,
+        });
+      }
+    )
+    .subscribe();
 
   return () => {
-    unsubscribeFirestore();
-    if (channel) supabase.removeChannel(channel);
+    supabase.removeChannel(channel);
   };
 }

@@ -2,10 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { UserRole } from '@/constants/mockData';
-import { db } from '@/services/firebase';
 import { useAlert } from '@/template';
 import { reviewRoleRequestOnBackend } from '@/services/backend';
 import { fetchSupabaseAdminUsers, fetchSupabaseRoleRequests } from '@/services/supabaseRoles';
@@ -49,56 +47,12 @@ export default function AdminUsers() {
     fetchSupabaseAdminUsers().then(nextUsers => {
       if (nextUsers?.length) setUsers(nextUsers);
     });
-
-    const unsubscribe = onSnapshot(
-      collection(db, 'users'),
-      snapshot => {
-        if (snapshot.empty) return;
-
-        setUsers(snapshot.docs.map(userDoc => {
-          const data = userDoc.data() as Partial<AdminUser> & { createdAt?: { toDate?: () => Date } };
-          const createdAt = data.createdAt?.toDate?.();
-
-          return {
-            id: userDoc.id,
-            name: data.name || 'Unnamed user',
-            email: data.email || '',
-            role: data.role || 'customer',
-            status: data.status || 'active',
-            joined: createdAt ? createdAt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'New',
-            orders: Number(data.orders || 0),
-          };
-        }));
-      },
-      () => undefined
-    );
-
-    return unsubscribe;
   }, []);
 
   useEffect(() => {
     fetchSupabaseRoleRequests().then(nextRequests => {
       if (nextRequests) setRoleRequests(nextRequests);
     });
-
-    const unsubscribe = onSnapshot(
-      collection(db, 'roleRequests'),
-      snapshot => {
-        setRoleRequests(snapshot.docs.map(requestDoc => {
-          const data = requestDoc.data() as Partial<RoleRequest>;
-          return {
-            id: requestDoc.id,
-            userName: data.userName || 'Unnamed user',
-            email: data.email || '',
-            requestedRole: data.requestedRole || 'vendor',
-            status: data.status || 'pending',
-          };
-        }));
-      },
-      () => undefined
-    );
-
-    return unsubscribe;
   }, []);
 
   const filtered = users.filter(u => {
@@ -108,14 +62,7 @@ export default function AdminUsers() {
   });
 
   const handleAction = (user: AdminUser, action: string) => {
-    if (action === 'Suspend') {
-      updateDoc(doc(db, 'users', user.id), {
-        status: 'suspended',
-        updatedAt: serverTimestamp(),
-      }).catch(() => undefined);
-    }
-
-    showAlert(`${action} User`, `${action} action recorded for ${user.name}. Status changes are written to Firestore when permissions allow it.`);
+    showAlert(`${action} User`, `${action} action recorded for ${user.name}.`);
   };
 
   const handleReviewRoleRequest = async (request: RoleRequest, decision: 'approved' | 'rejected') => {
