@@ -1,3 +1,6 @@
+/**
+ * Push notification service — Expo Notifications (no Firebase dependency)
+ */
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
@@ -14,14 +17,14 @@ Notifications.setNotificationHandler({
 });
 
 export async function registerForPushNotifications(userId?: string): Promise<string | null> {
-  if (!userId || (Platform.OS !== 'web' && !Device.isDevice)) {
-    return null;
-  }
+  if (!userId) return null;
+  if (Platform.OS !== 'web' && !Device.isDevice) return null;
 
-  const existing = await Notifications.getPermissionsAsync();
-  const finalStatus = existing.status === 'granted'
-    ? existing.status
-    : (await Notifications.requestPermissionsAsync()).status;
+  const { status: existing } = await Notifications.getPermissionsAsync();
+  const finalStatus =
+    existing === 'granted'
+      ? existing
+      : (await Notifications.requestPermissionsAsync()).status;
 
   if (finalStatus !== 'granted') return null;
 
@@ -49,12 +52,18 @@ export async function registerForPushNotifications(userId?: string): Promise<str
     });
   }
 
-  const projectId =
-    Constants.expoConfig?.extra?.eas?.projectId ||
-    Constants.easConfig?.projectId;
-  const token = (await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)).data;
-  await registerPushTokenOnBackend(token).catch(() => undefined);
-  return token;
+  try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ||
+      (Constants as any).easConfig?.projectId;
+    const token = (
+      await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)
+    ).data;
+    await registerPushTokenOnBackend(token).catch(() => undefined);
+    return token;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Customer: Order Status Updates ─────────────────────────────────────────
@@ -68,27 +77,27 @@ export async function sendOrderStatusNotification(
   const messages: Record<string, { title: string; body: string }> = {
     accepted: {
       title: 'Order Accepted',
-      body: `${restaurantName} confirmed your order and started preparing it.`,
+      body: `${restaurantName} confirmed your order and is preparing it.`,
     },
     preparing: {
       title: 'Preparing Your Food',
-      body: `${restaurantName} is now preparing your order. Sit tight!`,
+      body: `${restaurantName} is now cooking your order. Sit tight!`,
     },
     ready: {
-      title: 'Order Ready',
+      title: 'Order Ready for Pickup',
       body: `Your order from ${restaurantName} is ready. A rider will pick it up shortly.`,
     },
     picked_up: {
       title: 'Rider On The Way',
-      body: `${riderName || 'Your rider'} picked up your order and is heading to you.${estimatedMinutes ? ` ~${estimatedMinutes} min away.` : ''}`,
+      body: `${riderName || 'Your rider'} picked up your order.${estimatedMinutes ? ` ~${estimatedMinutes} min away.` : ''}`,
     },
     delivered: {
       title: 'Order Delivered!',
-      body: `Your order from ${restaurantName} has been delivered. Enjoy your meal!`,
+      body: `Your order from ${restaurantName} has arrived. Enjoy your meal!`,
     },
     cancelled: {
       title: 'Order Cancelled',
-      body: `Your order from ${restaurantName} was cancelled. You will not be charged.`,
+      body: `Your order from ${restaurantName} was cancelled.`,
     },
   };
 
@@ -117,7 +126,7 @@ export async function sendRiderRequestNotification(
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'New Delivery Request!',
-      body: `Pick up from ${restaurantName}.${distanceKm ? ` ${distanceKm.toFixed(1)} km away.` : ''} Earn up to ${earnings.toLocaleString()}.`,
+      body: `Pick up from ${restaurantName}.${distanceKm ? ` ${distanceKm.toFixed(1)} km away.` : ''} Earn ~${earnings.toLocaleString()}.`,
       data: { type: 'rider_request' },
       sound: 'default',
       ...(Platform.OS === 'android' ? { channelId: 'redrush-rider' } : {}),
@@ -137,7 +146,7 @@ export async function sendNewOrderNotification(
     content: {
       title: orderCount === 1 ? 'New Order Received!' : `${orderCount} New Orders!`,
       body: orderTotal
-        ? `New order for ${restaurantName || 'your restaurant'} — Total: ${orderTotal.toLocaleString()}. Tap to accept.`
+        ? `New order at ${restaurantName || 'your restaurant'} — Total: ${orderTotal.toLocaleString()}. Tap to accept.`
         : `${orderCount} order${orderCount === 1 ? '' : 's'} waiting for confirmation.`,
       data: { type: 'new_order' },
       sound: 'default',
@@ -149,14 +158,31 @@ export async function sendNewOrderNotification(
 
 // ─── Rider: Order Assigned ────────────────────────────────────────────────────
 
-export async function sendRiderAssignedNotification(restaurantName: string, customerAddress: string) {
+export async function sendRiderAssignedNotification(
+  restaurantName: string,
+  customerAddress: string
+) {
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Delivery Assigned',
-      body: `Head to ${restaurantName} then deliver to ${customerAddress}.`,
+      body: `Head to ${restaurantName}, then deliver to ${customerAddress}.`,
       data: { type: 'rider_assigned' },
       sound: 'default',
       ...(Platform.OS === 'android' ? { channelId: 'redrush-rider' } : {}),
+    },
+    trigger: null,
+  });
+}
+
+// ─── Support reply ────────────────────────────────────────────────────────────
+
+export async function sendSupportReplyNotification(message: string) {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Support Reply',
+      body: message,
+      data: { type: 'support' },
+      sound: 'default',
     },
     trigger: null,
   });
