@@ -5,7 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { CUISINES } from '@/constants/mockData';
+
 import { useCurrency } from '@/hooks/useCurrency';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useRestaurants } from '@/hooks/useRestaurants';
@@ -26,12 +26,14 @@ export default function SearchScreen() {
   const router = useRouter();
   const { formatMoney } = useCurrency();
   const { t } = useLanguage();
-  const { restaurants } = useRestaurants();
+  const { restaurants, categories } = useRestaurants();
 
-  const cuisines = useMemo(
-    () => Array.from(new Set(['All', ...CUISINES.filter(cuisine => restaurants.some(restaurant => restaurant.cuisine === cuisine)), ...restaurants.map(restaurant => restaurant.cuisine)])),
-    [restaurants]
-  );
+  const cuisines = useMemo(() => {
+    if (categories.length > 0) {
+      return ['All', ...categories.map(c => c.name)];
+    }
+    return Array.from(new Set(['All', ...restaurants.map(r => r.cuisine)]));
+  }, [categories, restaurants]);
 
   const results = restaurants.filter(r => {
     const matchQ = !query || r.name.toLowerCase().includes(query.toLowerCase()) || r.cuisine.toLowerCase().includes(query.toLowerCase());

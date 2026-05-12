@@ -8,9 +8,8 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
-
-# Exclude old assets images (using root folder images instead)
-assets/images/*.png
+.history/
+.lh/
 
 # Native
 .kotlin/
@@ -42,6 +41,9 @@ yarn-error.*
 
 # local env files
 .env*.local
+
+# Supabase local CLI metadata
+supabase/.temp/
 
 # typescript
 *.tsbuildinfo

@@ -110,18 +110,6 @@ export default function SupportChatScreen() {
   );
 }
 
-function dateValue(value: unknown) {
-  if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate().getTime();
-  }
-
-  if (typeof value === 'string') {
-    return new Date(value).getTime();
-  }
-
-  return 0;
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },

@@ -66,6 +66,21 @@ export async function reviewRoleRequestOnSupabase(requestId: string, decision: R
       .eq('id', request.user_id);
 
     if (updateProfileError) throw updateProfileError;
+
+    const profileTable = request.requested_role === 'vendor' ? 'vendor_profiles' : 'rider_profiles';
+    const { error: approvalError } = await supabase
+      .from(profileTable)
+      .update({ approval_status: 'approved' })
+      .eq('user_id', request.user_id);
+
+    if (approvalError) throw approvalError;
+  } else {
+    const { error: updateProfileError } = await supabase
+      .from('profiles')
+      .update({ status: 'active' })
+      .eq('id', request.user_id);
+
+    if (updateProfileError) throw updateProfileError;
   }
 
   return true;

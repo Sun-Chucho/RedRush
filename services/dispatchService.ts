@@ -55,8 +55,7 @@ export async function assignRiderToOrder(
     .update({
       rider_id: riderId,
       rider_name: riderName,
-      status: 'picked_up',
-      picked_up_at: new Date().toISOString(),
+      status: 'assigned',
     })
     .eq('id', orderId);
 
@@ -100,11 +99,14 @@ export async function setRiderOnlineStatus(
   }
 
   // Also update rider_profiles
-  await supabase
+  const { error: profileError } = await supabase
     .from('rider_profiles')
     .update({ is_online: isOnline })
-    .eq('user_id', riderId)
-    .catch(() => undefined);
+    .eq('user_id', riderId);
+
+  if (profileError) {
+    console.warn('[dispatchService] rider profile online update error:', profileError.message);
+  }
 
   return true;
 }

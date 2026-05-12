@@ -10,6 +10,7 @@ export type NotificationPrefs = {
 export type RiderProfileSettings = {
   vehicleType: string;
   vehiclePlate: string;
+  idNumber: string;
   bankName: string;
   bankAccountName: string;
   bankAccountNumber: string;
@@ -49,6 +50,7 @@ const defaultNotifications: NotificationPrefs = {
 export const emptyRiderSettings: RiderProfileSettings = {
   vehicleType: '',
   vehiclePlate: '',
+  idNumber: '',
   bankName: '',
   bankAccountName: '',
   bankAccountNumber: '',
@@ -110,9 +112,9 @@ function notificationPrefs(value: unknown): NotificationPrefs {
 
 export function isRiderReadyForDeliveries(settings: RiderProfileSettings) {
   const hasVehicle = !!settings.vehicleType.trim() && !!settings.vehiclePlate.trim();
+  const hasIdentity = !!settings.idNumber.trim();
   const hasPayout = !!settings.bankAccountNumber.trim() || !!settings.mobileMoneyPhone.trim();
-  const hasDocument = !!settings.licenseDocumentUrl || !!settings.insuranceDocumentUrl || !!settings.idDocumentUrl;
-  return hasVehicle && hasPayout && hasDocument;
+  return settings.approvalStatus === 'approved' && hasVehicle && hasIdentity && hasPayout;
 }
 
 export async function loadRiderProfileSettings(userId: string): Promise<RiderProfileSettings> {
@@ -131,6 +133,7 @@ export async function loadRiderProfileSettings(userId: string): Promise<RiderPro
     return {
       vehicleType: data.vehicle_type || '',
       vehiclePlate: data.vehicle_plate || '',
+      idNumber: data.id_number || '',
       bankName: data.bank_name || '',
       bankAccountName: data.bank_account_name || '',
       bankAccountNumber: data.bank_account_number || '',
@@ -159,6 +162,7 @@ export async function saveRiderProfileSettings(userId: string, patch: Partial<Ri
   const payload: Record<string, unknown> = { user_id: userId };
   if (patch.vehicleType !== undefined) payload.vehicle_type = patch.vehicleType;
   if (patch.vehiclePlate !== undefined) payload.vehicle_plate = patch.vehiclePlate;
+  if (patch.idNumber !== undefined) payload.id_number = patch.idNumber;
   if (patch.bankName !== undefined) payload.bank_name = patch.bankName;
   if (patch.bankAccountName !== undefined) payload.bank_account_name = patch.bankAccountName;
   if (patch.bankAccountNumber !== undefined) payload.bank_account_number = patch.bankAccountNumber;

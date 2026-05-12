@@ -286,7 +286,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.from('profiles').update(payload).eq('id', user.id);
       if (error) {
         // Roll back optimistic update
-        setUser(prev => (prev ? { ...prev, ...Object.fromEntries(Object.keys(data).map(k => [k, (user as Record<string,unknown>)[k]])) } : null));
+        const previousUser = user as unknown as Record<string, unknown>;
+        setUser(prev => (prev ? { ...prev, ...Object.fromEntries(Object.keys(data).map(k => [k, previousUser[k]])) } : null));
         throw error;
       }
     }

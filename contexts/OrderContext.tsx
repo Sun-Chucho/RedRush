@@ -12,6 +12,7 @@ import {
   createSupabaseOrder,
   fetchSupabaseOrders,
   updateSupabaseOrderTiming,
+  updateSupabaseCashPaymentStatus,
   updateSupabaseOrderStatus,
 } from '@/services/supabaseOrders';
 import {
@@ -43,6 +44,7 @@ interface OrderContextType {
   assignRider: (orderId: string, riderId: string, riderName: string) => Promise<void>;
   getOrderById: (id: string) => Order | undefined;
   setPrepAndDeliveryTime: (orderId: string, prepMinutes: number, deliveryMinutes: number) => Promise<void>;
+  updateCashPaymentStatus: (orderId: string, paymentStatus: NonNullable<Order['paymentStatus']>) => Promise<void>;
   refreshOrders: () => Promise<void>;
 }
 
@@ -214,7 +216,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     extra: Partial<Pick<Order, 'riderId' | 'riderName' | 'prepTime' | 'deliveryTime'>> = {}
   ) => {
     // Optimistic update
-    const optimistic = status === 'picked_up' && user
+    const optimistic = (status === 'picked_up' || status === 'assigned') && user
       ? { riderId: user.id, riderName: user.name, riderPhone: user.phone, ...extra }
       : extra;
 
@@ -231,7 +233,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   }, [activeOrder?.id, user, loadOrders]);
 
   const assignRider = useCallback(async (orderId: string, riderId: string, riderName: string) => {
-    await updateOrderStatus(orderId, 'picked_up', { riderId, riderName });
+    await updateOrderStatus(orderId, 'assigned', { riderId, riderName });
   }, [updateOrderStatus]);
 
   const setPrepAndDeliveryTime = useCallback(async (
@@ -258,6 +260,22 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     await loadOrders();
   }, [activeOrder?.id, loadOrders]);
 
+  const updateCashPaymentStatus = useCallback(async (
+    orderId: string,
+    paymentStatus: NonNullable<Order['paymentStatus']>
+  ) => {
+    const applyPaymentStatus = (order: Order) =>
+      order.id === orderId ? { ...order, paymentStatus } : order;
+
+    setOrders(prev => prev.map(applyPaymentStatus));
+    if (activeOrder?.id === orderId) {
+      setActiveOrder(prev => (prev ? applyPaymentStatus(prev) : null));
+    }
+
+    await updateSupabaseCashPaymentStatus(orderId, paymentStatus);
+    await loadOrders();
+  }, [activeOrder?.id, loadOrders]);
+
   const getOrderById = useCallback(
     (id: string) => orders.find(o => o.id === id),
     [orders]
@@ -272,8 +290,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     assignRider,
     getOrderById,
     setPrepAndDeliveryTime,
+    updateCashPaymentStatus,
     refreshOrders: loadOrders,
-  }), [orders, activeOrder, isLoading, placeOrder, updateOrderStatus, assignRider, getOrderById, setPrepAndDeliveryTime, loadOrders]);
+  }), [orders, activeOrder, isLoading, placeOrder, updateOrderStatus, assignRider, getOrderById, setPrepAndDeliveryTime, updateCashPaymentStatus, loadOrders]);
 
   return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;
 }

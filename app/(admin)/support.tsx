@@ -133,18 +133,6 @@ export default function AdminSupportScreen() {
   );
 }
 
-function dateValue(value: unknown) {
-  if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate().getTime();
-  }
-
-  if (typeof value === 'string') {
-    return new Date(value).getTime();
-  }
-
-  return 0;
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },

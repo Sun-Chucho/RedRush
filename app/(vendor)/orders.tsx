@@ -16,6 +16,7 @@ const STATUS_COLOR: Record<string, string> = {
   accepted: Colors.info,
   preparing: Colors.warning,
   ready: Colors.success,
+  assigned: Colors.info,
   picked_up: Colors.primary,
   delivered: Colors.success,
   cancelled: Colors.error,

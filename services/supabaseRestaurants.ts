@@ -1,6 +1,12 @@
 import { MenuItem, Restaurant } from '@/constants/mockData';
 import { isSupabaseConfigured, supabase } from './supabase';
 
+export type Category = {
+  id: string;
+  name: string;
+  image: string;
+};
+
 type RestaurantRow = {
   id: string;
   owner_id: string | null;
@@ -60,6 +66,23 @@ const DEFAULT_COVER = 'https://images.unsplash.com/photo-1504674900247-0877df9cc
 
 export function shouldUseSupabaseRestaurants() {
   return isSupabaseConfigured;
+}
+
+async function requireApprovedVendor() {
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData.user?.id;
+  if (!userId) throw new Error('Please sign in as a vendor.');
+
+  const { data, error } = await supabase
+    .from('vendor_profiles')
+    .select('approval_status')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data?.approval_status !== 'approved') {
+    throw new Error('Your vendor account must be approved before managing live restaurant operations.');
+  }
 }
 
 function normalizeRestaurant(row: RestaurantRow, menu: MenuItem[]): Restaurant {
@@ -147,6 +170,22 @@ export async function fetchSupabaseRestaurants(): Promise<Restaurant[]> {
   );
 }
 
+export async function fetchSupabaseCategories(): Promise<Category[]> {
+  if (!shouldUseSupabaseRestaurants()) return [];
+
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, name, image')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.warn('Failed to fetch categories', error);
+    return [];
+  }
+
+  return data as Category[];
+}
+
 export async function ensureSupabaseVendorRestaurant(user: {
   id: string;
   name?: string;
@@ -156,6 +195,7 @@ export async function ensureSupabaseVendorRestaurant(user: {
 }) {
   if (!shouldUseSupabaseRestaurants()) return null;
   if (user.role !== 'vendor') throw new Error('Only vendor accounts can manage restaurant menus.');
+  await requireApprovedVendor();
 
   const existingId = user.restaurantId || null;
   if (existingId) {
@@ -196,6 +236,7 @@ export async function updateSupabaseVendorRestaurantLocation(
   location: RestaurantLocationInput
 ) {
   if (!shouldUseSupabaseRestaurants()) return false;
+  await requireApprovedVendor();
 
   const { error } = await supabase
     .from('restaurants')
@@ -213,6 +254,7 @@ export async function updateSupabaseVendorRestaurantLocation(
 
 export async function updateSupabaseVendorRestaurantProfile(restaurantId: string, patch: RestaurantProfileUpdate) {
   if (!shouldUseSupabaseRestaurants()) return false;
+  await requireApprovedVendor();
 
   const payload: Record<string, unknown> = {};
   if (patch.name !== undefined) payload.name = patch.name;
@@ -234,6 +276,7 @@ export async function updateSupabaseVendorRestaurantProfile(restaurantId: string
 
 export async function createSupabaseMenuItem(restaurantId: string, item: MenuItemInput) {
   if (!shouldUseSupabaseRestaurants()) return false;
+  await requireApprovedVendor();
 
   const { error } = await supabase
     .from('menu_items')
@@ -245,6 +288,7 @@ export async function createSupabaseMenuItem(restaurantId: string, item: MenuIte
 
 export async function updateSupabaseMenuItem(restaurantId: string, itemId: string, item: MenuItemUpdate) {
   if (!shouldUseSupabaseRestaurants()) return false;
+  await requireApprovedVendor();
 
   const { error } = await supabase
     .from('menu_items')
@@ -258,6 +302,7 @@ export async function updateSupabaseMenuItem(restaurantId: string, itemId: strin
 
 export async function deleteSupabaseMenuItem(restaurantId: string, itemId: string) {
   if (!shouldUseSupabaseRestaurants()) return false;
+  await requireApprovedVendor();
 
   const { error } = await supabase.from('menu_items').delete().eq('id', itemId).eq('restaurant_id', restaurantId);
 

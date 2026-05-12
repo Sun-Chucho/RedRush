@@ -12,6 +12,7 @@ import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCustomerData } from '@/hooks/useCustomerData';
 import { useAlert } from '@/template';
+import { getCashPaymentLabel } from '@/services/payments';
 
 export default function CheckoutScreen() {
   const {
@@ -25,7 +26,7 @@ export default function CheckoutScreen() {
   } = useCustomerData();
   const checkoutPaymentMethods = paymentMethods.length
     ? paymentMethods
-    : [{ id: 'cash', label: 'Cash on Delivery', detail: 'Pay when your food arrives', type: 'cash' as const, isDefault: true }];
+    : [{ id: 'cash', label: getCashPaymentLabel(), detail: 'Pay when your food arrives', type: 'cash' as const, isDefault: true }];
   const defaultAddress = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
   const defaultPayment = checkoutPaymentMethods.find(p => p.isDefault) || checkoutPaymentMethods[0];
   const [address, setAddress] = useState(defaultAddress?.details || '');
@@ -85,7 +86,7 @@ export default function CheckoutScreen() {
         addSavedAddress({ label: 'Recent delivery', details: address.trim(), isDefault: true });
       }
 
-      const paymentLabel = checkoutPaymentMethods.find(p => p.id === selectedPayment)?.label || 'Cash on Delivery';
+      const paymentLabel = checkoutPaymentMethods.find(p => p.id === selectedPayment)?.label || getCashPaymentLabel();
       const order = await placeOrder(
         items,
         restaurantId,

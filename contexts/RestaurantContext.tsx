@@ -5,9 +5,11 @@
 import React, { createContext, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { MenuItem, Restaurant } from '@/constants/mockData';
 import {
+  Category,
   createSupabaseMenuItem,
   deleteSupabaseMenuItem,
   ensureSupabaseVendorRestaurant,
+  fetchSupabaseCategories,
   fetchSupabaseRestaurants,
   RestaurantLocationInput,
   updateSupabaseMenuItem,
@@ -21,6 +23,7 @@ type MenuItemUpdate = Partial<MenuItemInput>;
 
 interface RestaurantContextType {
   restaurants: Restaurant[];
+  categories: Category[];
   isLoading: boolean;
   error: string | null;
   getRestaurantById: (id: string) => Restaurant | undefined;
@@ -39,14 +42,19 @@ export const RestaurantContext = createContext<RestaurantContextType | undefined
 export function RestaurantProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadRestaurants = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetchSupabaseRestaurants();
+      const [data, nextCategories] = await Promise.all([
+        fetchSupabaseRestaurants(),
+        fetchSupabaseCategories(),
+      ]);
       setRestaurants(data);
+      setCategories(nextCategories);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load restaurants.');
@@ -114,6 +122,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     restaurants,
+    categories,
     isLoading,
     error,
     getRestaurantById,
@@ -126,7 +135,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     deleteMenuItem,
     refreshRestaurants: loadRestaurants,
   }), [
-    restaurants, isLoading, error,
+    restaurants, categories, isLoading, error,
     getRestaurantById, getVendorRestaurant, ensureVendorRestaurant,
     updateVendorRestaurantLocation, updateVendorRestaurantProfile,
     createMenuItem, updateMenuItem, deleteMenuItem, loadRestaurants,

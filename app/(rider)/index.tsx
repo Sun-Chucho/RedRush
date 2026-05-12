@@ -14,6 +14,7 @@ import { useAlert } from '@/template';
 import { startRiderTracking, stopRiderTracking, setRiderOffline } from '@/services/riderLocation';
 import { setRiderOnlineStatus } from '@/services/dispatchService';
 import { sendRiderRequestNotification, sendRiderAssignedNotification, registerForPushNotifications } from '@/services/notifications';
+import { isCashPayment } from '@/services/payments';
 import * as Location from 'expo-location';
 import {
   emptyRiderSettings,
@@ -58,11 +59,11 @@ export default function RiderHome() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { formatMoney } = useCurrency();
-  const { orders, updateOrderStatus, assignRider } = useOrders();
+  const { orders, updateOrderStatus, assignRider, updateCashPaymentStatus } = useOrders();
   const { showAlert } = useAlert();
 
   const activeDelivery = orders.find(
-    o => o.riderId === user?.id && ['picked_up', 'accepted', 'preparing'].includes(o.status)
+    o => o.riderId === user?.id && ['assigned', 'picked_up'].includes(o.status)
   );
   const readyOrder = orders.find(o => o.status === 'ready' && !o.riderId);
   const profileReady = isRiderReadyForDeliveries(settings);
@@ -100,9 +101,10 @@ export default function RiderHome() {
 
   // Get location on mount + register for push notifications
   useEffect(() => {
-    if (user?.id) {
-      registerForPushNotifications(user.id).catch(() => undefined);
-      loadRiderProfileSettings(user.id).then(setSettings).catch(() => undefined);
+    const userId = user?.id;
+    if (userId) {
+      registerForPushNotifications(userId).catch(() => undefined);
+      loadRiderProfileSettings(userId).then(setSettings).catch(() => undefined);
     }
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -113,7 +115,7 @@ export default function RiderHome() {
       }
     })();
     return () => { stopRiderTracking(); };
-  }, []);
+  }, [user?.id]);
 
   // Notify when new ready order appears while online
   useEffect(() => {
@@ -174,6 +176,9 @@ export default function RiderHome() {
   const handleDelivered = async () => {
     if (!activeDelivery) return;
     try {
+      if (isCashPayment(activeDelivery.paymentMethod)) {
+        await updateCashPaymentStatus(activeDelivery.id, 'cash_collected');
+      }
       await updateOrderStatus(activeDelivery.id, 'delivered');
       showAlert('Delivered!', 'Order marked as delivered. Earnings credited.');
     } catch {
@@ -228,8 +233,8 @@ export default function RiderHome() {
           <Text style={[styles.statusText, { color: isOnline ? Colors.success : Colors.textMuted }]}>
             {isOnline
               ? locationGranted
-                ? 'Online — GPS active, waiting for nearby requests...'
-                : 'Online — Enable location for full tracking'
+                ? 'Online - GPS active, waiting for nearby requests...'
+                : 'Online - Enable location for full tracking'
               : profileReady
                 ? 'Toggle online to start receiving orders'
                 : 'Complete rider setup in Profile before taking rides'}
@@ -353,7 +358,7 @@ export default function RiderHome() {
               </View>
               <View style={styles.routeTextBlock}>
                 <Text style={styles.routeRestaurant}>{activeDelivery.restaurantName}</Text>
-                <Text style={styles.routeAddr}>Pickup completed</Text>
+                <Text style={styles.routeAddr}>{activeDelivery.status === 'assigned' ? 'Go to restaurant for pickup' : 'Pickup completed'}</Text>
               </View>
             </View>
             <View style={styles.routeDash} />
@@ -399,10 +404,17 @@ export default function RiderHome() {
               {formatMoney(Math.max(900, Math.round(activeDelivery.deliveryFee * 0.8)))}
             </Text>
           </View>
-          <TouchableOpacity style={styles.acceptBtn} onPress={handleDelivered}>
-            <MaterialIcons name="check-circle" size={16} color={Colors.text} />
-            <Text style={styles.acceptBtnText}>Mark as Delivered</Text>
-          </TouchableOpacity>
+          {activeDelivery.status === 'assigned' ? (
+            <TouchableOpacity style={styles.acceptBtn} onPress={() => updateOrderStatus(activeDelivery.id, 'picked_up')}>
+              <MaterialIcons name="shopping-bag" size={16} color={Colors.text} />
+              <Text style={styles.acceptBtnText}>Confirm Pickup</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.acceptBtn} onPress={handleDelivered}>
+              <MaterialIcons name="check-circle" size={16} color={Colors.text} />
+              <Text style={styles.acceptBtnText}>{isCashPayment(activeDelivery.paymentMethod) ? 'Cash Collected & Delivered' : 'Mark as Delivered'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : null}
 
@@ -454,7 +466,7 @@ export default function RiderHome() {
         {[
           { label: "Today's Earnings", value: formatMoney(earningsToday), icon: 'account-balance-wallet' as const, color: Colors.success },
           { label: 'This Week', value: formatMoney(47200), icon: 'calendar-today' as const, color: Colors.primary },
-          { label: 'Avg Rating', value: '4.9 ⭐', icon: 'star' as const, color: Colors.gold },
+          { label: 'Avg Rating', value: '4.9', icon: 'star' as const, color: Colors.gold },
           { label: 'Total Trips', value: String(deliveredToday.length), icon: 'delivery-dining' as const, color: Colors.info },
         ].map(s => (
           <View key={s.label} style={styles.quickCard}>

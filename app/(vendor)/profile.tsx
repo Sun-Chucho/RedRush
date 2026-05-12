@@ -12,7 +12,6 @@ import { useOrders } from '@/hooks/useOrders';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { pickCompressAndUploadImage } from '@/services/cloudinary';
 import {
   emptyVendorSettings,
   loadVendorProfileSettings,
@@ -50,24 +49,12 @@ export default function VendorProfile() {
       setSettings(merged);
       setDraft(merged);
     }).catch(() => undefined);
-  }, [restaurant?.id, restaurant?.name, restaurant?.address, user?.id]);
+  }, [restaurant?.id, restaurant?.name, restaurant?.address, user?.address, user?.id, user?.name, user?.phone]);
 
   const deliveredOrders = orders.filter(order => order.status === 'delivered');
   const revenue = deliveredOrders.reduce((sum, order) => sum + order.total, 0);
   const avgOrder = deliveredOrders.length ? Math.round(revenue / deliveredOrders.length) : 0;
   const activeItems = restaurant?.menu.filter(item => item.available).length || 0;
-
-  const uploadStoreImage = async () => {
-    try {
-      const url = await pickCompressAndUploadImage('vendor');
-      if (!url) return;
-      await updateProfile({ avatar: url });
-      await updateVendorRestaurantProfile({ image: url, coverImage: url });
-      showAlert('Store image saved', 'Your vendor image has been updated.');
-    } catch (error) {
-      showAlert('Image upload', error instanceof Error ? error.message : 'Unable to upload this image.');
-    }
-  };
 
   const saveCurrentLocation = async () => {
     setSavingLocation(true);
@@ -138,16 +125,6 @@ export default function VendorProfile() {
     }
   };
 
-  const uploadLegalDocument = async () => {
-    try {
-      const url = await pickCompressAndUploadImage('vendor');
-      if (!url) return;
-      setDraft(prev => ({ ...prev, legalDocumentUrl: url }));
-    } catch (error) {
-      showAlert('Document upload', error instanceof Error ? error.message : 'Unable to upload this document image.');
-    }
-  };
-
   const stats = useMemo(() => [
     { label: 'Orders', value: String(orders.length), icon: 'receipt-long', color: Colors.primary },
     { label: 'Revenue', value: formatMoney(revenue), icon: 'payments', color: Colors.success },
@@ -158,16 +135,13 @@ export default function VendorProfile() {
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
       <View style={styles.storeCard}>
-        <TouchableOpacity style={styles.storeLogo} onPress={uploadStoreImage} activeOpacity={0.85}>
+        <View style={styles.storeLogo}>
           {user?.avatar || restaurant?.image ? (
             <Image source={{ uri: user?.avatar || restaurant?.image }} style={styles.storeLogoImage} contentFit="cover" />
           ) : (
             <MaterialIcons name="restaurant" size={36} color={Colors.primary} />
           )}
-          <View style={styles.avatarEditBadge}>
-            <MaterialIcons name="photo-camera" size={13} color={Colors.text} />
-          </View>
-        </TouchableOpacity>
+        </View>
         <View style={styles.storeInfo}>
           <Text style={styles.storeName}>{restaurant?.name || settings.businessName || user?.name}</Text>
           <Text style={styles.storeEmail}>{user?.email}</Text>
@@ -259,7 +233,6 @@ export default function VendorProfile() {
         saving={saving}
         onClose={() => setActivePanel(null)}
         onSave={savePanel}
-        onUploadLegalDocument={uploadLegalDocument}
       />
 
       <View style={{ height: Spacing.xl }} />
@@ -274,7 +247,6 @@ function VendorSettingsModal({
   saving,
   onClose,
   onSave,
-  onUploadLegalDocument,
 }: {
   panel: Panel;
   draft: VendorProfileSettings;
@@ -282,7 +254,6 @@ function VendorSettingsModal({
   saving: boolean;
   onClose: () => void;
   onSave: () => void;
-  onUploadLegalDocument: () => void;
 }) {
   const title = {
     profile: 'Restaurant Profile',
@@ -325,14 +296,13 @@ function VendorSettingsModal({
             ) : null}
 
             {panel === 'legal' ? (
-              <TouchableOpacity style={styles.uploadRow} onPress={onUploadLegalDocument}>
-                <MaterialIcons name={draft.legalDocumentUrl ? 'check-circle' : 'upload-file'} size={22} color={draft.legalDocumentUrl ? Colors.success : Colors.primary} />
+              <View style={styles.uploadRow}>
+                <MaterialIcons name="info" size={22} color={Colors.primary} />
                 <View style={styles.uploadText}>
-                  <Text style={styles.dataTitle}>Business license or permit</Text>
-                  <Text style={styles.dataSub}>{draft.legalDocumentUrl ? 'Uploaded' : 'Tap to upload image'}</Text>
+                  <Text style={styles.dataTitle}>Document uploads coming soon</Text>
+                  <Text style={styles.dataSub}>For this storage-light release, admin approval should use restaurant profile details, phone, address, and direct manual verification.</Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color={Colors.textMuted} />
-              </TouchableOpacity>
+              </View>
             ) : null}
 
             {panel === 'notifications' ? (

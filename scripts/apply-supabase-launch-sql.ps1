@@ -9,18 +9,18 @@ if (-not $DbUrl) {
 }
 
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$migration003 = Join-Path $root "supabase\migrations\003_role_profiles.sql"
-$migration004 = Join-Path $root "supabase\migrations\004_clear_demo_data.sql"
+$migrationsDir = Join-Path $root "supabase\migrations"
+$migrationFiles = Get-ChildItem -Path $migrationsDir -Filter "*.sql" | Sort-Object Name
 
-foreach ($file in @($migration003, $migration004)) {
-  if (-not (Test-Path $file)) {
-    Write-Error "Missing migration file: $file"
-  }
+if (-not $migrationFiles -or $migrationFiles.Count -eq 0) {
+  Write-Error "No migration files found in $migrationsDir"
 }
 
-Write-Host "Applying Supabase launch migrations..."
-npx --yes supabase db query --db-url "$DbUrl" --file "$migration003"
-npx --yes supabase db query --db-url "$DbUrl" --file "$migration004"
+Write-Host "Applying Supabase migrations in order..."
+foreach ($file in $migrationFiles) {
+  Write-Host "Applying $($file.Name)..."
+  npx --yes supabase db query --db-url "$DbUrl" --file "$file"
+}
 
 $verifySql = @"
 select 'profiles' as table_name, count(*)::int as row_count from public.profiles

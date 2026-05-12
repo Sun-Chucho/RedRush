@@ -77,17 +77,18 @@ export const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
       },
       style,
     ]}>
-      {React.Children.map(children, (child) =>
-        React.cloneElement(child as React.ReactElement, {
+      {React.Children.map(children, (child) => {
+        if (!React.isValidElement<{ style?: any }>(child)) return child;
+        return React.cloneElement(child, {
           style: [
-            (child as React.ReactElement).props.style,
+            child.props.style,
             {
               width: isWeb ? itemWidth : '100%',
               marginRight: gridColumns > 1 && !isWeb ? 0 : undefined,
             },
           ],
-        })
-      )}
+        });
+      })}
     </View>
   );
 };

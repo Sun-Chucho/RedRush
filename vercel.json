@@ -29,7 +29,7 @@
       "dest": "/order/[id].html"
     },
     {
-      "src": "/(admin|auth|cart|menu|users|orders|search|support|profile|checkout|_sitemap|earnings|analytics|onboarding|deliveries)",
+      "src": "/(admin|auth|cart|menu|users|orders|search|support|profile|checkout|privacy-policy|terms-of-service|account-deletion|_sitemap|earnings|analytics|onboarding|deliveries)",
       "dest": "/$1.html"
     },
     {

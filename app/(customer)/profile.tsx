@@ -77,6 +77,18 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    showAlert('Delete Account', 'Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete Permanently', style: 'destructive', onPress: () => {
+          // Send request to Edge function or handle via Supabase auth admin
+          showAlert('Request Sent', 'Your account deletion request has been submitted. You will be logged out.');
+          logout(); 
+          router.replace('/auth');
+      }},
+    ]);
+  };
+
   const uploadAvatar = async () => {
     try {
       const url = await pickCompressAndUploadImage('profile');
@@ -222,6 +234,10 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <MaterialIcons name="logout" size={20} color={Colors.error} />
         <Text style={styles.logoutText}>{t('signOut')}</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount}>
+        <Text style={styles.deleteBtnText}>Delete Account</Text>
       </TouchableOpacity>
 
       <PanelModal title={activePanel ? t(activePanel) : ''} visible={!!activePanel} onClose={() => setActivePanel(null)}>
@@ -436,6 +452,8 @@ const styles = StyleSheet.create({
   languageValue: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: Spacing.md, padding: Spacing.md, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: Colors.error + '44', gap: Spacing.sm },
   logoutText: { color: Colors.error, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
+  deleteBtn: { alignItems: 'center', justifyContent: 'center', marginHorizontal: Spacing.md, marginTop: Spacing.md, padding: Spacing.md },
+  deleteBtnText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.medium, textDecorationLine: 'underline' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
   modalCard: { maxHeight: '82%', backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.md },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },

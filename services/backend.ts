@@ -4,6 +4,8 @@
  */
 import { supabase, isSupabaseConfigured } from './supabase';
 import { requestRoleOnSupabase, reviewRoleRequestOnSupabase } from './supabaseRoles';
+import { registerSupabasePushToken } from './supabaseCustomerData';
+import { Platform } from 'react-native';
 
 export type RoleRequestRole = 'vendor' | 'rider';
 export type RoleRequestDecision = 'approved' | 'rejected';
@@ -25,12 +27,13 @@ export async function registerPushTokenOnBackend(token: string): Promise<void> {
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) return;
 
-  // Store push token in profiles (extend schema if needed)
-  await supabase
-    .from('profiles')
-    .update({ push_token: token })
-    .eq('id', authData.user.id)
-    .catch(() => undefined);
+  await registerSupabasePushToken(
+    authData.user.id,
+    token,
+    Platform.OS === 'ios' || Platform.OS === 'android' || Platform.OS === 'web'
+      ? Platform.OS
+      : 'unknown'
+  );
 }
 
 /**

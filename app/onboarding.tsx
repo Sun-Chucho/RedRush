@@ -4,7 +4,7 @@ import {
   ScrollView, StatusBar, Platform, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { Href, useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -59,6 +59,10 @@ export default function OnboardingScreen() {
     }
   };
 
+  const isWebDesk = Platform.OS === 'web' && screenWidth > 768;
+  const slideWidth = isWebDesk ? Math.min(500, screenWidth) : screenWidth;
+  const slideHeight = isWebDesk ? Math.min(850, screenHeight - 60) : screenHeight;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
@@ -83,9 +87,10 @@ export default function OnboardingScreen() {
         onMomentumScrollEnd={handleScroll}
         scrollEventThrottle={16}
         style={styles.slider}
+        contentContainerStyle={isWebDesk ? { flexGrow: 1, justifyContent: 'center' } : {}}
       >
         {slides.map((slide) => (
-          <View key={slide.id} style={[styles.slide, { width: screenWidth, height: screenHeight }]}>
+          <View key={slide.id} style={[styles.slide, { width: slideWidth, height: slideHeight, borderRadius: isWebDesk ? 20 : 0, overflow: 'hidden', alignSelf: 'center', marginHorizontal: isWebDesk ? (screenWidth - slideWidth)/2 : 0 }]}>
             <Image source={slide.image} style={styles.slideImageBackdrop} contentFit="cover" blurRadius={22} />
             <Image source={slide.image} style={styles.slideImage} contentFit="cover" />
             <View style={styles.slideShade} />
@@ -109,6 +114,15 @@ export default function OnboardingScreen() {
             {activeIndex === slides.length - 1 ? t('getStarted') : t('next')}
           </Text>
         </TouchableOpacity>
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={() => router.push('/privacy-policy' as Href)}>
+            <Text style={styles.privacyText}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalDot}>|</Text>
+          <TouchableOpacity onPress={() => router.push('/terms-of-service' as Href)}>
+            <Text style={styles.privacyText}>Terms</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -158,7 +172,10 @@ const styles = StyleSheet.create({
   dotActive: { width: 28, backgroundColor: Colors.primary },
   nextBtn: {
     backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
-    paddingVertical: 16, paddingHorizontal: 60, width: '100%', alignItems: 'center',
+    paddingVertical: 16, paddingHorizontal: 60, width: '100%', alignItems: 'center', maxWidth: 400,
   },
   nextBtnText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
+  legalLinks: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.md },
+  legalDot: { color: Colors.textMuted, fontSize: FontSize.sm },
+  privacyText: { color: Colors.textMuted, fontSize: FontSize.sm, textDecorationLine: 'underline' },
 });

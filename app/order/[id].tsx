@@ -19,6 +19,7 @@ const STEPS = [
   { key: 'accepted',  label: 'Accepted',         icon: 'check-circle',     desc: 'Restaurant confirmed your order' },
   { key: 'preparing', label: 'Preparing',        icon: 'restaurant',       desc: 'Your food is being cooked' },
   { key: 'ready',     label: 'Ready for Pickup', icon: 'done-all',         desc: 'Waiting for a rider to pick it up' },
+  { key: 'assigned',  label: 'Rider Assigned',   icon: 'person-pin-circle', desc: 'A rider is heading to the restaurant' },
   { key: 'picked_up', label: 'On the Way',       icon: 'delivery-dining',  desc: 'Rider is heading to you' },
   { key: 'delivered', label: 'Delivered',        icon: 'home',             desc: 'Enjoy your meal!' },
 ];
@@ -52,11 +53,10 @@ export default function OrderTrackingScreen() {
   const order = getOrderById(id || '');
   const [riderCoords, setRiderCoords] = useState<RiderCoords | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const prevStatusRef = useRef<string | null>(null);
 
   // Live rider GPS subscription
   useEffect(() => {
-    if (!order?.riderId || !['picked_up'].includes(order.status)) {
+    if (!order?.riderId || !['assigned', 'picked_up'].includes(order.status)) {
       setRiderCoords(null);
       return undefined;
     }
@@ -99,7 +99,7 @@ export default function OrderTrackingScreen() {
   }
 
   const currentStepIndex = STEPS.findIndex(s => s.key === order.status);
-  const isLive = ['accepted', 'preparing', 'ready', 'picked_up'].includes(order.status);
+  const isLive = ['accepted', 'preparing', 'ready', 'assigned', 'picked_up'].includes(order.status);
   const showRiderOnMap = order.status === 'picked_up';
 
   const formatTime = (isoString: string) =>

@@ -5,17 +5,15 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
-    "scheme": [
-      "redrush",
-      "com.googleusercontent.apps.276964904825-77c1v72s3tmqt7o6imjv231rp4pi34jj"
-    ],
+    "scheme": "redrush",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.redrush.app",
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "RedRush uses your location to choose KES or TZS pricing and show nearby delivery tracking.",
+        "NSLocationWhenInUseUsageDescription": "RedRush uses your location for nearby restaurants, delivery addresses, and live delivery tracking.",
+        "NSPhotoLibraryUsageDescription": "RedRush lets vendors and users choose images for menus, restaurant profiles, and account profiles.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -24,17 +22,14 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyBQ0Ra_sfrPq0K3LcvZ-zxGZmCUDzYPdTw"
+          "apiKey": "${GOOGLE_MAPS_API_KEY}"
         }
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "ACCESS_FINE_LOCATION"
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.redrush.app"
@@ -49,7 +44,6 @@
     },
     "plugins": [
       "expo-router",
-      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
@@ -60,17 +54,13 @@
         }
       ],
       "expo-web-browser",
-      "@react-native-google-signin/google-signin",
-      "@react-native-community/datetimepicker",
       "expo-asset",
-      "expo-audio",
       "expo-font",
       "expo-notifications",
       "expo-localization",
       "expo-mail-composer",
       "expo-secure-store",
-      "expo-sqlite",
-      "expo-video"
+      "expo-location"
     ],
     "experiments": {
       "typedRoutes": true

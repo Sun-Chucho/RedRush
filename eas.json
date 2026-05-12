@@ -6,10 +6,24 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://brsqbkoxjawiimxmrttr.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_REST_URL": "https://brsqbkoxjawiimxmrttr.supabase.co/rest/v1",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OnV9GXtZjHrVfpWIqG_FSQ_bjcsloRS",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dibnoka27",
+        "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "redrush_unsigned"
+      }
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://brsqbkoxjawiimxmrttr.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_REST_URL": "https://brsqbkoxjawiimxmrttr.supabase.co/rest/v1",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OnV9GXtZjHrVfpWIqG_FSQ_bjcsloRS",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dibnoka27",
+        "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "redrush_unsigned"
+      },
       "android": {
         "buildType": "apk",
         "credentialsSource": "local"
@@ -17,7 +31,30 @@
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://brsqbkoxjawiimxmrttr.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_REST_URL": "https://brsqbkoxjawiimxmrttr.supabase.co/rest/v1",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OnV9GXtZjHrVfpWIqG_FSQ_bjcsloRS",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dibnoka27",
+        "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "redrush_unsigned"
+      },
       "android": {
+        "buildType": "app-bundle",
+        "credentialsSource": "local"
+      }
+    },
+    "production-apk": {
+      "autoIncrement": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://brsqbkoxjawiimxmrttr.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_REST_URL": "https://brsqbkoxjawiimxmrttr.supabase.co/rest/v1",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OnV9GXtZjHrVfpWIqG_FSQ_bjcsloRS",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dibnoka27",
+        "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "redrush_unsigned"
+      },
+      "android": {
+        "buildType": "apk",
         "credentialsSource": "local"
       }
     }

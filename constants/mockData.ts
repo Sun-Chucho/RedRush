@@ -66,8 +66,9 @@ export interface Order {
   serviceCharge?: number;
   discount?: number;
   promoCode?: string;
-  status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'picked_up' | 'delivered' | 'cancelled';
+  status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'assigned' | 'picked_up' | 'delivered' | 'cancelled';
   paymentMethod: string;
+  paymentStatus?: 'pending' | 'collect_on_delivery' | 'cash_collected' | 'remitted' | 'settled' | 'paid' | 'failed' | 'cancelled' | 'refunded';
   address: string;
   createdAt: string;
   estimatedDelivery: string;

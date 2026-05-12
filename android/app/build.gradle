@@ -1,7 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-apply plugin: "com.google.gms.google-services"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -97,6 +96,9 @@ android {
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+        manifestPlaceholders = [
+            GOOGLE_MAPS_API_KEY: (findProperty('GOOGLE_MAPS_API_KEY') ?: System.getenv('GOOGLE_MAPS_API_KEY') ?: '')
+        ]
     }
     signingConfigs {
         debug {
@@ -105,16 +107,28 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            def releaseStoreFile = findProperty('REDRUSH_RELEASE_STORE_FILE') ?: System.getenv('REDRUSH_RELEASE_STORE_FILE')
+            if (releaseStoreFile) {
+                storeFile file(releaseStoreFile)
+                storePassword findProperty('REDRUSH_RELEASE_STORE_PASSWORD') ?: System.getenv('REDRUSH_RELEASE_STORE_PASSWORD')
+                keyAlias findProperty('REDRUSH_RELEASE_KEY_ALIAS') ?: System.getenv('REDRUSH_RELEASE_KEY_ALIAS')
+                keyPassword findProperty('REDRUSH_RELEASE_KEY_PASSWORD') ?: System.getenv('REDRUSH_RELEASE_KEY_PASSWORD')
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
-            def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
+            def isEasBuild = System.getenv('EAS_BUILD') == 'true'
+            if (signingConfigs.release.storeFile) {
+                signingConfig signingConfigs.release
+            } else if (!isEasBuild) {
+                throw new GradleException("Production release signing is not configured. Set REDRUSH_RELEASE_STORE_FILE, REDRUSH_RELEASE_STORE_PASSWORD, REDRUSH_RELEASE_KEY_ALIAS, and REDRUSH_RELEASE_KEY_PASSWORD.")
+            }
+            def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'true'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
@@ -156,9 +170,6 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
-    implementation("com.google.firebase:firebase-analytics")
-
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";

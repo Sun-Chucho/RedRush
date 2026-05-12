@@ -10,7 +10,6 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAlert } from '@/template';
-import { pickCompressAndUploadImage } from '@/services/cloudinary';
 import {
   emptyRiderSettings,
   isRiderReadyForDeliveries,
@@ -19,11 +18,11 @@ import {
   saveRiderProfileSettings,
 } from '@/services/supabaseProfileSettings';
 
-type Panel = 'bank' | 'mobileMoney' | 'vehicle' | 'documents' | 'notifications' | null;
+type Panel = 'bank' | 'mobileMoney' | 'vehicle' | 'identity' | 'notifications' | null;
 
 export default function RiderProfile() {
   const insets = useSafeAreaInsets();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout } = useAuth();
   const { orders } = useOrders();
   const router = useRouter();
   const { formatMoney } = useCurrency();
@@ -48,17 +47,6 @@ export default function RiderProfile() {
   const earnings = deliveredOrders.reduce((sum, order) => sum + Math.max(900, Math.round(order.deliveryFee * 0.8)), 0);
   const setupReady = isRiderReadyForDeliveries(settings);
 
-  const uploadAvatar = async () => {
-    try {
-      const url = await pickCompressAndUploadImage('profile');
-      if (!url) return;
-      await updateProfile({ avatar: url });
-      showAlert('Profile photo saved', 'Your rider photo has been updated.');
-    } catch (error) {
-      showAlert('Image upload', error instanceof Error ? error.message : 'Unable to upload this image.');
-    }
-  };
-
   const openPanel = (panel: Panel) => {
     setDraft(settings);
     setActivePanel(panel);
@@ -79,29 +67,16 @@ export default function RiderProfile() {
     }
   };
 
-  const uploadDocument = async (field: 'licenseDocumentUrl' | 'insuranceDocumentUrl' | 'idDocumentUrl') => {
-    try {
-      const url = await pickCompressAndUploadImage('profile');
-      if (!url) return;
-      setDraft(prev => ({ ...prev, [field]: url }));
-    } catch (error) {
-      showAlert('Document upload', error instanceof Error ? error.message : 'Unable to upload this document image.');
-    }
-  };
-
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
       <View style={styles.profileCard}>
-        <TouchableOpacity style={styles.avatar} onPress={uploadAvatar} activeOpacity={0.85}>
+        <View style={styles.avatar}>
           {user?.avatar ? (
             <Image source={{ uri: user.avatar }} style={styles.avatarImage} contentFit="cover" />
           ) : (
             <MaterialIcons name="delivery-dining" size={36} color={Colors.primary} />
           )}
-          <View style={styles.avatarEditBadge}>
-            <MaterialIcons name="photo-camera" size={13} color={Colors.text} />
-          </View>
-        </TouchableOpacity>
+        </View>
         <View style={styles.profileInfo}>
           <Text style={styles.name}>{user?.name}</Text>
           <Text style={styles.email}>{user?.email}</Text>
@@ -132,6 +107,7 @@ export default function RiderProfile() {
         {[
           { label: 'Vehicle Type', value: settings.vehicleType || 'Not set' },
           { label: 'Plate Number', value: settings.vehiclePlate || 'Not set' },
+          { label: 'ID Number', value: settings.idNumber || 'Not set' },
           { label: 'Bank', value: settings.bankAccountNumber ? `${settings.bankName || 'Bank'} ending ${settings.bankAccountNumber.slice(-4)}` : 'Not set' },
           { label: 'Mobile Money', value: settings.mobileMoneyPhone || 'Not set' },
         ].map(d => (
@@ -152,7 +128,7 @@ export default function RiderProfile() {
           { icon: 'account-balance-wallet', label: 'Bank Account', panel: 'bank' as const },
           { icon: 'phone-android', label: 'Mobile Money', panel: 'mobileMoney' as const },
           { icon: 'directions-bike', label: 'Vehicle Details', panel: 'vehicle' as const },
-          { icon: 'description', label: 'Vehicle Documents', panel: 'documents' as const },
+          { icon: 'badge', label: 'Identity Details', panel: 'identity' as const },
           { icon: 'notifications', label: 'Notification Settings', panel: 'notifications' as const },
         ].map(item => (
           <TouchableOpacity key={item.label} style={styles.menuItem} onPress={() => openPanel(item.panel)}>
@@ -180,7 +156,6 @@ export default function RiderProfile() {
         saving={saving}
         onClose={() => setActivePanel(null)}
         onSave={savePanel}
-        onUploadDocument={uploadDocument}
       />
 
       <View style={{ height: Spacing.xl }} />
@@ -195,7 +170,6 @@ function SettingsModal({
   saving,
   onClose,
   onSave,
-  onUploadDocument,
 }: {
   panel: Panel;
   draft: RiderProfileSettings;
@@ -203,13 +177,12 @@ function SettingsModal({
   saving: boolean;
   onClose: () => void;
   onSave: () => void;
-  onUploadDocument: (field: 'licenseDocumentUrl' | 'insuranceDocumentUrl' | 'idDocumentUrl') => void;
 }) {
   const title = {
     bank: 'Bank Account',
     mobileMoney: 'Mobile Money',
     vehicle: 'Vehicle Details',
-    documents: 'Vehicle Documents',
+    identity: 'Identity Details',
     notifications: 'Notification Settings',
   }[panel || 'bank'];
 
@@ -245,22 +218,10 @@ function SettingsModal({
               </>
             ) : null}
 
-            {panel === 'documents' ? (
+            {panel === 'identity' ? (
               <>
-                {[
-                  { label: 'License photo', field: 'licenseDocumentUrl' as const, value: draft.licenseDocumentUrl },
-                  { label: 'Insurance photo', field: 'insuranceDocumentUrl' as const, value: draft.insuranceDocumentUrl },
-                  { label: 'ID photo', field: 'idDocumentUrl' as const, value: draft.idDocumentUrl },
-                ].map(item => (
-                  <TouchableOpacity key={item.field} style={styles.uploadRow} onPress={() => onUploadDocument(item.field)}>
-                    <MaterialIcons name={item.value ? 'check-circle' : 'upload-file'} size={22} color={item.value ? Colors.success : Colors.primary} />
-                    <View style={styles.uploadText}>
-                      <Text style={styles.dataTitle}>{item.label}</Text>
-                      <Text style={styles.dataSub}>{item.value ? 'Uploaded' : 'Tap to upload image'}</Text>
-                    </View>
-                    <MaterialIcons name="chevron-right" size={20} color={Colors.textMuted} />
-                  </TouchableOpacity>
-                ))}
+                <Field label="Government ID number" value={draft.idNumber} autoCapitalize="characters" onChangeText={idNumber => setDraft(prev => ({ ...prev, idNumber }))} />
+                <Text style={styles.dataSub}>Photo uploads are coming soon. For this release, RedRush verifies riders with ID number, vehicle type, plate number, and payout details.</Text>
               </>
             ) : null}
 

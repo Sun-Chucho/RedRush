@@ -7,7 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
-import { CUISINES, Restaurant } from '@/constants/mockData';
+import { Restaurant } from '@/constants/mockData';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCustomerData } from '@/hooks/useCustomerData';
@@ -26,7 +26,7 @@ const PROMO_BANNERS: {
 }[] = [
   { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', image: require('@/home-1.jpeg') },
   { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/home-2.jpeg') },
-  { id: '3', title: 'MTN MoMo Pay', subtitle: 'Earn 500 cashback per order', image: require('@/home-3.jpeg') },
+  { id: '3', title: 'Cash on Delivery', subtitle: 'Pay when your food arrives', image: require('@/home-3.jpeg') },
 ];
 
 const NEARBY_RADIUS_KM = 12;
@@ -57,12 +57,14 @@ export default function CustomerHome() {
   const { notificationSettings, enablePushNotifications } = useCustomerData();
   const { t } = useLanguage();
   const { showAlert } = useAlert();
-  const { restaurants } = useRestaurants();
+  const { restaurants, categories } = useRestaurants();
 
-  const cuisines = useMemo(
-    () => Array.from(new Set(['All', ...CUISINES.filter(cuisine => restaurants.some(restaurant => restaurant.cuisine === cuisine)), ...restaurants.map(restaurant => restaurant.cuisine)])),
-    [restaurants]
-  );
+  const cuisines = useMemo(() => {
+    if (categories.length > 0) {
+      return ['All', ...categories.map(c => c.name)];
+    }
+    return Array.from(new Set(['All', ...restaurants.map(r => r.cuisine)]));
+  }, [categories, restaurants]);
 
   const filtered = useMemo(() => restaurants
     .map(restaurant => {

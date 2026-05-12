@@ -9,13 +9,13 @@ import { useAlert } from '@/template';
 
 const STATUS_COLOR: Record<string, string> = {
   pending: Colors.warning, accepted: Colors.info, preparing: Colors.warning,
-  ready: Colors.success, picked_up: Colors.primary, delivered: Colors.success, cancelled: Colors.error,
+  ready: Colors.success, assigned: Colors.info, picked_up: Colors.primary, delivered: Colors.success, cancelled: Colors.error,
 };
 
 export default function AdminOrders() {
   const [filter, setFilter] = useState('All');
   const insets = useSafeAreaInsets();
-  const { orders } = useOrders();
+  const { orders, updateCashPaymentStatus } = useOrders();
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
 
@@ -74,9 +74,15 @@ export default function AdminOrders() {
             <View style={styles.orderFoot}>
               <Text style={styles.total}>{formatMoney(item.total)}</Text>
               <Text style={styles.payment}>{item.paymentMethod}</Text>
-              <TouchableOpacity onPress={() => showAlert('Order Action', `Order #${item.id.slice(-6).toUpperCase()} is loaded with customer address, payment method, rider, and live status.`)}>
-                <MaterialIcons name="more-horiz" size={20} color={Colors.textMuted} />
-              </TouchableOpacity>
+              {item.paymentStatus === 'cash_collected' ? (
+                <TouchableOpacity onPress={() => updateCashPaymentStatus(item.id, 'remitted')}>
+                  <Text style={styles.remitText}>Mark remitted</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={() => showAlert('Order Action', `Payment status: ${item.paymentStatus || 'not recorded'}.`)}>
+                  <MaterialIcons name="more-horiz" size={20} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -115,6 +121,7 @@ const styles = StyleSheet.create({
   orderFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm },
   total: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   payment: { color: Colors.textMuted, fontSize: FontSize.xs },
+  remitText: { color: Colors.success, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.md },
 });

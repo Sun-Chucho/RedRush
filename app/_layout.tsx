@@ -1,4 +1,4 @@
-import { Stack, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AlertProvider } from '@/template';
@@ -14,11 +14,6 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Colors } from '@/constants/theme';
 
 export default function RootLayout() {
-  const pathname = usePathname();
-  const isAdminPath = pathname === '/admin' || pathname.startsWith('/(admin)') || ['/users', '/orders', '/analytics'].includes(pathname);
-  // Only use phone shell on mobile platforms, not on web
-  const usePhoneShell = false;
-
   return (
     <AlertProvider>
       <SafeAreaProvider>
@@ -46,6 +41,9 @@ export default function RootLayout() {
                                 <Stack.Screen name="order/[id]" />
                                 <Stack.Screen name="checkout" />
                                 <Stack.Screen name="support" />
+                                <Stack.Screen name="privacy-policy" />
+                                <Stack.Screen name="terms-of-service" />
+                                <Stack.Screen name="account-deletion" />
                               </Stack>
                             </View>
                           </View>

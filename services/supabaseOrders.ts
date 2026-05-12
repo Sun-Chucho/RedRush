@@ -3,6 +3,7 @@ import { CartItem } from '@/contexts/CartContext';
 import type { AuthUser } from '@/contexts/AuthContext';
 import { CreateOrderInput } from './backend';
 import { isSupabaseConfigured, supabase } from './supabase';
+import { getPaymentStatusForMethod } from './payments';
 
 type OrderRow = {
   id: string;
@@ -19,6 +20,7 @@ type OrderRow = {
   promo_code: string | null;
   status: Order['status'];
   payment_method: string;
+  payment_status: Order['paymentStatus'] | null;
   address: string;
   rider_id: string | null;
   rider_name: string | null;
@@ -114,6 +116,7 @@ function toOrder(row: OrderRow): Order {
     promoCode: row.promo_code || undefined,
     status: row.status || 'pending',
     paymentMethod: row.payment_method,
+    paymentStatus: row.payment_status || undefined,
     address: row.address,
     createdAt: toIsoDate(row.created_at),
     estimatedDelivery: toIsoDate(row.estimated_delivery, Date.now() + 40 * 60000),
@@ -232,7 +235,7 @@ export async function createSupabaseOrder(payload: CreateOrderInput) {
       promo_code: promoDiscounts[promoCode] ? promoCode : null,
       status: 'pending',
       payment_method: payload.paymentMethod,
-      payment_status: payload.paymentMethod.toLowerCase().includes('cash') ? 'collect_on_delivery' : 'pending',
+      payment_status: getPaymentStatusForMethod(payload.paymentMethod),
       address: payload.address,
       estimated_delivery: estimatedDelivery,
     })
@@ -240,6 +243,27 @@ export async function createSupabaseOrder(payload: CreateOrderInput) {
     .single();
 
   if (orderError) throw orderError;
+
+  const paymentProvider = payload.paymentMethod.toLowerCase().includes('cash') ? 'cash' : 'paystack';
+  const ledgerPaymentStatus = paymentProvider === 'cash' ? 'collect_on_delivery' : 'pending';
+
+  const { error: paymentError } = await supabase
+    .from('payments')
+    .insert({
+      order_id: createdOrder.id,
+      customer_id: user.id,
+      provider: paymentProvider,
+      amount: Math.max(0, subtotal - discount) + deliveryFee + serviceCharge,
+      status: ledgerPaymentStatus,
+      metadata: {
+        paymentMethod: payload.paymentMethod,
+        promoCode: promoDiscounts[promoCode] ? promoCode : null,
+      },
+    });
+
+  if (paymentError) {
+    console.warn('[RedRush] Payment ledger insert failed:', paymentError.message);
+  }
 
   const itemPayloads = orderItems.map(({ menuItem, quantity }) => ({
     order_id: createdOrder.id,
@@ -284,7 +308,7 @@ export async function updateSupabaseOrderStatus(orderId: string, status: Order['
     patch[timestampField[status] as string] = new Date().toISOString();
   }
 
-  if (status === 'picked_up') {
+  if (status === 'assigned' || status === 'picked_up') {
     const { data: profile } = await supabase.from('profiles').select('name').eq('id', authData.user.id).maybeSingle();
     patch.rider_id = authData.user.id;
     patch.rider_name = profile?.name || authData.user.email || 'Rider';
@@ -292,6 +316,31 @@ export async function updateSupabaseOrderStatus(orderId: string, status: Order['
 
   const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
   if (error) throw error;
+
+  return true;
+}
+
+export async function updateSupabaseCashPaymentStatus(
+  orderId: string,
+  paymentStatus: NonNullable<Order['paymentStatus']>
+) {
+  if (!shouldUseSupabaseOrders()) return false;
+
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) return false;
+
+  const { error: orderError } = await supabase
+    .from('orders')
+    .update({ payment_status: paymentStatus })
+    .eq('id', orderId);
+  if (orderError) throw orderError;
+
+  const { error: paymentError } = await supabase
+    .from('payments')
+    .update({ status: paymentStatus })
+    .eq('order_id', orderId)
+    .eq('provider', 'cash');
+  if (paymentError) throw paymentError;
 
   return true;
 }
