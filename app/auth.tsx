@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -35,6 +35,10 @@ const SIGNUP_ROLES: { role: SignupRole; icon: keyof typeof MaterialIcons.glyphMa
 
 const HERO_HEIGHT = Math.round(Dimensions.get('window').height * 0.42);
 
+// Preload both auth images so they appear instantly on tab switch
+const SIGN_1 = require('@/sign-1.jpeg');
+const SIGN_2 = require('@/sign-2.jpeg');
+
 export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -44,6 +48,7 @@ export default function AuthScreen() {
   const [signupRole, setSignupRole] = useState<SignupRole>('customer');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [imagesReady, setImagesReady] = useState(false);
 
   const { login, register } = useAuth();
   const router = useRouter();
@@ -51,7 +56,16 @@ export default function AuthScreen() {
   const { showAlert } = useAlert();
   const { t } = useLanguage();
   const { mode: themeMode } = useThemeMode();
-  const heroImage = mode === 'register' ? require('@/sign-1.jpeg') : require('@/sign-2.jpeg');
+
+  // Prefetch both images on mount so the swap is instant
+  useEffect(() => {
+    Image.prefetch([SIGN_1, SIGN_2] as any)
+      .catch(() => undefined)
+      .finally(() => setImagesReady(true));
+  }, []);
+
+  const heroImage = mode === 'register' ? SIGN_1 : SIGN_2;
+
   const themed = {
     screen: { backgroundColor: Colors.background },
     modeToggle: { backgroundColor: Colors.surfaceElevated },
@@ -92,7 +106,14 @@ export default function AuthScreen() {
       <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={Colors.background} />
       <ScrollView style={[styles.scrollView, themed.screen]} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Image source={heroImage} style={styles.heroImage} contentFit="contain" />
+          <Image
+            source={heroImage}
+            style={styles.heroImage}
+            contentFit="contain"
+            transition={120}
+            // Show a subtle placeholder color while loading
+            placeholder={{ color: Colors.surfaceElevated }}
+          />
           <LinearGradient
             colors={['rgba(204,0,0,0.92)', 'rgba(204,0,0,0.44)', 'rgba(8,8,8,0.06)', Colors.background]}
             locations={[0, 0.34, 0.72, 1]}
@@ -145,7 +166,6 @@ export default function AuthScreen() {
                   <View style={styles.rolesGrid}>
                     {SIGNUP_ROLES.map(item => {
                       const active = signupRole === item.role;
-
                       return (
                         <TouchableOpacity
                           key={item.role}

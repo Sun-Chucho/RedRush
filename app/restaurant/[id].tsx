@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
 } from 'react-native';
@@ -13,6 +13,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useCustomerData } from '@/hooks/useCustomerData';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
+import { fetchRestaurantReviews, Review } from '@/services/supabaseRatings';
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +27,18 @@ export default function RestaurantScreen() {
 
   const restaurant = getRestaurantById(id || '');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoadingReviews(true);
+    fetchRestaurantReviews(id, 10).then(r => {
+      setReviews(r);
+      setLoadingReviews(false);
+    });
+  }, [id]);
 
   if (!restaurant) {
     return (
@@ -50,6 +63,10 @@ export default function RestaurantScreen() {
     }
     addItem(item, restaurant.id, restaurant.name);
   };
+
+  const avgRating = reviews.length
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : restaurant.rating;
 
   return (
     <View style={styles.container}>
@@ -91,8 +108,8 @@ export default function RestaurantScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <MaterialIcons name="star" size={16} color={Colors.gold} />
-              <Text style={styles.statValue}>{restaurant.rating}</Text>
-              <Text style={styles.statLabel}>({restaurant.reviewCount})</Text>
+              <Text style={styles.statValue}>{avgRating}</Text>
+              <Text style={styles.statLabel}>({reviews.length || restaurant.reviewCount})</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -162,6 +179,66 @@ export default function RestaurantScreen() {
             </View>
           ))}
         </View>
+
+        {/* ── Reviews Section ── */}
+        <View style={styles.reviewsSection}>
+          <TouchableOpacity
+            style={styles.reviewsHeader}
+            onPress={() => setShowReviews(v => !v)}
+          >
+            <View style={styles.reviewsHeaderLeft}>
+              <MaterialIcons name="star" size={18} color={Colors.gold} />
+              <Text style={styles.reviewsTitle}>Customer Reviews</Text>
+              {reviews.length > 0 ? (
+                <View style={styles.reviewCountBadge}>
+                  <Text style={styles.reviewCountText}>{reviews.length}</Text>
+                </View>
+              ) : null}
+            </View>
+            <MaterialIcons
+              name={showReviews ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+              size={22}
+              color={Colors.textMuted}
+            />
+          </TouchableOpacity>
+
+          {showReviews ? (
+            loadingReviews ? (
+              <View style={styles.reviewsLoading}>
+                <Text style={styles.reviewsLoadingText}>Loading reviews...</Text>
+              </View>
+            ) : reviews.length === 0 ? (
+              <View style={styles.reviewsEmpty}>
+                <MaterialIcons name="star-border" size={36} color={Colors.textMuted} />
+                <Text style={styles.reviewsEmptyText}>No reviews yet.</Text>
+                <Text style={styles.reviewsEmptySub}>Be the first to review after delivery!</Text>
+              </View>
+            ) : (
+              <View style={styles.reviewsList}>
+                {/* Aggregate row */}
+                <View style={styles.ratingAggregate}>
+                  <Text style={styles.ratingBig}>{avgRating}</Text>
+                  <View style={styles.ratingStars}>
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <MaterialIcons
+                        key={n}
+                        name={n <= Math.round(Number(avgRating)) ? 'star' : 'star-border'}
+                        size={18}
+                        color={Colors.gold}
+                      />
+                    ))}
+                  </View>
+                  <Text style={styles.ratingCount}>{reviews.length} review{reviews.length !== 1 ? 's' : ''}</Text>
+                </View>
+
+                {reviews.map(review => (
+                  <ReviewCard key={review.id} review={review} />
+                ))}
+              </View>
+            )
+          ) : null}
+        </View>
+
         <View style={{ height: itemCount > 0 ? 100 : 20 }} />
       </ScrollView>
 
@@ -180,6 +257,56 @@ export default function RestaurantScreen() {
           </TouchableOpacity>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function ReviewCard({ review }: { review: Review }) {
+  const timeAgo = (iso: string) => {
+    const d = new Date(iso);
+    const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 30) return `${diffDays} days ago`;
+    const diffMo = Math.floor(diffDays / 30);
+    return `${diffMo} month${diffMo !== 1 ? 's' : ''} ago`;
+  };
+
+  return (
+    <View style={styles.reviewCard}>
+      <View style={styles.reviewTop}>
+        <View style={styles.reviewAvatar}>
+          <MaterialIcons name="person" size={18} color={Colors.primary} />
+        </View>
+        <View style={styles.reviewMeta}>
+          <View style={styles.reviewStars}>
+            {[1, 2, 3, 4, 5].map(n => (
+              <MaterialIcons
+                key={n}
+                name={n <= review.rating ? 'star' : 'star-border'}
+                size={14}
+                color={Colors.gold}
+              />
+            ))}
+          </View>
+          <Text style={styles.reviewTime}>{timeAgo(review.createdAt)}</Text>
+        </View>
+      </View>
+
+      {review.comment ? (
+        <Text style={styles.reviewComment}>{review.comment}</Text>
+      ) : null}
+
+      <View style={styles.reviewSubRatings}>
+        <View style={styles.subRating}>
+          <MaterialIcons name="restaurant" size={12} color={Colors.textMuted} />
+          <Text style={styles.subRatingText}>Food {review.foodRating}/5</Text>
+        </View>
+        <View style={styles.subRating}>
+          <MaterialIcons name="delivery-dining" size={12} color={Colors.textMuted} />
+          <Text style={styles.subRatingText}>Delivery {review.deliveryRating}/5</Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -238,4 +365,32 @@ const styles = StyleSheet.create({
   cartBarText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.medium },
   cartBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 10, paddingHorizontal: 20, gap: Spacing.sm },
   cartBtnText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
+
+  // Reviews
+  reviewsSection: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, overflow: 'hidden', ...Shadow.md },
+  reviewsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.md },
+  reviewsHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  reviewsTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
+  reviewCountBadge: { backgroundColor: Colors.primary, borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5 },
+  reviewCountText: { color: Colors.text, fontSize: 11, fontWeight: FontWeight.bold },
+  reviewsLoading: { padding: Spacing.md, alignItems: 'center' },
+  reviewsLoadingText: { color: Colors.textMuted, fontSize: FontSize.sm },
+  reviewsEmpty: { padding: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
+  reviewsEmptyText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
+  reviewsEmptySub: { color: Colors.textMuted, fontSize: FontSize.sm, textAlign: 'center' },
+  reviewsList: { paddingBottom: Spacing.sm },
+  ratingAggregate: { alignItems: 'center', padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  ratingBig: { color: Colors.text, fontSize: 42, fontWeight: FontWeight.extrabold },
+  ratingStars: { flexDirection: 'row', marginVertical: 4 },
+  ratingCount: { color: Colors.textMuted, fontSize: FontSize.sm },
+  reviewCard: { padding: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border },
+  reviewTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xs },
+  reviewAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary + '18', justifyContent: 'center', alignItems: 'center' },
+  reviewMeta: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reviewStars: { flexDirection: 'row' },
+  reviewTime: { color: Colors.textMuted, fontSize: FontSize.xs },
+  reviewComment: { color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 20, marginBottom: Spacing.xs },
+  reviewSubRatings: { flexDirection: 'row', gap: Spacing.md },
+  subRating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  subRatingText: { color: Colors.textMuted, fontSize: FontSize.xs },
 });

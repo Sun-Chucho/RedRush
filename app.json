@@ -19,8 +19,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./logo.png",
+        "backgroundColor": "#0A0A0A"
       },
       "config": {
         "googleMaps": {
@@ -37,20 +37,19 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png",
-      "supportsTablet": true,
-      "backgroundColor": "#151010",
-      "themeColor": "#FF6B35"
+      "favicon": "./logo.png",
+      "backgroundColor": "#0A0A0A",
+      "themeColor": "#CC0000"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logo.png",
+          "image": "./logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#0A0A0A"
         }
       ],
       "expo-web-browser",

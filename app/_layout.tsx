@@ -44,6 +44,7 @@ export default function RootLayout() {
                                 <Stack.Screen name="privacy-policy" />
                                 <Stack.Screen name="terms-of-service" />
                                 <Stack.Screen name="account-deletion" />
+                                <Stack.Screen name="chat/[orderId]" />
                               </Stack>
                             </View>
                           </View>
