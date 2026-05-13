@@ -32,8 +32,7 @@ export default function LandingPage() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.nav}>
         <View style={styles.brand}>
-          <Image source={require('@/assets/images/logo.png')} style={styles.logo} contentFit="contain" />
-          <Text style={styles.brandName}>RedRush</Text>
+          <Image source={require('@/assets/images/app-icon.png')} style={styles.logo} contentFit="cover" />
         </View>
         <TouchableOpacity style={styles.navButton} onPress={() => router.push('/privacy-policy')}>
           <Text style={styles.navButtonText}>Privacy</Text>
@@ -41,7 +40,7 @@ export default function LandingPage() {
       </View>
 
       <View style={[styles.hero, { height: Math.max(isCompact ? 460 : 520, Math.min(height * 0.72, 680)) }]}>
-        <Image source={require('@/assets/images/sign-1.png')} style={styles.heroImage} contentFit="cover" />
+        <Image source={require('@/assets/images/sign-2.png')} style={styles.heroImage} contentFit="cover" />
         <View style={styles.heroShade} />
         <View style={[styles.heroCopy, isCompact && styles.heroCopyCompact]}>
           <Text style={styles.kicker}>Food delivery for customers, vendors, riders, and admins</Text>
@@ -90,9 +89,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { paddingBottom: Spacing.xl },
   nav: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
-  brand: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm },
-  logo: { height: 40, width: 40 },
-  brandName: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.extrabold },
+  brand: { alignItems: 'center', backgroundColor: '#0A0A0A', borderRadius: BorderRadius.sm, flexDirection: 'row', height: 48, overflow: 'hidden', width: 170 },
+  logo: { height: 48, width: 170 },
   navButton: { borderColor: Colors.border, borderRadius: BorderRadius.full, borderWidth: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   navButtonText: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   hero: {
