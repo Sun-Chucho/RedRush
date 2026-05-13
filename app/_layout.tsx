@@ -1,5 +1,5 @@
-import { Stack } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Stack, usePathname, useSegments } from 'expo-router';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AlertProvider } from '@/template';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -14,6 +14,15 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Colors } from '@/constants/theme';
 
 export default function RootLayout() {
+  const pathname = usePathname();
+  const segments = useSegments();
+  const { width, height } = useWindowDimensions();
+  const topSegment = segments[0];
+  const isAppGroupRoute = typeof topSegment === 'string' && topSegment.startsWith('(');
+  const isPublicWebRoute = pathname === '/' || pathname === '/privacy-policy' || pathname === '/terms-of-service' || pathname === '/account-deletion';
+  const shouldUsePhoneShell = Platform.OS === 'web' && width >= 768 && (isAppGroupRoute || !isPublicWebRoute);
+  const phoneHeight = Math.max(620, Math.min(860, height - 48));
+
   return (
     <AlertProvider>
       <SafeAreaProvider>
@@ -26,8 +35,8 @@ export default function RootLayout() {
                     <RestaurantProvider>
                       <SupportProvider>
                         <OrderProvider>
-                          <View style={[styles.webFrame]}>
-                            <View style={[styles.root]}>
+                          <View style={[styles.webFrame, shouldUsePhoneShell && styles.webFramePhone]}>
+                            <View style={[styles.root, shouldUsePhoneShell && styles.phoneShell, shouldUsePhoneShell && { height: phoneHeight }]}>
                               <Stack screenOptions={{ headerShown: false }}>
                                 <Stack.Screen name="index" />
                                 <Stack.Screen name="onboarding" />
@@ -70,8 +79,9 @@ const styles = StyleSheet.create({
   },
   webFramePhone: {
     alignItems: 'center',
-    backgroundColor: '#151010',
+    backgroundColor: '#110B0B',
     justifyContent: 'center',
+    padding: 24,
   },
   root: { 
     flex: 1, 
@@ -80,9 +90,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 'auto',
   },
   phoneShell: {
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 34,
+    borderWidth: 1,
     maxWidth: 430,
-    minHeight: '100%',
     overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.42,
+    shadowRadius: 36,
     width: '100%',
   },
 });

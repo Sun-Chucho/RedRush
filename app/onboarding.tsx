@@ -48,8 +48,9 @@ export default function OnboardingScreen() {
     const sub = Dimensions.addEventListener('change', ({ window }) => setDims(window));
     return () => sub?.remove();
   }, []);
-  const screenWidth = Math.max(1, dims.width);
-  const screenHeight = Math.max(1, dims.height);
+  const isWebPhoneShell = Platform.OS === 'web' && dims.width >= 768;
+  const screenWidth = Math.max(1, isWebPhoneShell ? 430 : dims.width);
+  const screenHeight = Math.max(1, isWebPhoneShell ? Math.max(620, Math.min(860, dims.height - 48)) : dims.height);
 
   const handleScroll = (event: any) => {
     const index = Math.max(0, Math.min(slides.length - 1, Math.round(event.nativeEvent.contentOffset.x / screenWidth)));
@@ -66,9 +67,8 @@ export default function OnboardingScreen() {
     }
   };
 
-  const isWebDesk = Platform.OS === 'web' && screenWidth > 768;
-  const slideWidth = isWebDesk ? Math.min(500, screenWidth) : screenWidth;
-  const slideHeight = isWebDesk ? Math.min(850, screenHeight - 60) : screenHeight;
+  const slideWidth = screenWidth;
+  const slideHeight = screenHeight;
 
   return (
     <View style={styles.container}>
@@ -94,10 +94,10 @@ export default function OnboardingScreen() {
         onMomentumScrollEnd={handleScroll}
         scrollEventThrottle={16}
         style={styles.slider}
-        contentContainerStyle={isWebDesk ? { flexGrow: 1, justifyContent: 'center' } : {}}
+        contentContainerStyle={{}}
       >
         {slides.map((slide) => (
-          <View key={slide.id} style={[styles.slide, { width: slideWidth, height: slideHeight, borderRadius: isWebDesk ? 20 : 0, overflow: 'hidden', alignSelf: 'center', marginHorizontal: isWebDesk ? (screenWidth - slideWidth)/2 : 0 }]}>
+          <View key={slide.id} style={[styles.slide, { width: slideWidth, height: slideHeight, overflow: 'hidden' }]}>
             <Image source={slide.image} style={styles.slideImageBackdrop} contentFit="cover" blurRadius={22} />
             <Image source={slide.image} style={styles.slideImage} contentFit="cover" />
             <View style={styles.slideShade} />
@@ -144,13 +144,13 @@ const styles = StyleSheet.create({
   logoIcon: {
     width: 44, height: 44,
   },
-  logoName: { color: Colors.text, fontSize: 22, fontWeight: FontWeight.bold, marginLeft: 8 },
+  logoName: { color: '#FFFFFF', fontSize: 22, fontWeight: FontWeight.bold, marginLeft: 8 },
   skipBtn: {
     position: 'absolute', top: Platform.OS === 'ios' ? 66 : 46,
     right: 92, zIndex: 10,
   },
   languageToggle: { position: 'absolute', top: Platform.OS === 'ios' ? 58 : 38, right: Spacing.md, zIndex: 10 },
-  skipText: { color: Colors.textSecondary, fontSize: FontSize.body, fontWeight: FontWeight.medium },
+  skipText: { color: 'rgba(255,255,255,0.82)', fontSize: FontSize.body, fontWeight: FontWeight.medium },
   slider: { flex: 1 },
   slide: { position: 'relative', backgroundColor: Colors.background },
   slideImageBackdrop: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.8, transform: [{ scale: 1.08 }] },
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     right: Spacing.xl,
   },
   slideTitle: {
-    color: Colors.text, fontSize: FontSize.xxl, fontWeight: FontWeight.extrabold,
+    color: '#FFFFFF', fontSize: FontSize.xxl, fontWeight: FontWeight.extrabold,
     lineHeight: 38, marginBottom: Spacing.sm,
   },
   slideSubtitle: {

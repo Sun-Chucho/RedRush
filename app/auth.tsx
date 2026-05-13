@@ -52,10 +52,8 @@ export default function AuthScreen() {
   const { showAlert } = useAlert();
   const { t } = useLanguage();
   const { mode: themeMode } = useThemeMode();
-  const { width, height } = useWindowDimensions();
-  const isWebPhonePreview = Platform.OS === 'web' && width >= 768;
-  const phoneHeight = isWebPhonePreview ? Math.max(620, Math.min(860, height - 48)) : height;
-  const heroHeight = Math.max(220, Math.min(320, Math.round(phoneHeight * 0.34)));
+  const { height } = useWindowDimensions();
+  const heroHeight = Math.max(220, Math.min(320, Math.round(height * 0.34)));
 
   // Prefetch both images on mount so the swap is instant
   useEffect(() => {
@@ -101,11 +99,8 @@ export default function AuthScreen() {
   };
 
   return (
-    <View style={[styles.webStage, isWebPhonePreview && styles.webStageDesktop]}>
-      <KeyboardAvoidingView
-        style={[styles.container, themed.screen, isWebPhonePreview && styles.phoneFrame, isWebPhonePreview && { height: phoneHeight }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+    <View style={styles.webStage}>
+      <KeyboardAvoidingView style={[styles.container, themed.screen]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={Colors.background} />
         <ScrollView style={[styles.scrollView, themed.screen]} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={[styles.hero, { height: heroHeight }]}>
@@ -228,25 +223,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   webStage: { flex: 1, backgroundColor: Colors.background },
-  webStageDesktop: {
-    alignItems: 'center',
-    backgroundColor: '#110B0B',
-    justifyContent: 'center',
-    padding: Spacing.lg,
-  },
   container: { flex: 1, backgroundColor: Colors.background },
-  phoneFrame: {
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 34,
-    borderWidth: 1,
-    maxWidth: 430,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.42,
-    shadowRadius: 36,
-    width: '100%',
-  },
   scrollView: { flex: 1, backgroundColor: Colors.background },
   scroll: { paddingBottom: Spacing.xl },
   hero: { minHeight: 220, position: 'relative', overflow: 'hidden', backgroundColor: Colors.background },

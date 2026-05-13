@@ -40,7 +40,7 @@ export default function LandingPage() {
       </View>
 
       <View style={[styles.hero, { height: Math.max(isCompact ? 460 : 520, Math.min(height * 0.72, 680)) }]}>
-        <Image source={require('@/assets/images/sign-2.png')} style={styles.heroImage} contentFit="cover" />
+        <Image source={require('@/hero.jpeg')} style={styles.heroImage} contentFit="cover" />
         <View style={styles.heroShade} />
         <View style={[styles.heroCopy, isCompact && styles.heroCopyCompact]}>
           <Text style={styles.kicker}>Food delivery for customers, vendors, riders, and admins</Text>
