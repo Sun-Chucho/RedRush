@@ -29,6 +29,8 @@ export function ThemeToggle({ style, showLabel = false }: { style?: ViewStyle; s
   );
 }
 
+export default ThemeToggle;
+
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',

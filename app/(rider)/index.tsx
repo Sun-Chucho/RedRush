@@ -48,6 +48,10 @@ function callNumber(phone: string) {
   Linking.openURL(`tel:${phone}`).catch(() => undefined);
 }
 
+function calculateRiderEarning(deliveryFee = 0): number {
+  return Math.max(0, Math.round(Number(deliveryFee || 0) * 0.8));
+}
+
 export default function RiderHome() {
   const [isOnline, setIsOnline] = useState(false);
   const [hasRequest, setHasRequest] = useState(false);
@@ -77,7 +81,7 @@ export default function RiderHome() {
         customerPhone: readyOrder.customerPhone,
         distance: '3.2 km',
         estimatedTime: `${(readyOrder.prepTime || 15) + (readyOrder.deliveryTime || 20)} min`,
-        earnings: Math.max(900, Math.round(readyOrder.deliveryFee * 0.8)),
+        earnings: calculateRiderEarning(readyOrder.deliveryFee),
         items: readyOrder.items.reduce((sum, item) => sum + item.quantity, 0),
         paymentMethod: readyOrder.paymentMethod,
         orderId: readyOrder.id,
@@ -123,7 +127,7 @@ export default function RiderHome() {
       setHasRequest(true);
       sendRiderRequestNotification(
         readyOrder.restaurantName,
-        Math.max(900, Math.round(readyOrder.deliveryFee * 0.8)),
+        calculateRiderEarning(readyOrder.deliveryFee),
         3.2
       ).catch(() => undefined);
     }
@@ -191,8 +195,17 @@ export default function RiderHome() {
     setTimeout(() => { if (isOnline) setHasRequest(!!readyOrder); }, 15000);
   };
 
-  const deliveredToday = orders.filter(o => o.riderId === user?.id && o.status === 'delivered');
-  const earningsToday = deliveredToday.reduce((sum, o) => sum + Math.max(900, Math.round(o.deliveryFee * 0.8)), 0);
+  const myDeliveredOrders = orders.filter(o => o.riderId === user?.id && o.status === 'delivered');
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const deliveredToday = myDeliveredOrders.filter(o => new Date(o.deliveredAt || o.createdAt || '') >= todayStart);
+  const earningsToday = deliveredToday.reduce((sum, o) => sum + calculateRiderEarning(o.deliveryFee), 0);
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 6);
+  weekStart.setHours(0, 0, 0, 0);
+  const earningsThisWeek = myDeliveredOrders
+    .filter(o => new Date(o.deliveredAt || o.createdAt || '') >= weekStart)
+    .reduce((sum, o) => sum + calculateRiderEarning(o.deliveryFee), 0);
 
   const mapRegion = {
     latitude: myCoords.latitude,
@@ -401,7 +414,7 @@ export default function RiderHome() {
           <View style={styles.earningRow}>
             <Text style={styles.earningLabel}>Delivery Earnings</Text>
             <Text style={styles.earningValue}>
-              {formatMoney(Math.max(900, Math.round(activeDelivery.deliveryFee * 0.8)))}
+              {formatMoney(calculateRiderEarning(activeDelivery.deliveryFee))}
             </Text>
           </View>
           {activeDelivery.status === 'assigned' ? (
@@ -465,7 +478,7 @@ export default function RiderHome() {
       <View style={styles.quickStats}>
         {[
           { label: "Today's Earnings", value: formatMoney(earningsToday), icon: 'account-balance-wallet' as const, color: Colors.success },
-          { label: 'This Week', value: formatMoney(47200), icon: 'calendar-today' as const, color: Colors.primary },
+          { label: 'This Week', value: formatMoney(earningsThisWeek), icon: 'calendar-today' as const, color: Colors.primary },
           { label: 'Avg Rating', value: '4.9', icon: 'star' as const, color: Colors.gold },
           { label: 'Total Trips', value: String(deliveredToday.length), icon: 'delivery-dining' as const, color: Colors.info },
         ].map(s => (

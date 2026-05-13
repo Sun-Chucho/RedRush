@@ -3,8 +3,10 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform } from 'react-native';
 import { Colors, FontSize, FontWeight } from '@/constants/theme';
+import { useThemeMode } from '@/contexts/ThemeContext';
 
 export default function AdminLayout() {
+  useThemeMode();
   const insets = useSafeAreaInsets();
   return (
     <Tabs
@@ -33,4 +35,3 @@ export default function AdminLayout() {
     </Tabs>
   );
 }
-

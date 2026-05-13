@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 
 export default function PrivacyPolicyScreen() {
   const router = useRouter();
@@ -12,7 +12,7 @@ export default function PrivacyPolicyScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.push('/')}>
           <MaterialIcons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy Policy</Text>
@@ -20,50 +20,59 @@ export default function PrivacyPolicyScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>RedRush Privacy Policy</Text>
-        <Text style={styles.date}>Last Updated: May 2026</Text>
+        <Text style={styles.date}>Last Updated: May 13, 2026</Text>
 
         <Text style={styles.paragraph}>
-          Welcome to RedRush. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our mobile application and website.
+          Welcome to RedRush. This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use the RedRush mobile application or website.
         </Text>
 
         <Text style={styles.heading}>1. Information We Collect</Text>
         <Text style={styles.paragraph}>
-          We may collect information about you in a variety of ways. The information we may collect via the Application depends on the content and materials you use, and includes:
-          {'\n\n'}• Personal Data: Name, email address, phone number.
-          {'\n'}• Location Data: We collect location data while the app is in use to enable nearby restaurants, delivery tracking, rider dispatching, and localized pricing.
-          {'\n'}• Financial Data: Payment method details for processing orders.
+          We collect information needed to create accounts, process orders, support delivery, and operate the service:
+          {'\n\n'}- Account and contact data: name, email address, phone number, role, and support messages.
+          {'\n'}- Location data: delivery addresses and app location while in use for nearby restaurants, delivery tracking, rider dispatch, and local pricing.
+          {'\n'}- Order data: restaurant, cart items, totals, delivery status, rider assignment, and support history.
+          {'\n'}- App activity: app interactions, in-app search history, order update preferences, and notification state.
+          {'\n'}- Selected images: profile, restaurant, and menu photos that users choose from their photo library. RedRush does not require camera access for uploads.
         </Text>
 
         <Text style={styles.heading}>2. Use of Your Information</Text>
         <Text style={styles.paragraph}>
-          Having accurate information about you permits us to provide you with a smooth, efficient, and customized experience. Specifically, we may use information collected about you via the Application to:
-          {'\n\n'}• Process and manage orders, deliveries, and payments.
-          {'\n'}• Create and manage your account.
-          {'\n'}• Dispatch riders to the correct customer and restaurant locations.
-          {'\n'}• Respond to customer service requests and provide support.
+          We use collected information to:
+          {'\n\n'}- Create and manage user accounts.
+          {'\n'}- Process and manage orders, deliveries, cash payment status, and support requests.
+          {'\n'}- Save recent searches and send order update notifications when enabled.
+          {'\n'}- Dispatch riders to the correct customer and restaurant locations.
+          {'\n'}- Keep customers, vendors, riders, and administrators informed about order status.
         </Text>
 
         <Text style={styles.heading}>3. Disclosure of Your Information</Text>
         <Text style={styles.paragraph}>
-          We may share information we have collected about you in certain situations. Your information may be disclosed as follows:
-          {'\n\n'}• To vendors and restaurants to fulfill your food orders.
-          {'\n'}• To delivery riders so they can locate you for drop-offs.
-          {'\n'}• To third-party payment processors for secure transactions.
+          We share information only when needed to provide the service:
+          {'\n\n'}- With vendors and restaurants to fulfill food orders.
+          {'\n'}- With delivery riders so they can pick up and deliver orders.
+          {'\n'}- With service providers such as hosting, database, notification, image hosting, and payment infrastructure providers.
+          {'\n'}- With authorities where required by law or to protect users, the service, or the public.
         </Text>
 
-        <Text style={styles.heading}>4. Account Deletion</Text>
+        <Text style={styles.heading}>4. Data Retention and Account Deletion</Text>
         <Text style={styles.paragraph}>
-          You have the right to request deletion of your account and associated data at any time. Visit /account-deletion, send a request from Support in the app, or email support@redrush.app with the email address on your account. We will verify ownership before deletion.
+          We keep account, order, support, and operational records only as long as needed for service, safety, accounting, legal, and dispute-resolution purposes. You may request deletion of your account and associated data at any time. Visit /account-deletion, send a request from Support in the app, or email support@redrush.app with the email address on your account. We will verify ownership before deletion.
         </Text>
 
-        <Text style={styles.heading}>5. Payments</Text>
+        <Text style={styles.heading}>5. Permissions</Text>
+        <Text style={styles.paragraph}>
+          RedRush may request location permission to show nearby restaurants, route deliveries, and support rider dispatch. RedRush may request photo library access when a user chooses to upload a profile, restaurant, or menu image. RedRush does not require Android camera permission.
+        </Text>
+
+        <Text style={styles.heading}>6. Payments</Text>
         <Text style={styles.paragraph}>
           RedRush currently supports cash payment on delivery. Online payment infrastructure for Paystack and M-Pesa is being prepared, but online payments are not enabled until provider verification and webhook confirmation are complete.
         </Text>
 
-        <Text style={styles.heading}>6. Contact Us</Text>
+        <Text style={styles.heading}>7. Contact Us</Text>
         <Text style={styles.paragraph}>
-          If you have questions or comments about this Privacy Policy, please contact us at: support@redrush.app.
+          If you have questions or comments about this Privacy Policy, please contact us at support@redrush.app.
         </Text>
         <View style={{ height: 40 }} />
       </ScrollView>

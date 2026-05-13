@@ -20,6 +20,10 @@ import {
 
 type Panel = 'bank' | 'mobileMoney' | 'vehicle' | 'identity' | 'notifications' | null;
 
+function calculateRiderEarning(deliveryFee = 0): number {
+  return Math.max(0, Math.round(Number(deliveryFee || 0) * 0.8));
+}
+
 export default function RiderProfile() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
@@ -44,7 +48,7 @@ export default function RiderProfile() {
     () => orders.filter(order => order.riderId === user?.id && order.status === 'delivered'),
     [orders, user?.id]
   );
-  const earnings = deliveredOrders.reduce((sum, order) => sum + Math.max(900, Math.round(order.deliveryFee * 0.8)), 0);
+  const earnings = deliveredOrders.reduce((sum, order) => sum + calculateRiderEarning(order.deliveryFee), 0);
   const setupReady = isRiderReadyForDeliveries(settings);
 
   const openPanel = (panel: Panel) => {

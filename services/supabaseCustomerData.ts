@@ -20,6 +20,12 @@ export interface SupabaseCustomerProfileData {
   promoCodes: PromoCode[];
   reviews: CustomerReview[];
   notificationSettings: NotificationSettings;
+  searchHistory: SearchHistoryItem[];
+}
+
+export interface SearchHistoryItem {
+  query: string;
+  createdAt: string;
 }
 
 // ── Load ─────────────────────────────────────────────────────────────────────
@@ -40,6 +46,13 @@ export async function loadSupabaseCustomerData(
   // Not found – will be created on first save
   if (!data) return null;
 
+  const notificationSettings = (data.notification_settings as (NotificationSettings & { searchHistory?: SearchHistoryItem[] })) || {
+    orderUpdates: true,
+    promos: true,
+    account: true,
+    pushEnabled: false,
+  };
+
   return {
     savedAddresses: Array.isArray(data.saved_addresses) ? data.saved_addresses : [],
     paymentMethods: Array.isArray(data.payment_methods) ? data.payment_methods : [],
@@ -48,12 +61,8 @@ export async function loadSupabaseCustomerData(
       : [],
     promoCodes: Array.isArray(data.promo_codes) ? data.promo_codes : [],
     reviews: Array.isArray(data.reviews) ? data.reviews : [],
-    notificationSettings: (data.notification_settings as NotificationSettings) || {
-      orderUpdates: true,
-      promos: true,
-      account: true,
-      pushEnabled: false,
-    },
+    notificationSettings,
+    searchHistory: Array.isArray(notificationSettings.searchHistory) ? notificationSettings.searchHistory : [],
   };
 }
 
@@ -93,6 +102,39 @@ export async function saveSupabaseLastNotification(
     .from('customer_profile_data')
     .upsert(
       { user_id: userId, last_notification: notification },
+      { onConflict: 'user_id' }
+    );
+
+  return !error;
+}
+
+export async function saveSupabaseSearchHistory(
+  userId: string,
+  searchHistory: SearchHistoryItem[]
+): Promise<boolean> {
+  if (!shouldUseSupabaseCustomerData()) return false;
+
+  const { data } = await supabase!
+    .from('customer_profile_data')
+    .select('notification_settings')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const currentSettings = (data?.notification_settings || {}) as Record<string, unknown>;
+  const { error } = await supabase!
+    .from('customer_profile_data')
+    .upsert(
+      {
+        user_id: userId,
+        notification_settings: {
+          orderUpdates: true,
+          promos: true,
+          account: true,
+          pushEnabled: false,
+          ...currentSettings,
+          searchHistory,
+        },
+      },
       { onConflict: 'user_id' }
     );
 

@@ -6,6 +6,8 @@ import {
   saveSupabaseCustomerData,
   saveSupabaseLastNotification,
   registerSupabasePushToken,
+  saveSupabaseSearchHistory,
+  SearchHistoryItem,
 } from '@/services/supabaseCustomerData';
 
 export interface SavedAddress {
@@ -56,6 +58,7 @@ interface CustomerDataContextType {
   promoCodes: PromoCode[];
   reviews: CustomerReview[];
   notificationSettings: NotificationSettings;
+  searchHistory: SearchHistoryItem[];
   setDefaultAddress: (addressId: string) => void;
   addSavedAddress: (address: Omit<SavedAddress, 'id'>) => void;
   setDefaultPaymentMethod: (paymentMethodId: string) => void;
@@ -65,6 +68,8 @@ interface CustomerDataContextType {
   updateNotificationSetting: (key: keyof NotificationSettings, value: boolean) => void;
   enablePushNotifications: () => Promise<boolean>;
   sendLocalNotification: (title: string, body: string) => Promise<void>;
+  addSearchHistory: (query: string) => void;
+  clearSearchHistory: () => void;
 }
 
 export const CustomerDataContext = createContext<CustomerDataContextType | undefined>(undefined);
@@ -90,6 +95,7 @@ function createSeedData() {
     promoCodes: defaultPromoCodes,
     reviews: defaultReviews,
     notificationSettings: defaultNotificationSettings,
+    searchHistory: [],
   };
 }
 
@@ -105,6 +111,7 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(defaultPromoCodes);
   const [reviews, setReviews] = useState<CustomerReview[]>(defaultReviews);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -115,6 +122,7 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
       setPromoCodes(seed.promoCodes);
       setReviews(seed.reviews);
       setNotificationSettings(seed.notificationSettings);
+      setSearchHistory(seed.searchHistory);
       return;
     }
 
@@ -131,6 +139,7 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
         setPromoCodes(supabaseData.promoCodes);
         setReviews(supabaseData.reviews);
         setNotificationSettings({ ...seed.notificationSettings, ...supabaseData.notificationSettings });
+        setSearchHistory(supabaseData.searchHistory);
         return;
       }
 
@@ -142,6 +151,7 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
       setPromoCodes(seed.promoCodes);
       setReviews(seed.reviews);
       setNotificationSettings(seed.notificationSettings);
+      setSearchHistory(seed.searchHistory);
     };
 
     load().catch(() => undefined);
@@ -164,6 +174,10 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
 
     if (Object.keys(supabasePatch).length) {
       saveSupabaseCustomerData(user.id, supabasePatch as Partial<import('@/services/supabaseCustomerData').SupabaseCustomerProfileData>).catch(() => undefined);
+    }
+
+    if (patch.searchHistory !== undefined) {
+      saveSupabaseSearchHistory(user.id, patch.searchHistory as SearchHistoryItem[]).catch(() => undefined);
     }
 
     // Supabase-only — no Firebase fallback
@@ -257,6 +271,25 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addSearchHistory = (query: string) => {
+    const normalized = query.trim().replace(/\s+/g, ' ');
+    if (normalized.length < 2) return;
+
+    setSearchHistory(prev => {
+      const next = [
+        { query: normalized, createdAt: new Date().toISOString() },
+        ...prev.filter(item => item.query.toLowerCase() !== normalized.toLowerCase()),
+      ].slice(0, 10);
+      persist({ searchHistory: next });
+      return next;
+    });
+  };
+
+  const clearSearchHistory = () => {
+    setSearchHistory([]);
+    persist({ searchHistory: [] });
+  };
+
   const value = useMemo(
     () => ({
       savedAddresses,
@@ -265,6 +298,7 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
       promoCodes,
       reviews,
       notificationSettings,
+      searchHistory,
       setDefaultAddress,
       addSavedAddress,
       setDefaultPaymentMethod,
@@ -274,8 +308,10 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
       updateNotificationSetting,
       enablePushNotifications,
       sendLocalNotification,
+      addSearchHistory,
+      clearSearchHistory,
     }),
-    [savedAddresses, paymentMethods, favouriteRestaurantIds, promoCodes, reviews, notificationSettings]
+    [savedAddresses, paymentMethods, favouriteRestaurantIds, promoCodes, reviews, notificationSettings, searchHistory]
   );
 
   return <CustomerDataContext.Provider value={value}>{children}</CustomerDataContext.Provider>;

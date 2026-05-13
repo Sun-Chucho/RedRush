@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { UserRole } from '@/constants/mockData';
 import { useAlert } from '@/template';
 import { reviewRoleRequestOnBackend } from '@/services/backend';
 import { fetchSupabaseAdminUsers, fetchSupabaseRoleRequests } from '@/services/supabaseRoles';
+import { useThemeMode } from '@/contexts/ThemeContext';
 
 const ROLE_TABS = ['All', 'Customers', 'Vendors', 'Riders'];
 
@@ -36,12 +37,14 @@ const ROLE_COLOR: Record<string, string> = {
 };
 
 export default function AdminUsers() {
+  const { mode } = useThemeMode();
   const [tab, setTab] = useState('All');
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([]);
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
+  const styles = useMemo(() => createStyles(), [mode]);
 
   useEffect(() => {
     fetchSupabaseAdminUsers().then(nextUsers => {
@@ -154,7 +157,8 @@ export default function AdminUsers() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles() {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, marginHorizontal: Spacing.md, paddingHorizontal: Spacing.md, height: 44, marginBottom: Spacing.sm, gap: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
@@ -184,4 +188,5 @@ const styles = StyleSheet.create({
   statusPillText: { fontSize: 10, fontWeight: FontWeight.semibold },
   joinedText: { color: Colors.textMuted, fontSize: 10 },
   moreBtn: { padding: 4 },
-});
+  });
+}

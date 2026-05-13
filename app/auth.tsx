@@ -20,7 +20,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
 import { LanguageToggle } from '@/components/LanguageToggle';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 import { UserRole } from '@/constants/mockData';
 import { useThemeMode } from '@/contexts/ThemeContext';
@@ -111,8 +110,6 @@ export default function AuthScreen() {
             style={styles.heroImage}
             contentFit="contain"
             transition={120}
-            // Show a subtle placeholder color while loading
-            placeholder={{ color: Colors.surfaceElevated }}
           />
           <LinearGradient
             colors={['rgba(204,0,0,0.92)', 'rgba(204,0,0,0.44)', 'rgba(8,8,8,0.06)', Colors.background]}
@@ -124,7 +121,6 @@ export default function AuthScreen() {
         <View style={[styles.authPanel, themed.screen]}>
           <View style={styles.topControls}>
             <LanguageToggle />
-            <ThemeToggle />
           </View>
 
           <View style={[styles.modeToggle, themed.modeToggle]}>

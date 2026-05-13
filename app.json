@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./logo.png",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       },
       "config": {
@@ -31,13 +31,16 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
+      "blockedPermissions": [
+        "android.permission.CAMERA"
+      ],
       "edgeToEdgeEnabled": true,
       "package": "com.redrush.app"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./logo.png",
+      "favicon": "./assets/images/favicon.png",
       "backgroundColor": "#0A0A0A",
       "themeColor": "#CC0000"
     },
@@ -46,7 +49,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./logo.png",
+          "image": "./assets/images/splash-logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0A0A0A"

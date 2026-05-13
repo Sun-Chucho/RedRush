@@ -7,6 +7,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 
+function calculateRiderEarning(deliveryFee = 0): number {
+  return Math.max(0, Math.round(Number(deliveryFee || 0) * 0.8));
+}
+
 export default function RiderDeliveries() {
   const [filter, setFilter] = useState('All');
   const insets = useSafeAreaInsets();
@@ -24,7 +28,7 @@ export default function RiderDeliveries() {
         customer: order.customerName || 'Customer',
         address: order.address,
         distance: 'Live route',
-        earnings: Math.max(900, Math.round(order.deliveryFee * 0.8)),
+        earnings: calculateRiderEarning(order.deliveryFee),
         status: order.status === 'delivered' ? 'completed' : 'cancelled',
         time: new Date(deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         date: new Date(deliveredAt).toDateString() === new Date().toDateString() ? 'Today' : new Date(deliveredAt).toLocaleDateString(),

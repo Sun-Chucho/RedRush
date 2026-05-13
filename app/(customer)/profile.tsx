@@ -15,6 +15,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { pickCompressAndUploadImage } from '@/services/cloudinary';
+import { requestAccountDeletion } from '@/services/accountDeletion';
 
 type PanelKey =
   | 'savedAddresses'
@@ -80,11 +81,15 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     showAlert('Delete Account', 'Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete Permanently', style: 'destructive', onPress: () => {
-          // Send request to Edge function or handle via Supabase auth admin
-          showAlert('Request Sent', 'Your account deletion request has been submitted. You will be logged out.');
-          logout(); 
-          router.replace('/auth');
+      { text: 'Delete Permanently', style: 'destructive', onPress: async () => {
+          try {
+            await requestAccountDeletion({ email: user?.email || '', details: 'Requested from the in-app profile screen.' });
+            showAlert('Request Sent', 'Your account deletion request has been submitted. You will be logged out.');
+            logout();
+            router.replace('/auth');
+          } catch (error) {
+            showAlert('Delete Account', error instanceof Error ? error.message : 'Unable to submit deletion request.');
+          }
       }},
     ]);
   };

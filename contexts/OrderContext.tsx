@@ -59,6 +59,10 @@ function uniqueById(orders: Order[]): Order[] {
   });
 }
 
+function calculateRiderEarning(deliveryFee = 0): number {
+  return Math.max(0, Math.round(Number(deliveryFee || 0) * 0.8));
+}
+
 export function OrderProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { getVendorRestaurant } = useRestaurants();
@@ -167,7 +171,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       if (user.role === 'rider' && order.status === 'ready' && !order.riderId) {
         sendRiderRequestNotification(
           order.restaurantName,
-          Math.max(900, Math.round(order.deliveryFee * 0.8))
+          calculateRiderEarning(order.deliveryFee)
         ).catch(() => undefined);
       }
     });

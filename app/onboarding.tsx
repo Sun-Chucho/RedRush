@@ -75,7 +75,7 @@ export default function OnboardingScreen() {
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <Image source={require('@/logo.png')} style={styles.logoIcon} contentFit="contain" />
+        <Image source={require('@/assets/images/logo.png')} style={styles.logoIcon} contentFit="contain" />
         <Text style={styles.logoName}>RedRush</Text>
       </View>
 

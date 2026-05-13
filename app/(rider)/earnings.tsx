@@ -40,6 +40,10 @@ function formatLabel(date: Date, period: Period): string {
   return date.toLocaleDateString([], { month: 'short' });
 }
 
+function calculateRiderEarning(deliveryFee = 0): number {
+  return Math.max(0, Math.round(Number(deliveryFee || 0) * 0.8));
+}
+
 export default function RiderEarnings() {
   const [period, setPeriod] = useState<Period>('Week');
   const [refreshing, setRefreshing] = useState(false);
@@ -47,7 +51,7 @@ export default function RiderEarnings() {
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
   const { user } = useAuth();
-  const { orders, loadOrders } = useOrders();
+  const { orders, refreshOrders } = useOrders();
 
   // Filter delivered orders by this rider in the selected period
   const periodStart = getPeriodStart(period);
@@ -59,7 +63,7 @@ export default function RiderEarnings() {
     return d >= periodStart;
   });
 
-  const totalEarnings = myDeliveries.reduce((sum, o) => sum + Math.max(200, Math.round((o.deliveryFee || 0) * 0.8)), 0);
+  const totalEarnings = myDeliveries.reduce((sum, o) => sum + calculateRiderEarning(o.deliveryFee), 0);
   const totalDeliveries = myDeliveries.length;
   const avgPerTrip = totalDeliveries ? Math.round(totalEarnings / totalDeliveries) : 0;
 
@@ -70,7 +74,7 @@ export default function RiderEarnings() {
     for (const o of myDeliveries) {
       const date = new Date(o.deliveredAt || o.createdAt || '');
       const label = formatLabel(date, period);
-      const earned = Math.max(200, Math.round((o.deliveryFee || 0) * 0.8));
+      const earned = calculateRiderEarning(o.deliveryFee);
       if (!map[label]) map[label] = { label, earnings: 0, deliveries: 0 };
       map[label].earnings += earned;
       map[label].deliveries += 1;
@@ -83,7 +87,7 @@ export default function RiderEarnings() {
 
   // All-time delivered for lifetime total
   const lifetimeOrders = orders.filter(o => o.riderId === user?.id && o.status === 'delivered');
-  const lifetimeEarnings = lifetimeOrders.reduce((sum, o) => sum + Math.max(200, Math.round((o.deliveryFee || 0) * 0.8)), 0);
+  const lifetimeEarnings = lifetimeOrders.reduce((sum, o) => sum + calculateRiderEarning(o.deliveryFee), 0);
 
   // Bonus logic: needs 5 deliveries this week
   const weekStart = getPeriodStart('Week');
@@ -98,9 +102,9 @@ export default function RiderEarnings() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadOrders?.().catch(() => undefined);
+    await refreshOrders().catch(() => undefined);
     setRefreshing(false);
-  }, [loadOrders]);
+  }, [refreshOrders]);
 
   return (
     <ScrollView
@@ -198,10 +202,12 @@ export default function RiderEarnings() {
         <TouchableOpacity
           style={styles.withdrawBtn}
           onPress={() =>
-            showAlert(
-              'Withdrawal Request',
-              `Withdrawal for ${formatMoney(lifetimeEarnings)} queued for Mobile Money payout review. You will receive payment within 24 hours.`
-            )
+            lifetimeEarnings > 0
+              ? showAlert(
+                  'Withdrawal Request',
+                  `Withdrawal for ${formatMoney(lifetimeEarnings)} queued for Mobile Money payout review. You will receive payment within 24 hours.`
+                )
+              : showAlert('No payout available', 'Completed deliveries with delivery fees will appear here when they are ready for payout.')
           }
         >
           <MaterialIcons name="phone-android" size={18} color={Colors.text} />
@@ -237,7 +243,7 @@ export default function RiderEarnings() {
         <View style={styles.historyCard}>
           <Text style={styles.historyTitle}>Delivery History · {period}</Text>
           {myDeliveries.slice(0, 10).map((o, i) => {
-            const earned = Math.max(200, Math.round((o.deliveryFee || 0) * 0.8));
+            const earned = calculateRiderEarning(o.deliveryFee);
             return (
               <View key={`${o.id}-${i}`} style={styles.historyRow}>
                 <View style={styles.historyIcon}>

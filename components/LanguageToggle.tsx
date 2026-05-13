@@ -15,6 +15,8 @@ export function LanguageToggle({ style }: { style?: ViewStyle }) {
   );
 }
 
+export default LanguageToggle;
+
 const styles = StyleSheet.create({
   button: {
     flexDirection: 'row',

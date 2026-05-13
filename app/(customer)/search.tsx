@@ -9,6 +9,7 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { useCurrency } from '@/hooks/useCurrency';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { useCustomerData } from '@/hooks/useCustomerData';
 import { TranslationKey } from '@/contexts/LanguageContext';
 
 const SORT_OPTIONS: { value: 'Relevance' | 'Rating' | 'Delivery Time' | 'Price'; labelKey: TranslationKey }[] = [
@@ -27,6 +28,7 @@ export default function SearchScreen() {
   const { formatMoney } = useCurrency();
   const { t } = useLanguage();
   const { restaurants, categories } = useRestaurants();
+  const { searchHistory, addSearchHistory, clearSearchHistory } = useCustomerData();
 
   const cuisines = useMemo(() => {
     if (categories.length > 0) {
@@ -61,6 +63,8 @@ export default function SearchScreen() {
             placeholderTextColor={Colors.textMuted}
             value={query}
             onChangeText={setQuery}
+            onSubmitEditing={() => addSearchHistory(query)}
+            onBlur={() => addSearchHistory(query)}
             autoFocus
           />
           {query.length > 0 ? (
@@ -97,12 +101,45 @@ export default function SearchScreen() {
         ))}
       </ScrollView>
 
+      {!query && searchHistory.length > 0 ? (
+        <View style={styles.historySection}>
+          <View style={styles.historyHeader}>
+            <Text style={styles.historyTitle}>Recent searches</Text>
+            <TouchableOpacity onPress={clearSearchHistory}>
+              <Text style={styles.clearHistory}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.historyChips}>
+            {searchHistory.map(item => (
+              <TouchableOpacity
+                key={`${item.query}-${item.createdAt}`}
+                style={styles.historyChip}
+                onPress={() => {
+                  setQuery(item.query);
+                  addSearchHistory(item.query);
+                }}
+              >
+                <MaterialIcons name="history" size={14} color={Colors.textMuted} />
+                <Text style={styles.historyChipText}>{item.query}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {/* Results */}
       <FlatList
         data={results}
         keyExtractor={i => i.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.resultCard} onPress={() => router.push(`/restaurant/${item.id}`)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.resultCard}
+            onPress={() => {
+              addSearchHistory(query || item.name);
+              router.push(`/restaurant/${item.id}`);
+            }}
+            activeOpacity={0.85}
+          >
             <Image source={{ uri: item.image }} style={styles.resultImg} contentFit="cover" />
             <View style={styles.resultInfo}>
               <Text style={styles.resultName}>{item.name}</Text>
@@ -150,6 +187,13 @@ const styles = StyleSheet.create({
   sortBtnActive: { borderColor: Colors.primary },
   sortText: { color: Colors.textMuted, fontSize: FontSize.xs },
   sortTextActive: { color: Colors.primary, fontWeight: FontWeight.semibold },
+  historySection: { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  historyTitle: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
+  clearHistory: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
+  historyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  historyChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: Colors.surfaceCard },
+  historyChipText: { color: Colors.textSecondary, fontSize: FontSize.sm },
   resultCard: { flexDirection: 'row', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginBottom: Spacing.sm, overflow: 'hidden', position: 'relative', ...Shadow.md },
   resultImg: { width: 90, height: 90 },
   resultInfo: { flex: 1, padding: Spacing.sm },
