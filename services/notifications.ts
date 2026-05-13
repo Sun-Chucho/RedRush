@@ -1,24 +1,44 @@
 /**
- * Push notification service — Expo Notifications (no Firebase dependency)
+ * Push notification service for native builds.
+ *
+ * Expo Notifications is loaded lazily because importing it on web emits runtime
+ * warnings and can interfere with the web app startup path.
  */
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { registerPushTokenOnBackend } from './backend';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+type ExpoNotifications = typeof import('expo-notifications');
+
+let notificationsPromise: Promise<ExpoNotifications> | null = null;
+
+async function getNativeNotifications(): Promise<ExpoNotifications | null> {
+  if (Platform.OS === 'web') return null;
+
+  if (!notificationsPromise) {
+    notificationsPromise = import('expo-notifications').then((Notifications) => {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+      return Notifications;
+    });
+  }
+
+  return notificationsPromise;
+}
 
 export async function registerForPushNotifications(userId?: string): Promise<string | null> {
-  if (!userId) return null;
-  if (Platform.OS !== 'web' && !Device.isDevice) return null;
+  if (!userId || Platform.OS === 'web') return null;
+
+  const Device = await import('expo-device');
+  if (!Device.isDevice) return null;
+
+  const Notifications = await getNativeNotifications();
+  if (!Notifications) return null;
 
   const { status: existing } = await Notifications.getPermissionsAsync();
   const finalStatus =
@@ -53,6 +73,7 @@ export async function registerForPushNotifications(userId?: string): Promise<str
   }
 
   try {
+    const Constants = (await import('expo-constants')).default;
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ||
       (Constants as any).easConfig?.projectId;
@@ -66,7 +87,26 @@ export async function registerForPushNotifications(userId?: string): Promise<str
   }
 }
 
-// ─── Customer: Order Status Updates ─────────────────────────────────────────
+async function scheduleLocalNotification(
+  title: string,
+  body: string,
+  data: Record<string, unknown>,
+  androidChannelId?: string
+) {
+  const Notifications = await getNativeNotifications();
+  if (!Notifications) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data,
+      sound: 'default',
+      ...(Platform.OS === 'android' && androidChannelId ? { channelId: androidChannelId } : {}),
+    },
+    trigger: null,
+  });
+}
 
 export async function sendOrderStatusNotification(
   status: string,
@@ -104,86 +144,49 @@ export async function sendOrderStatusNotification(
   const msg = messages[status];
   if (!msg) return;
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: msg.title,
-      body: msg.body,
-      data: { type: 'order_status', status },
-      sound: 'default',
-      ...(Platform.OS === 'android' ? { channelId: 'redrush-orders' } : {}),
-    },
-    trigger: null,
-  });
+  await scheduleLocalNotification(msg.title, msg.body, { type: 'order_status', status }, 'redrush-orders');
 }
-
-// ─── Rider: Incoming Delivery Request ────────────────────────────────────────
 
 export async function sendRiderRequestNotification(
   restaurantName: string,
   earnings: number,
   distanceKm?: number
 ) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'New Delivery Request!',
-      body: `Pick up from ${restaurantName}.${distanceKm ? ` ${distanceKm.toFixed(1)} km away.` : ''} Earn ~${earnings.toLocaleString()}.`,
-      data: { type: 'rider_request' },
-      sound: 'default',
-      ...(Platform.OS === 'android' ? { channelId: 'redrush-rider' } : {}),
-    },
-    trigger: null,
-  });
+  await scheduleLocalNotification(
+    'New Delivery Request!',
+    `Pick up from ${restaurantName}.${distanceKm ? ` ${distanceKm.toFixed(1)} km away.` : ''} Earn ~${earnings.toLocaleString()}.`,
+    { type: 'rider_request' },
+    'redrush-rider'
+  );
 }
-
-// ─── Vendor: New Order Alert ─────────────────────────────────────────────────
 
 export async function sendNewOrderNotification(
   orderCount: number,
   restaurantName?: string,
   orderTotal?: number
 ) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: orderCount === 1 ? 'New Order Received!' : `${orderCount} New Orders!`,
-      body: orderTotal
-        ? `New order at ${restaurantName || 'your restaurant'} — Total: ${orderTotal.toLocaleString()}. Tap to accept.`
-        : `${orderCount} order${orderCount === 1 ? '' : 's'} waiting for confirmation.`,
-      data: { type: 'new_order' },
-      sound: 'default',
-      ...(Platform.OS === 'android' ? { channelId: 'redrush-vendor' } : {}),
-    },
-    trigger: null,
-  });
+  await scheduleLocalNotification(
+    orderCount === 1 ? 'New Order Received!' : `${orderCount} New Orders!`,
+    orderTotal
+      ? `New order at ${restaurantName || 'your restaurant'} - Total: ${orderTotal.toLocaleString()}. Tap to accept.`
+      : `${orderCount} order${orderCount === 1 ? '' : 's'} waiting for confirmation.`,
+    { type: 'new_order' },
+    'redrush-vendor'
+  );
 }
-
-// ─── Rider: Order Assigned ────────────────────────────────────────────────────
 
 export async function sendRiderAssignedNotification(
   restaurantName: string,
   customerAddress: string
 ) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Delivery Assigned',
-      body: `Head to ${restaurantName}, then deliver to ${customerAddress}.`,
-      data: { type: 'rider_assigned' },
-      sound: 'default',
-      ...(Platform.OS === 'android' ? { channelId: 'redrush-rider' } : {}),
-    },
-    trigger: null,
-  });
+  await scheduleLocalNotification(
+    'Delivery Assigned',
+    `Head to ${restaurantName}, then deliver to ${customerAddress}.`,
+    { type: 'rider_assigned' },
+    'redrush-rider'
+  );
 }
 
-// ─── Support reply ────────────────────────────────────────────────────────────
-
 export async function sendSupportReplyNotification(message: string) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Support Reply',
-      body: message,
-      data: { type: 'support' },
-      sound: 'default',
-    },
-    trigger: null,
-  });
+  await scheduleLocalNotification('Support Reply', message, { type: 'support' });
 }
