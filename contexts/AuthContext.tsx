@@ -79,6 +79,15 @@ function getSupabaseErrorMessage(error: unknown): string {
   return msg || 'Authentication failed. Please try again.';
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Request timed out.')), ms);
+    promise
+      .then(resolve, reject)
+      .finally(() => clearTimeout(timeout));
+  });
+}
+
 async function ensureProfile(
   userId: string,
   data: Partial<AuthUser> & { email?: string }
@@ -161,23 +170,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Load existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        try {
-          const profile = await ensureProfile(session.user.id, {
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name,
-            phone: session.user.user_metadata?.phone,
-            role: session.user.user_metadata?.role,
-          });
-          setUser(profile);
-        } catch {
-          setUser(null);
+    let mounted = true;
+
+    // Load existing session, but never block app startup indefinitely.
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        if (!mounted) return;
+        if (session?.user) {
+          try {
+            const profile = await withTimeout(ensureProfile(session.user.id, {
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name,
+              phone: session.user.user_metadata?.phone,
+              role: session.user.user_metadata?.role,
+            }), 8000);
+            if (mounted) setUser(profile);
+          } catch {
+            if (mounted) setUser(null);
+          }
         }
-      }
-      setIsLoading(false);
-    });
+      })
+      .catch(() => {
+        if (mounted) setUser(null);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
 
     // Listen for auth state changes (login/logout from other tabs, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -203,7 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {

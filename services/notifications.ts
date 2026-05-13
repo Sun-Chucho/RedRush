@@ -7,15 +7,52 @@
 import { Platform } from 'react-native';
 import { registerPushTokenOnBackend } from './backend';
 
-type ExpoNotifications = typeof import('expo-notifications');
+type ExpoNotifications = {
+  AndroidImportance: { HIGH: number; MAX: number };
+  getExpoPushTokenAsync: (options?: { projectId?: string }) => Promise<{ data: string }>;
+  getPermissionsAsync: () => Promise<{ status: string }>;
+  requestPermissionsAsync: () => Promise<{ status: string }>;
+  scheduleNotificationAsync: (request: {
+    content: Record<string, unknown>;
+    trigger: null;
+  }) => Promise<unknown>;
+  setNotificationChannelAsync: (channelId: string, channel: {
+    name: string;
+    importance: number;
+    vibrationPattern?: number[];
+    lightColor?: string;
+    sound?: string;
+  }) => Promise<unknown>;
+  setNotificationHandler: (handler: {
+    handleNotification: () => Promise<{
+      shouldPlaySound: boolean;
+      shouldSetBadge: boolean;
+      shouldShowBanner: boolean;
+      shouldShowList: boolean;
+    }>;
+  }) => void;
+};
 
 let notificationsPromise: Promise<ExpoNotifications> | null = null;
+let expoGoPromise: Promise<boolean> | null = null;
+
+async function isExpoGo() {
+  if (Platform.OS === 'web') return false;
+  if (!expoGoPromise) {
+    expoGoPromise = import('expo-constants')
+      .then(({ default: Constants }) => Constants.appOwnership === 'expo')
+      .catch(() => false);
+  }
+  return expoGoPromise;
+}
 
 async function getNativeNotifications(): Promise<ExpoNotifications | null> {
   if (Platform.OS === 'web') return null;
+  if (await isExpoGo()) return null;
 
   if (!notificationsPromise) {
-    notificationsPromise = import('expo-notifications').then((Notifications) => {
+    notificationsPromise = import('expo-notifications').then((NotificationsModule) => {
+      const Notifications = NotificationsModule as unknown as ExpoNotifications;
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
           shouldPlaySound: true,
@@ -33,6 +70,7 @@ async function getNativeNotifications(): Promise<ExpoNotifications | null> {
 
 export async function registerForPushNotifications(userId?: string): Promise<string | null> {
   if (!userId || Platform.OS === 'web') return null;
+  if (await isExpoGo()) return null;
 
   const Device = await import('expo-device');
   if (!Device.isDevice) return null;
