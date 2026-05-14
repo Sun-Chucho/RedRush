@@ -158,66 +158,32 @@ export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { pass
   const email = (data.email || '').trim();
   const role = safeSignupRole(data.role);
 
-  try {
-    const response = await fetch(`${launchApiBaseUrl}/api/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: data.name,
-        email,
-        phone: data.phone,
-        password: data.password,
-        role,
-      }),
-    });
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(payload.error || 'Unable to create account.');
-    }
-
-    const { data: signInResult, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: data.password,
-    });
-
-    if (signInError) throw signInError;
-    if (!signInResult.user) throw new Error('Account created, but sign in failed.');
-
-    return ensureSupabaseProfile(signInResult.user.id, {
+  const response = await fetch(`${launchApiBaseUrl}/api/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       name: data.name,
       email,
       phone: data.phone,
+      password: data.password,
       role,
-      address: data.address,
-    });
-  } catch (apiError) {
-    const message = apiError instanceof Error ? apiError.message.toLowerCase() : '';
-    if (
-      message.includes('already registered') ||
-      message.includes('password') ||
-      message.includes('required')
-    ) {
-      throw apiError;
-    }
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.error || 'Unable to create account.');
   }
 
-  const { data: result, error } = await supabase.auth.signUp({
+  const { data: signInResult, error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password: data.password,
-    options: {
-      data: {
-        name: data.name,
-        phone: data.phone,
-        role,
-      },
-    },
   });
 
-  if (error) throw error;
-  if (!result.user) throw new Error('Unable to create account.');
+  if (signInError) throw signInError;
+  if (!signInResult.user) throw new Error('Account created, but sign in failed.');
 
-  return ensureSupabaseProfile(result.user.id, {
+  return ensureSupabaseProfile(signInResult.user.id, {
     name: data.name,
     email,
     phone: data.phone,
