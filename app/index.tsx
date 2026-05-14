@@ -1,7 +1,7 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Href, useRouter } from 'expo-router';
+import { Href, Redirect, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,19 +14,29 @@ const features = [
 
 export default function LandingPage() {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const { width, height } = useWindowDimensions();
   const isCompact = width < 640;
 
-  const appHref: Href = user?.role === 'customer'
-    ? '/(customer)'
-    : user?.role === 'vendor'
-      ? '/(vendor)'
-      : user?.role === 'rider'
-        ? '/(rider)'
-        : user?.role === 'admin'
-          ? '/admin'
-          : '/onboarding';
+  const appHref: Href = user?.role === 'vendor'
+    ? '/(vendor)'
+    : user?.role === 'rider'
+      ? '/(rider)'
+      : user?.role === 'admin'
+        ? Platform.OS === 'web' ? '/admin' : '/(admin)'
+        : '/(customer)';
+
+  if (Platform.OS !== 'web') {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingScreen}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      );
+    }
+
+    return <Redirect href={isAuthenticated ? appHref : '/auth'} />;
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -86,6 +96,7 @@ export default function LandingPage() {
 }
 
 const styles = StyleSheet.create({
+  loadingScreen: { alignItems: 'center', backgroundColor: Colors.background, flex: 1, justifyContent: 'center' },
   container: { flex: 1, backgroundColor: Colors.background },
   content: { paddingBottom: Spacing.xl },
   nav: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },

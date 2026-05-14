@@ -9,9 +9,17 @@ import { useOrders } from '@/hooks/useOrders';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { useRouter } from 'expo-router';
+import { ApprovalStatusCard } from '@/components/ApprovalStatusCard';
+import {
+  emptyVendorSettings,
+  getVendorVerificationMissingItems,
+  loadVendorProfileSettings,
+  VendorProfileSettings,
+} from '@/services/supabaseProfileSettings';
 
 export default function VendorDashboard() {
   const [isOpen, setIsOpen] = useState(true);
+  const [settings, setSettings] = useState<VendorProfileSettings>(emptyVendorSettings);
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { formatMoney } = useCurrency();
@@ -25,6 +33,11 @@ export default function VendorDashboard() {
   useEffect(() => {
     if (typeof vendorRestaurant?.isOpen === 'boolean') setIsOpen(vendorRestaurant.isOpen);
   }, [vendorRestaurant?.isOpen]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadVendorProfileSettings(user.id).then(setSettings).catch(() => undefined);
+  }, [user?.id]);
 
   const incomingOrders = orders.filter(o => o.status === 'pending');
   const today = new Date().toDateString();
@@ -64,6 +77,14 @@ export default function VendorDashboard() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      <ApprovalStatusCard
+        role="vendor"
+        status={settings.approvalStatus}
+        missingItems={getVendorVerificationMissingItems(settings)}
+        onPress={() => router.push('/(vendor)/profile')}
+        compact
+      />
 
       {/* Stats Grid */}
       <View style={styles.statsGrid}>

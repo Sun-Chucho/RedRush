@@ -9,14 +9,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ApprovalStatusCard } from '@/components/ApprovalStatusCard';
 import { useAlert } from '@/template';
 import {
   emptyRiderSettings,
+  getRiderVerificationMissingItems,
+  isRiderProfileComplete,
   isRiderReadyForDeliveries,
   loadRiderProfileSettings,
   RiderProfileSettings,
   saveRiderProfileSettings,
 } from '@/services/supabaseProfileSettings';
+import { requestRoleOnSupabase } from '@/services/supabaseRoles';
 
 type Panel = 'bank' | 'mobileMoney' | 'vehicle' | 'identity' | 'notifications' | null;
 
@@ -35,6 +39,7 @@ export default function RiderProfile() {
   const [draft, setDraft] = useState<RiderProfileSettings>(emptyRiderSettings);
   const [activePanel, setActivePanel] = useState<Panel>(null);
   const [saving, setSaving] = useState(false);
+  const [submittingVerification, setSubmittingVerification] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -50,6 +55,7 @@ export default function RiderProfile() {
   );
   const earnings = deliveredOrders.reduce((sum, order) => sum + calculateRiderEarning(order.deliveryFee), 0);
   const setupReady = isRiderReadyForDeliveries(settings);
+  const missingVerificationItems = getRiderVerificationMissingItems(settings);
 
   const openPanel = (panel: Panel) => {
     setDraft(settings);
@@ -68,6 +74,37 @@ export default function RiderProfile() {
       showAlert('Settings', error instanceof Error ? error.message : 'Unable to save settings.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleVerificationPress = async () => {
+    if (settings.approvalStatus === 'approved') {
+      showAlert('Rider approved', 'Your rider account is verified and ready for deliveries.');
+      return;
+    }
+
+    if (!isRiderProfileComplete(settings)) {
+      if (!settings.vehicleType.trim() || !settings.vehiclePlate.trim()) {
+        openPanel('vehicle');
+      } else if (!settings.idNumber.trim()) {
+        openPanel('identity');
+      } else {
+        openPanel(settings.bankAccountNumber.trim() ? 'mobileMoney' : 'bank');
+      }
+      return;
+    }
+
+    setSubmittingVerification(true);
+    try {
+      await requestRoleOnSupabase(
+        'rider',
+        `Rider verification ready. Vehicle: ${settings.vehicleType || 'not set'} ${settings.vehiclePlate || ''}. ID: ${settings.idNumber || 'not set'}. Payout: ${settings.bankAccountNumber ? 'bank' : 'mobile money'}.`
+      );
+      showAlert('Verification submitted', 'Your rider details are ready for admin review.');
+    } catch (error) {
+      showAlert('Verification', error instanceof Error ? error.message : 'Unable to submit verification.');
+    } finally {
+      setSubmittingVerification(false);
     }
   };
 
@@ -91,6 +128,16 @@ export default function RiderProfile() {
             </Text>
           </View>
         </View>
+      </View>
+
+      <View style={styles.approvalWrap}>
+        <ApprovalStatusCard
+          role="rider"
+          status={settings.approvalStatus}
+          missingItems={missingVerificationItems}
+          onPress={handleVerificationPress}
+        />
+        {submittingVerification ? <Text style={styles.approvalHint}>Submitting verification...</Text> : null}
       </View>
 
       <View style={styles.statsRow}>
@@ -283,6 +330,8 @@ const styles = StyleSheet.create({
   email: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
   statusPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, borderWidth: 1, borderRadius: BorderRadius.full, paddingHorizontal: 8, paddingVertical: 3 },
   statusPillText: { fontSize: FontSize.xs, fontWeight: FontWeight.semibold },
+  approvalWrap: { marginHorizontal: Spacing.md },
+  approvalHint: { color: Colors.textMuted, fontSize: FontSize.xs, marginBottom: Spacing.sm, marginTop: -Spacing.sm, textAlign: 'center' },
   statsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.md },
   statCard: { flex: 1, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, padding: Spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   statVal: { color: Colors.primary, fontSize: FontSize.md, fontWeight: FontWeight.extrabold, textTransform: 'capitalize' },

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { MapView, Marker, Polyline } from '@/components/MapViewCompat';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,11 +19,13 @@ import { isCashPayment } from '@/services/payments';
 import * as Location from 'expo-location';
 import {
   emptyRiderSettings,
+  getRiderVerificationMissingItems,
   isRiderReadyForDeliveries,
   loadRiderProfileSettings,
   RiderProfileSettings,
   saveRiderProfileSettings,
 } from '@/services/supabaseProfileSettings';
+import { ApprovalStatusCard } from '@/components/ApprovalStatusCard';
 
 const LAGOS_DEFAULT = { latitude: 6.4541, longitude: 3.3947 };
 
@@ -65,6 +68,7 @@ export default function RiderHome() {
   const { formatMoney } = useCurrency();
   const { orders, updateOrderStatus, assignRider, updateCashPaymentStatus } = useOrders();
   const { showAlert } = useAlert();
+  const router = useRouter();
 
   const activeDelivery = orders.find(
     o => o.riderId === user?.id && ['assigned', 'picked_up'].includes(o.status)
@@ -234,6 +238,14 @@ export default function RiderHome() {
           />
         </View>
       </View>
+
+      <ApprovalStatusCard
+        role="rider"
+        status={settings.approvalStatus}
+        missingItems={getRiderVerificationMissingItems(settings)}
+        onPress={() => router.push('/(rider)/profile')}
+        compact
+      />
 
       {/* Status Card */}
       <View style={[styles.statusCard, { borderColor: isOnline ? Colors.success : Colors.border }]}>

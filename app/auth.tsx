@@ -53,6 +53,7 @@ export default function AuthScreen() {
   const { t } = useLanguage();
   const { mode: themeMode } = useThemeMode();
   const { height } = useWindowDimensions();
+  const showHero = Platform.OS === 'web';
   const heroHeight = Math.max(220, Math.min(320, Math.round(height * 0.34)));
 
   // Prefetch both images on mount so the swap is instant
@@ -103,21 +104,23 @@ export default function AuthScreen() {
       <KeyboardAvoidingView style={[styles.container, themed.screen]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={Colors.background} />
         <ScrollView style={[styles.scrollView, themed.screen]} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={[styles.hero, { height: heroHeight }]}>
-            <Image
-              source={heroImage}
-              style={styles.heroImage}
-              contentFit="contain"
-              transition={120}
-            />
-            <LinearGradient
-              colors={['rgba(204,0,0,0.92)', 'rgba(204,0,0,0.44)', 'rgba(8,8,8,0.06)', Colors.background]}
-              locations={[0, 0.34, 0.72, 1]}
-              style={styles.heroGradient}
-            />
-          </View>
+          {showHero && (
+            <View style={[styles.hero, { height: heroHeight }]}>
+              <Image
+                source={heroImage}
+                style={styles.heroImage}
+                contentFit="contain"
+                transition={120}
+              />
+              <LinearGradient
+                colors={['rgba(204,0,0,0.92)', 'rgba(204,0,0,0.44)', 'rgba(8,8,8,0.06)', Colors.background]}
+                locations={[0, 0.34, 0.72, 1]}
+                style={styles.heroGradient}
+              />
+            </View>
+          )}
 
-          <View style={[styles.authPanel, themed.screen]}>
+          <View style={[styles.authPanel, !showHero && styles.authPanelNative, themed.screen]}>
             <View style={styles.topControls}>
               <LanguageToggle />
             </View>
@@ -230,6 +233,7 @@ const styles = StyleSheet.create({
   heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   heroGradient: { ...StyleSheet.absoluteFillObject },
   authPanel: { paddingHorizontal: Spacing.md, paddingTop: 0 },
+  authPanelNative: { flex: 1, justifyContent: 'center', paddingTop: Spacing.xl },
   topControls: { alignSelf: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
   modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.md },
   modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: BorderRadius.sm },

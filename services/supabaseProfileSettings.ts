@@ -117,6 +117,33 @@ export function isRiderReadyForDeliveries(settings: RiderProfileSettings) {
   return settings.approvalStatus === 'approved' && hasVehicle && hasIdentity && hasPayout;
 }
 
+export function getRiderVerificationMissingItems(settings: RiderProfileSettings) {
+  const missing: string[] = [];
+  if (!settings.vehicleType.trim() || !settings.vehiclePlate.trim()) missing.push('Vehicle details');
+  if (!settings.idNumber.trim()) missing.push('Identity details');
+  if (!settings.bankAccountNumber.trim() && !settings.mobileMoneyPhone.trim()) missing.push('Payout method');
+  return missing;
+}
+
+export function isRiderProfileComplete(settings: RiderProfileSettings) {
+  return getRiderVerificationMissingItems(settings).length === 0;
+}
+
+export function getVendorVerificationMissingItems(settings: VendorProfileSettings) {
+  const missing: string[] = [];
+  if (!settings.businessName.trim() || !settings.businessPhone.trim() || !settings.businessAddress.trim()) {
+    missing.push('Restaurant profile');
+  }
+  if (!settings.payoutAccountNumber.trim() && !settings.payoutMobileMoneyPhone.trim()) {
+    missing.push('Payout method');
+  }
+  return missing;
+}
+
+export function isVendorProfileComplete(settings: VendorProfileSettings) {
+  return getVendorVerificationMissingItems(settings).length === 0;
+}
+
 export async function loadRiderProfileSettings(userId: string): Promise<RiderProfileSettings> {
   const fallback = await readLocal('rider', userId, emptyRiderSettings);
   if (!isSupabaseConfigured) return fallback;

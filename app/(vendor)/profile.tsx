@@ -12,12 +12,16 @@ import { useOrders } from '@/hooks/useOrders';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ApprovalStatusCard } from '@/components/ApprovalStatusCard';
 import {
   emptyVendorSettings,
+  getVendorVerificationMissingItems,
+  isVendorProfileComplete,
   loadVendorProfileSettings,
   saveVendorProfileSettings,
   VendorProfileSettings,
 } from '@/services/supabaseProfileSettings';
+import { requestRoleOnSupabase } from '@/services/supabaseRoles';
 
 type Panel = 'profile' | 'payout' | 'mobileMoney' | 'legal' | 'notifications' | null;
 
@@ -27,6 +31,7 @@ export default function VendorProfile() {
   const [settings, setSettings] = useState<VendorProfileSettings>(emptyVendorSettings);
   const [draft, setDraft] = useState<VendorProfileSettings>(emptyVendorSettings);
   const [saving, setSaving] = useState(false);
+  const [submittingVerification, setSubmittingVerification] = useState(false);
   const insets = useSafeAreaInsets();
   const { user, logout, updateProfile } = useAuth();
   const router = useRouter();
@@ -55,6 +60,7 @@ export default function VendorProfile() {
   const revenue = deliveredOrders.reduce((sum, order) => sum + order.total, 0);
   const avgOrder = deliveredOrders.length ? Math.round(revenue / deliveredOrders.length) : 0;
   const activeItems = restaurant?.menu.filter(item => item.available).length || 0;
+  const missingVerificationItems = getVendorVerificationMissingItems(settings);
 
   const saveCurrentLocation = async () => {
     setSavingLocation(true);
@@ -125,6 +131,35 @@ export default function VendorProfile() {
     }
   };
 
+  const handleVerificationPress = async () => {
+    if (settings.approvalStatus === 'approved') {
+      showAlert('Restaurant approved', 'Your restaurant is verified and ready for live operations.');
+      return;
+    }
+
+    if (!isVendorProfileComplete(settings)) {
+      if (!settings.businessName.trim() || !settings.businessPhone.trim() || !settings.businessAddress.trim()) {
+        openPanel('profile');
+      } else {
+        openPanel('payout');
+      }
+      return;
+    }
+
+    setSubmittingVerification(true);
+    try {
+      await requestRoleOnSupabase(
+        'vendor',
+        `Restaurant verification ready. Business: ${settings.businessName || user?.name || 'Restaurant'}, phone: ${settings.businessPhone || user?.phone || 'not set'}, address: ${settings.businessAddress || user?.address || 'not set'}.`
+      );
+      showAlert('Verification submitted', 'Your restaurant details are ready for admin review.');
+    } catch (error) {
+      showAlert('Verification', error instanceof Error ? error.message : 'Unable to submit verification.');
+    } finally {
+      setSubmittingVerification(false);
+    }
+  };
+
   const stats = useMemo(() => [
     { label: 'Orders', value: String(orders.length), icon: 'receipt-long', color: Colors.primary },
     { label: 'Revenue', value: formatMoney(revenue), icon: 'payments', color: Colors.success },
@@ -155,6 +190,16 @@ export default function VendorProfile() {
         <TouchableOpacity onPress={() => openPanel('profile')}>
           <MaterialIcons name="edit" size={22} color={Colors.primary} />
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.approvalWrap}>
+        <ApprovalStatusCard
+          role="vendor"
+          status={settings.approvalStatus}
+          missingItems={missingVerificationItems}
+          onPress={handleVerificationPress}
+        />
+        {submittingVerification ? <Text style={styles.approvalHint}>Submitting verification...</Text> : null}
       </View>
 
       <View style={styles.perfCard}>
@@ -368,6 +413,8 @@ const styles = StyleSheet.create({
   storeEmail: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
   verifiedBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
   verifiedText: { fontSize: FontSize.xs, fontWeight: FontWeight.semibold },
+  approvalWrap: { marginHorizontal: Spacing.md },
+  approvalHint: { color: Colors.textMuted, fontSize: FontSize.xs, marginBottom: Spacing.sm, marginTop: -Spacing.sm, textAlign: 'center' },
   sectionTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginBottom: Spacing.md },
   perfCard: { backgroundColor: Colors.surfaceCard, margin: Spacing.md, marginTop: 0, borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.md },
   perfGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },

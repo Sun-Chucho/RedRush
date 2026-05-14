@@ -37,6 +37,17 @@ export async function requestRoleOnSupabase(role: RoleRequestRole, notes?: strin
     notes: notes || '',
   });
 
+  if (
+    error &&
+    (
+      error.code === '23505' ||
+      error.message.toLowerCase().includes('duplicate') ||
+      error.message.toLowerCase().includes('unique')
+    )
+  ) {
+    return true;
+  }
+
   if (error) throw error;
   return true;
 }
