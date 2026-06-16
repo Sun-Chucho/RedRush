@@ -33,7 +33,7 @@ export default function AppEntry() {
       </View>
       <View style={styles.actionWrap}>
         <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace('/auth')} activeOpacity={0.86}>
-          <Text style={styles.primaryButtonText}>Enter RedRush</Text>
+          <Text style={styles.primaryButtonText}>Get Started</Text>
         </TouchableOpacity>
       </View>
     </View>
