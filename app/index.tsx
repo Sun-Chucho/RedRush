@@ -24,17 +24,14 @@ export default function AppEntry() {
 
   return (
     <View style={styles.container}>
-      {/* Full-screen hero image */}
       <Image
         source={require('@/assets/images/fpic.png')}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
       />
 
-      {/* Dark gradient overlay at the bottom for button readability */}
       <View style={styles.bottomOverlay} />
 
-      {/* Logo at the top */}
       <View style={styles.logoRow}>
         <Image
           source={require('@/assets/images/logo.png')}
@@ -43,7 +40,6 @@ export default function AppEntry() {
         />
       </View>
 
-      {/* Get Started button pinned to the bottom */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryButton}

@@ -61,7 +61,7 @@ export default function WebEntry() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <Image source={require('../hero.jpeg')} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <Image source={require('@/assets/images/hero.jpeg')} style={StyleSheet.absoluteFill} contentFit="cover" />
         <View style={styles.heroShade} />
         <View style={styles.nav}>
           <View style={styles.brandRow}>
