@@ -25,7 +25,7 @@ export default function AppEntry() {
   return (
     <View style={styles.startScreen}>
       <View style={styles.hero}>
-        <Image source={require('../fpic.png')} style={styles.heroImage} contentFit="cover" />
+        <Image source={require('@/assets/images/hero-delivery.png')} style={styles.heroImage} contentFit="cover" />
       </View>
       <View style={styles.brand}>
         <Text style={styles.title}>RedRush</Text>
