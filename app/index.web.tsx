@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
@@ -13,7 +13,51 @@ const LANDING_LINKS = [
 
 export default function WebEntry() {
   const router = useRouter();
+  const [width, setWidth] = useState(() => Dimensions.get('window').width);
 
+  useEffect(() => {
+    const sub = Dimensions.addEventListener('change', ({ window }) => setWidth(window.width));
+    return () => sub?.remove();
+  }, []);
+
+  // Phone shell / narrow viewport → show the mobile splash experience
+  if (width < 600) {
+    return (
+      <View style={styles.splashContainer}>
+        {/* Full-screen hero image */}
+        <Image
+          source={require('@/assets/images/fpic.png')}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+        />
+
+        {/* Dark gradient overlay at the bottom */}
+        <View style={styles.splashBottomOverlay} />
+
+        {/* Logo pinned to the top */}
+        <View style={styles.splashLogoRow}>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.splashLogo}
+            contentFit="contain"
+          />
+        </View>
+
+        {/* Get Started button pinned to the bottom */}
+        <View style={styles.splashFooter}>
+          <TouchableOpacity
+            style={styles.splashPrimaryButton}
+            onPress={() => router.replace('/auth')}
+            activeOpacity={0.86}
+          >
+            <Text style={styles.splashPrimaryButtonText}>Get Started</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Desktop / wide viewport → full web landing page
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
@@ -71,6 +115,50 @@ function Feature({ title, body }: { title: string; body: string }) {
 }
 
 const styles = StyleSheet.create({
+  // ── Mobile splash styles ─────────────────────────────────────────────────
+  splashContainer: {
+    flex: 1,
+    backgroundColor: '#0a0000',
+  },
+  splashBottomOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 220,
+    backgroundColor: 'rgba(10,0,0,0.72)',
+  },
+  splashLogoRow: {
+    position: 'absolute',
+    top: 48,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  splashLogo: {
+    width: 120,
+    height: 120,
+  },
+  splashFooter: {
+    position: 'absolute',
+    bottom: 40,
+    left: Spacing.xl,
+    right: Spacing.xl,
+  },
+  splashPrimaryButton: {
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingVertical: 18,
+  },
+  splashPrimaryButtonText: {
+    color: Colors.text,
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.4,
+  },
+
+  // ── Web landing page styles ──────────────────────────────────────────────
   screen: {
     backgroundColor: '#120D0D',
     flex: 1,
