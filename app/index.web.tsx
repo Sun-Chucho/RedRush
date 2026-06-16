@@ -34,15 +34,6 @@ export default function WebEntry() {
         {/* Dark gradient overlay at the bottom */}
         <View style={styles.splashBottomOverlay} />
 
-        {/* Logo pinned to the top */}
-        <View style={styles.splashLogoRow}>
-          <Image
-            source={require('@/assets/images/logo.png')}
-            style={styles.splashLogo}
-            contentFit="contain"
-          />
-        </View>
-
         {/* Get Started button pinned to the bottom */}
         <View style={styles.splashFooter}>
           <TouchableOpacity
@@ -65,7 +56,6 @@ export default function WebEntry() {
         <View style={styles.heroShade} />
         <View style={styles.nav}>
           <View style={styles.brandRow}>
-            <Image source={require('@/assets/images/app-icon.png')} style={styles.logo} contentFit="contain" />
             <Text style={styles.brandText}>RedRush</Text>
           </View>
           <View style={styles.navLinks}>
@@ -128,17 +118,6 @@ const styles = StyleSheet.create({
     height: 220,
     backgroundColor: 'rgba(10,0,0,0.72)',
   },
-  splashLogoRow: {
-    position: 'absolute',
-    top: 48,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  splashLogo: {
-    width: 120,
-    height: 120,
-  },
   splashFooter: {
     position: 'absolute',
     bottom: 40,
@@ -192,10 +171,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: Spacing.sm,
-  },
-  logo: {
-    height: 42,
-    width: 42,
   },
   brandText: {
     color: Colors.text,

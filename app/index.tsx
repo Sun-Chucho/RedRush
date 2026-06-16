@@ -32,14 +32,6 @@ export default function AppEntry() {
 
       <View style={styles.bottomOverlay} />
 
-      <View style={styles.logoRow}>
-        <Image
-          source={require('@/assets/images/logo.png')}
-          style={styles.logoIcon}
-          contentFit="contain"
-        />
-      </View>
-
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryButton}
@@ -72,17 +64,6 @@ const styles = StyleSheet.create({
     height: 220,
     // Dark gradient from transparent to near-black
     backgroundColor: 'rgba(10,0,0,0.72)',
-  },
-  logoRow: {
-    position: 'absolute',
-    top: Spacing.xl + 16,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  logoIcon: {
-    width: 120,
-    height: 120,
   },
   footer: {
     position: 'absolute',
