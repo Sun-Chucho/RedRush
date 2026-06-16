@@ -24,14 +24,18 @@ export default function AppEntry() {
 
   return (
     <View style={styles.startScreen}>
+      <View style={styles.hero}>
+        <Image source={require('@/fpic.png')} style={styles.heroImage} contentFit="cover" />
+      </View>
       <View style={styles.brand}>
-        <Image source={require('@/assets/images/app-icon.png')} style={styles.logo} contentFit="contain" />
         <Text style={styles.title}>RedRush</Text>
         <Text style={styles.subtitle}>Food delivery, ready when you are.</Text>
       </View>
-      <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace('/auth')} activeOpacity={0.86}>
-        <Text style={styles.primaryButtonText}>Get Started</Text>
-      </TouchableOpacity>
+      <View style={styles.actionWrap}>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace('/auth')} activeOpacity={0.86}>
+          <Text style={styles.primaryButtonText}>Enter RedRush</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -46,19 +50,23 @@ const styles = StyleSheet.create({
   startScreen: {
     backgroundColor: Colors.background,
     flex: 1,
-    justifyContent: 'space-between',
     paddingBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xxl,
+    paddingTop: Spacing.xl,
+  },
+  hero: {
+    borderRadius: BorderRadius.xl,
+    flex: 1,
+    minHeight: 360,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    height: '100%',
+    width: '100%',
   },
   brand: {
     alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  logo: {
-    height: 96,
-    width: 96,
+    paddingTop: Spacing.xl,
   },
   title: {
     color: Colors.text,
@@ -71,6 +79,9 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     marginTop: Spacing.xs,
     textAlign: 'center',
+  },
+  actionWrap: {
+    paddingTop: Spacing.xl,
   },
   primaryButton: {
     alignItems: 'center',

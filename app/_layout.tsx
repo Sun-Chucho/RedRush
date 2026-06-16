@@ -19,7 +19,7 @@ export default function RootLayout() {
   const { width, height } = useWindowDimensions();
   const topSegment = segments[0];
   const isAppGroupRoute = typeof topSegment === 'string' && topSegment.startsWith('(');
-  const isPublicWebRoute = pathname === '/' || pathname === '/privacy-policy' || pathname === '/terms-of-service' || pathname === '/account-deletion';
+  const isPublicWebRoute = pathname === '/' || pathname === '/privacy-policy' || pathname === '/terms-of-service' || pathname === '/account-deletion' || pathname === '/support';
   const shouldUsePhoneShell = Platform.OS === 'web' && width >= 768 && (isAppGroupRoute || !isPublicWebRoute);
   const phoneHeight = Math.max(620, Math.min(860, height - 48));
 

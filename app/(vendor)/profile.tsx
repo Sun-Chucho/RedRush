@@ -23,12 +23,11 @@ import {
 } from '@/services/supabaseProfileSettings';
 import { requestRoleOnSupabase } from '@/services/supabaseRoles';
 
-type Panel = 'profile' | 'location' | 'payout' | 'mobileMoney' | 'legal' | 'notifications' | null;
+type Panel = 'profile' | 'payout' | 'mobileMoney' | 'legal' | 'notifications' | null;
 
 export default function VendorProfile() {
   const [savingLocation, setSavingLocation] = useState(false);
   const [activePanel, setActivePanel] = useState<Panel>(null);
-  const [manualLocation, setManualLocation] = useState({ address: '', latitude: '', longitude: '' });
   const [settings, setSettings] = useState<VendorProfileSettings>(emptyVendorSettings);
   const [draft, setDraft] = useState<VendorProfileSettings>(emptyVendorSettings);
   const [saving, setSaving] = useState(false);
@@ -95,45 +94,6 @@ export default function VendorProfile() {
       }
 
       showAlert('Shop location saved', 'Customers near this area can now find your store more accurately.');
-    } catch (error) {
-      showAlert('Location not saved', error instanceof Error ? error.message : 'Unable to save shop location.');
-    } finally {
-      setSavingLocation(false);
-    }
-  };
-
-  const openLocationPanel = () => {
-    setManualLocation({
-      address: restaurant?.address || settings.businessAddress || '',
-      latitude: typeof restaurant?.latitude === 'number' ? String(restaurant.latitude) : '',
-      longitude: typeof restaurant?.longitude === 'number' ? String(restaurant.longitude) : '',
-    });
-    setActivePanel('location');
-  };
-
-  const saveManualLocation = async () => {
-    const latitude = Number(manualLocation.latitude);
-    const longitude = Number(manualLocation.longitude);
-    const address = manualLocation.address.trim();
-
-    if (!address || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      showAlert('Shop pin', 'Enter a valid address, latitude, and longitude.');
-      return;
-    }
-    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-      showAlert('Shop pin', 'Latitude must be between -90 and 90, and longitude must be between -180 and 180.');
-      return;
-    }
-
-    setSavingLocation(true);
-    try {
-      await updateVendorRestaurantLocation({ address, latitude, longitude });
-      if (user?.id) {
-        await saveVendorProfileSettings(user.id, { businessAddress: address });
-        setSettings(prev => ({ ...prev, businessAddress: address }));
-      }
-      setActivePanel(null);
-      showAlert('Shop location saved', 'Your restaurant GPS pin is ready for live orders.');
     } catch (error) {
       showAlert('Location not saved', error instanceof Error ? error.message : 'Unable to save shop location.');
     } finally {
@@ -279,10 +239,6 @@ export default function VendorProfile() {
           <MaterialIcons name="my-location" size={18} color={Colors.text} />
           <Text style={styles.locationBtnText}>{savingLocation ? 'Saving location...' : 'Use current location as shop address'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.locationSecondaryBtn} onPress={openLocationPanel}>
-          <MaterialIcons name="edit-location-alt" size={18} color={Colors.primary} />
-          <Text style={styles.locationSecondaryText}>Enter shop pin manually</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.settingsCard}>
@@ -319,13 +275,9 @@ export default function VendorProfile() {
         panel={activePanel}
         draft={draft}
         setDraft={setDraft}
-        manualLocation={manualLocation}
-        setManualLocation={setManualLocation}
         saving={saving}
-        savingLocation={savingLocation}
         onClose={() => setActivePanel(null)}
         onSave={savePanel}
-        onSaveLocation={saveManualLocation}
       />
 
       <View style={{ height: Spacing.xl }} />
@@ -337,28 +289,19 @@ function VendorSettingsModal({
   panel,
   draft,
   setDraft,
-  manualLocation,
-  setManualLocation,
   saving,
-  savingLocation,
   onClose,
   onSave,
-  onSaveLocation,
 }: {
   panel: Panel;
   draft: VendorProfileSettings;
   setDraft: React.Dispatch<React.SetStateAction<VendorProfileSettings>>;
-  manualLocation: { address: string; latitude: string; longitude: string };
-  setManualLocation: React.Dispatch<React.SetStateAction<{ address: string; latitude: string; longitude: string }>>;
   saving: boolean;
-  savingLocation: boolean;
   onClose: () => void;
   onSave: () => void;
-  onSaveLocation: () => void;
 }) {
   const title = {
     profile: 'Restaurant Profile',
-    location: 'Shop GPS Pin',
     payout: 'Payout Settings',
     mobileMoney: 'Mobile Money',
     legal: 'Legal Documents',
@@ -379,24 +322,6 @@ function VendorSettingsModal({
                 <Field label="Restaurant name" value={draft.businessName} onChangeText={businessName => setDraft(prev => ({ ...prev, businessName }))} />
                 <Field label="Business phone" value={draft.businessPhone} keyboardType="phone-pad" onChangeText={businessPhone => setDraft(prev => ({ ...prev, businessPhone }))} />
                 <Field label="Business address" value={draft.businessAddress} multiline onChangeText={businessAddress => setDraft(prev => ({ ...prev, businessAddress }))} />
-              </>
-            ) : null}
-
-            {panel === 'location' ? (
-              <>
-                <View style={styles.uploadRow}>
-                  <MaterialIcons name="info" size={22} color={Colors.primary} />
-                  <View style={styles.uploadText}>
-                    <Text style={styles.dataTitle}>Set the exact shop pin</Text>
-                    <Text style={styles.dataSub}>Use coordinates from Google Maps or OpenStreetMap. The restaurant can only open after this pin is valid.</Text>
-                  </View>
-                </View>
-                <Field label="Shop address" value={manualLocation.address} multiline onChangeText={address => setManualLocation(prev => ({ ...prev, address }))} />
-                <Field label="Latitude" value={manualLocation.latitude} keyboardType="decimal-pad" placeholder="-1.286389" onChangeText={latitude => setManualLocation(prev => ({ ...prev, latitude }))} />
-                <Field label="Longitude" value={manualLocation.longitude} keyboardType="decimal-pad" placeholder="36.817223" onChangeText={longitude => setManualLocation(prev => ({ ...prev, longitude }))} />
-                <TouchableOpacity style={[styles.saveBtn, savingLocation && { opacity: 0.7 }]} onPress={onSaveLocation} disabled={savingLocation}>
-                  <Text style={styles.saveBtnText}>{savingLocation ? 'Saving pin...' : 'Save Shop Pin'}</Text>
-                </TouchableOpacity>
               </>
             ) : null}
 
@@ -457,11 +382,9 @@ function VendorSettingsModal({
               </>
             ) : null}
 
-            {panel !== 'location' ? (
-              <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.7 }]} onPress={onSave} disabled={saving}>
-                <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save'}</Text>
-              </TouchableOpacity>
-            ) : null}
+            <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.7 }]} onPress={onSave} disabled={saving}>
+              <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save'}</Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
       </View>
@@ -505,8 +428,6 @@ const styles = StyleSheet.create({
   locationBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.primary, borderRadius: BorderRadius.md, paddingVertical: 13, marginTop: Spacing.md },
   locationBtnDisabled: { opacity: 0.7 },
   locationBtnText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
-  locationSecondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.primary, paddingVertical: 12, marginTop: Spacing.sm },
-  locationSecondaryText: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
   settingsCard: { backgroundColor: Colors.surfaceCard, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.md, ...Shadow.md },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
   settingLabel: { color: Colors.text, fontSize: FontSize.body },
