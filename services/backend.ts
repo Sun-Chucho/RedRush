@@ -13,6 +13,7 @@ export type RoleRequestDecision = 'approved' | 'rejected';
 export interface CreateOrderInput {
   restaurantId: string;
   address: string;
+  deliveryCoords: { latitude: number; longitude: number };
   paymentMethod: string;
   promoCode?: string;
   items: { menuItemId: string; quantity: number }[];

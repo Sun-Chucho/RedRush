@@ -24,7 +24,7 @@ Image.prefetch([
   require('@/assets/images/sign-2.png'),
 ] as any).catch(() => undefined);
 
-const slides: { id: number; image: ReturnType<typeof require>; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
+const slides: { id: number; image: any; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   { id: 1, image: HOME_1, titleKey: 'orderFood', subtitleKey: 'startOrdering' },
   { id: 2, image: HOME_2, titleKey: 'topRestaurants', subtitleKey: 'browseMenus' },
   { id: 3, image: HOME_3, titleKey: 'realTimeTracking', subtitleKey: 'supportingOnboarding' },
@@ -176,6 +176,11 @@ const styles = StyleSheet.create({
     zIndex: 10,
     paddingVertical: 6,
     paddingHorizontal: 4,
+  },
+  skipText: {
+    color: '#FFFFFF',
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
   },
   languageToggle: {
     position: 'absolute',

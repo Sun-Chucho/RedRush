@@ -1,16 +1,10 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Href, Redirect, useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
-
-function dashboardForRole(role?: string): Href {
-  if (role === 'vendor') return '/(vendor)';
-  if (role === 'rider') return '/(rider)';
-  if (role === 'admin') return '/(admin)';
-  return '/(customer)';
-}
+import { dashboardForRole } from '@/services/authRoutes';
 
 export default function AppEntry() {
   const router = useRouter();

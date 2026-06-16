@@ -10,10 +10,10 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrders } from '@/hooks/useOrders';
-import { getUnreadCount, subscribeToChatMessages } from '@/services/supabaseChat';
+import { getUnreadCount } from '@/services/supabaseChat';
 
 interface ChatThread {
   orderId: string;

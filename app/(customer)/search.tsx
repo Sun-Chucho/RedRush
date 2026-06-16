@@ -11,6 +11,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useCustomerData } from '@/hooks/useCustomerData';
 import { TranslationKey } from '@/contexts/LanguageContext';
+import { projectRestaurantForCustomer, sortRestaurantsForCustomer } from '@/services/restaurantLocation';
 
 const SORT_OPTIONS: { value: 'Relevance' | 'Rating' | 'Delivery Time' | 'Price'; labelKey: TranslationKey }[] = [
   { value: 'Relevance', labelKey: 'relevance' },
@@ -25,7 +26,7 @@ export default function SearchScreen() {
   const [sortBy, setSortBy] = useState('Relevance');
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { formatMoney } = useCurrency();
+  const { coords, formatMoney } = useCurrency();
   const { t } = useLanguage();
   const { restaurants, categories } = useRestaurants();
   const { searchHistory, addSearchHistory, clearSearchHistory } = useCustomerData();
@@ -37,10 +38,11 @@ export default function SearchScreen() {
     return Array.from(new Set(['All', ...restaurants.map(r => r.cuisine)]));
   }, [categories, restaurants]);
 
-  const results = restaurants.filter(r => {
+  const results = sortRestaurantsForCustomer(restaurants.map(r => projectRestaurantForCustomer(r, coords))).filter(r => {
     const matchQ = !query || r.name.toLowerCase().includes(query.toLowerCase()) || r.cuisine.toLowerCase().includes(query.toLowerCase());
     const matchC = selectedCuisine === 'All' || r.cuisine === selectedCuisine;
-    return matchQ && matchC;
+    const matchArea = !coords || r.inServiceArea;
+    return matchQ && matchC && matchArea;
   }).sort((a, b) => {
     if (sortBy === 'Rating') return b.rating - a.rating;
     if (sortBy === 'Delivery Time') return parseInt(a.deliveryTime) - parseInt(b.deliveryTime);

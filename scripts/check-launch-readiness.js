@@ -24,6 +24,7 @@ const requiredFiles = [
   'app/support.tsx',
   'supabase/migrations/010_payments_infrastructure.sql',
   'supabase/migrations/011_launch_hardening_cash_dispatch.sql',
+  'supabase/migrations/014_location_accuracy_enforcement.sql',
 ];
 
 requiredFiles.forEach(file => check(`Required file: ${file}`, exists(file), 'Missing file blocks store or backend readiness.'));

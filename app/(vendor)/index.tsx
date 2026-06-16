@@ -62,6 +62,13 @@ export default function VendorDashboard() {
           style={[styles.statusToggle, { backgroundColor: isOpen ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' }]}
           onPress={() => {
             const next = !isOpen;
+            if (
+              next &&
+              (typeof vendorRestaurant?.latitude !== 'number' || typeof vendorRestaurant?.longitude !== 'number')
+            ) {
+              showAlert('GPS pin required', 'Save your shop location from Restaurant Details before opening for live orders.');
+              return;
+            }
             setIsOpen(next);
             updateVendorRestaurantProfile({ isOpen: next })
               .then(() => showAlert(next ? 'Store Open' : 'Store Closed', next ? 'Your store is now accepting orders!' : 'Your store is now offline.'))

@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -39,14 +40,19 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const { items, total, clearCart, restaurantId, restaurantName } = useCart();
   const { placeOrder } = useOrders();
-  const { formatMoney, refreshLocationCurrency, locationLabel } = useCurrency();
+  const { coords, formatMoney, refreshLocationCurrency, locationLabel } = useCurrency();
   const { showAlert } = useAlert();
+  const [deliveryCoords, setDeliveryCoords] = useState(coords);
 
   const deliveryFee = 500;
   const serviceCharge = Math.round(total * 0.03);
   const appliedPromo = useMemo(() => promoCodes.find(promo => promo.id === appliedPromoId), [appliedPromoId, promoCodes]);
   const discount = appliedPromo ? Math.round(total * (appliedPromo.discountPercent / 100)) : 0;
   const grandTotal = Math.max(0, total - discount) + deliveryFee + serviceCharge;
+
+  useEffect(() => {
+    if (coords) setDeliveryCoords(coords);
+  }, [coords]);
 
   const handleApplyPromo = () => {
     const promo = redeemPromoCode(promoCode);
@@ -69,6 +75,21 @@ export default function CheckoutScreen() {
     setDefaultAddress(addressId);
   };
 
+  const saveCurrentDeliveryLocation = async () => {
+    const nextLocationLabel = await refreshLocationCurrency();
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (permission.status !== 'granted') {
+      throw new Error('Location permission was not granted.');
+    }
+    const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    setDeliveryCoords({
+      latitude: current.coords.latitude,
+      longitude: current.coords.longitude,
+    });
+    setAddress(nextLocationLabel || locationLabel);
+    setSelectedAddress('');
+  };
+
   const handlePlaceOrder = async () => {
     if (!address.trim()) {
       showAlert('Missing Address', 'Please enter your delivery address.');
@@ -79,6 +100,11 @@ export default function CheckoutScreen() {
       return;
     }
     if (!restaurantId || !restaurantName) return;
+    const orderDeliveryCoords = deliveryCoords || coords;
+    if (!orderDeliveryCoords) {
+      showAlert('Location Required', 'Use your current location before placing the order so the rider can navigate accurately.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -92,6 +118,7 @@ export default function CheckoutScreen() {
         restaurantId,
         restaurantName,
         address,
+        orderDeliveryCoords,
         paymentLabel,
         deliveryFee,
         serviceCharge,
@@ -101,8 +128,8 @@ export default function CheckoutScreen() {
       await sendLocalNotification('Order placed', `${restaurantName} received your order.`);
       clearCart();
       router.replace(`/order/${order.id}`);
-    } catch {
-      showAlert('Error', 'Failed to place order. Please try again.');
+    } catch (error) {
+      showAlert('Order not placed', error instanceof Error ? error.message : 'Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -151,11 +178,7 @@ export default function CheckoutScreen() {
           <TouchableOpacity
             style={styles.locationBtn}
             onPress={() => {
-              refreshLocationCurrency()
-                .then(nextLocationLabel => {
-                  setAddress(nextLocationLabel || locationLabel);
-                  setSelectedAddress('');
-                })
+              saveCurrentDeliveryLocation()
                 .catch(() => showAlert('Location', 'Unable to read your current location.'));
             }}
           >

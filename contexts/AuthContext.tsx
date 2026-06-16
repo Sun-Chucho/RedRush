@@ -27,8 +27,8 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: Partial<AuthUser> & { password: string }) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  register: (data: Partial<AuthUser> & { password: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
 }
@@ -112,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await loginWithSupabaseEmail(email.trim(), password);
       if (!profile) throw new Error('Sign in failed. Please try again.');
       setUser(profile);
+      return profile;
     } catch (error) {
       throw new Error(getSupabaseErrorMessage(error));
     }
@@ -127,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (!profile) throw new Error('Unable to create account. Please try again.');
       setUser(profile);
+      return profile;
     } catch (error) {
       throw new Error(getSupabaseErrorMessage(error));
     }

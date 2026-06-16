@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput,
 } from 'react-native';
@@ -15,6 +15,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { TranslationKey } from '@/contexts/LanguageContext';
+import { projectRestaurantForCustomer, sortRestaurantsForCustomer } from '@/services/restaurantLocation';
 
 const PROMO_BANNERS: {
   id: string;
@@ -28,24 +29,6 @@ const PROMO_BANNERS: {
   { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/home-2.jpeg') },
   { id: '3', title: 'Cash on Delivery', subtitle: 'Pay when your food arrives', image: require('@/home-3.jpeg') },
 ];
-
-const NEARBY_RADIUS_KM = 12;
-
-function distanceKm(
-  from: { latitude: number; longitude: number },
-  to: { latitude: number; longitude: number }
-) {
-  const radius = 6371;
-  const dLat = ((to.latitude - from.latitude) * Math.PI) / 180;
-  const dLon = ((to.longitude - from.longitude) * Math.PI) / 180;
-  const lat1 = (from.latitude * Math.PI) / 180;
-  const lat2 = (to.latitude * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 export default function CustomerHome() {
   const [selectedCuisine, setSelectedCuisine] = useState('All');
@@ -66,32 +49,15 @@ export default function CustomerHome() {
     return Array.from(new Set(['All', ...restaurants.map(r => r.cuisine)]));
   }, [categories, restaurants]);
 
-  const filtered = useMemo(() => restaurants
-    .map(restaurant => {
-      const hasCoordinates = typeof restaurant.latitude === 'number' && typeof restaurant.longitude === 'number';
-      const distance = coords && hasCoordinates
-        ? distanceKm(coords, { latitude: restaurant.latitude!, longitude: restaurant.longitude! })
-        : null;
-
-      return {
-        ...restaurant,
-        distance: distance == null ? restaurant.distance : `${distance.toFixed(distance < 10 ? 1 : 0)} km`,
-        distanceSort: distance,
-      };
-    })
+  const filtered = useMemo(() => sortRestaurantsForCustomer(restaurants
+    .map(restaurant => projectRestaurantForCustomer(restaurant, coords))
     .filter(r => {
       const matchCuisine = selectedCuisine === 'All' || r.cuisine === selectedCuisine;
       const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.cuisine.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchArea = !coords || r.distanceSort == null || r.distanceSort <= NEARBY_RADIUS_KM;
+      const matchArea = !coords || r.inServiceArea;
       return matchCuisine && matchSearch && matchArea;
-    })
-    .sort((a, b) => {
-      if (a.distanceSort == null && b.distanceSort == null) return 0;
-      if (a.distanceSort == null) return 1;
-      if (b.distanceSort == null) return -1;
-      return a.distanceSort - b.distanceSort;
-    }), [coords, restaurants, searchQuery, selectedCuisine]);
+    })), [coords, restaurants, searchQuery, selectedCuisine]);
 
   const firstName = user?.name?.split(' ')[0] || 'there';
 

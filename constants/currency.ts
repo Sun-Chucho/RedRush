@@ -1,3 +1,9 @@
+import {
+  marketForCoordinates,
+  marketForCountry,
+  SUPPORTED_MARKETS,
+} from './locationTiers';
+
 export type SupportedCurrency = 'KES' | 'TZS';
 
 export const DEFAULT_CURRENCY: SupportedCurrency = 'KES';
@@ -8,13 +14,7 @@ export const CURRENCY_LABELS: Record<SupportedCurrency, string> = {
 };
 
 export function currencyForCountry(country?: string | null): SupportedCurrency {
-  const normalized = country?.trim().toLowerCase();
-
-  if (normalized?.includes('tanzania')) {
-    return 'TZS';
-  }
-
-  return 'KES';
+  return SUPPORTED_MARKETS[marketForCountry(country)].currency;
 }
 
 export function currencyForCoordinates(latitude?: number, longitude?: number): SupportedCurrency {
@@ -22,13 +22,7 @@ export function currencyForCoordinates(latitude?: number, longitude?: number): S
     return DEFAULT_CURRENCY;
   }
 
-  const isTanzania =
-    latitude >= -11.9 &&
-    latitude <= -0.7 &&
-    longitude >= 29.0 &&
-    longitude <= 40.8;
-
-  return isTanzania ? 'TZS' : 'KES';
+  return SUPPORTED_MARKETS[marketForCoordinates(latitude, longitude)].currency;
 }
 
 export function formatCurrency(amount: number, currency: SupportedCurrency): string {

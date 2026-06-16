@@ -7,7 +7,6 @@ import { UserRole } from '@/constants/mockData';
 import { useAlert } from '@/template';
 import { reviewRoleRequestOnBackend } from '@/services/backend';
 import { fetchSupabaseAdminUsers, fetchSupabaseRoleRequests } from '@/services/supabaseRoles';
-import { useThemeMode } from '@/contexts/ThemeContext';
 
 const ROLE_TABS = ['All', 'Customers', 'Vendors', 'Riders'];
 
@@ -37,14 +36,13 @@ const ROLE_COLOR: Record<string, string> = {
 };
 
 export default function AdminUsers() {
-  const { mode } = useThemeMode();
   const [tab, setTab] = useState('All');
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([]);
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
-  const styles = useMemo(() => createStyles(), [mode]);
+  const styles = useMemo(() => createStyles(), []);
 
   useEffect(() => {
     fetchSupabaseAdminUsers().then(nextUsers => {

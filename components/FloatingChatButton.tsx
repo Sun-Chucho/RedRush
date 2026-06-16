@@ -6,7 +6,7 @@ import React, { memo, useEffect, useState } from 'react';
 import { TouchableOpacity, View, Text, StyleSheet, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Shadow } from '@/constants/theme';
 import { getUnreadCount } from '@/services/supabaseChat';
 import { useAuth } from '@/hooks/useAuth';
 

@@ -15,7 +15,7 @@ import {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
@@ -23,6 +23,7 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 import { UserRole } from '@/constants/mockData';
 import { useThemeMode } from '@/contexts/ThemeContext';
+import { dashboardForRole } from '@/services/authRoutes';
 
 type SignupRole = Exclude<UserRole, 'admin'>;
 
@@ -46,9 +47,8 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login, register } = useAuth();
+  const { isAuthenticated, isLoading, login, register, user } = useAuth();
   const router = useRouter();
-  const params = useLocalSearchParams<{ next?: string }>();
   const { showAlert } = useAlert();
   const { t } = useLanguage();
   const { mode: themeMode } = useThemeMode();
@@ -63,6 +63,12 @@ export default function AuthScreen() {
   }, []);
 
   const heroImage = mode === 'register' ? SIGN_1 : SIGN_2;
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace(dashboardForRole(user?.role));
+    }
+  }, [isAuthenticated, isLoading, router, user?.role]);
 
   const themed = {
     screen: { backgroundColor: Colors.background },
@@ -86,18 +92,34 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (mode === 'login') {
-        await login(email, password);
+        const profile = await login(email, password);
+        router.replace(dashboardForRole(profile.role));
       } else {
-        await register({ name, email, phone, password, role: signupRole });
+        const profile = await register({ name, email, phone, password, role: signupRole });
+        router.replace(dashboardForRole(profile.role));
       }
-      const nextHref = typeof params.next === 'string' && params.next.startsWith('/') ? params.next : '/';
-      router.replace(nextHref as Href);
     } catch (e) {
       showAlert(t('authFailed'), e instanceof Error ? e.message : t('tryAgain'));
     } finally {
       setLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingScreen, themed.screen]}>
+        <ActivityIndicator color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <View style={[styles.loadingScreen, themed.screen]}>
+        <ActivityIndicator color={Colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.webStage}>
@@ -226,6 +248,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   webStage: { flex: 1, backgroundColor: Colors.background },
+  loadingScreen: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   container: { flex: 1, backgroundColor: Colors.background },
   scrollView: { flex: 1, backgroundColor: Colors.background },
   scroll: { paddingBottom: Spacing.xl },

@@ -7,6 +7,7 @@ import {
   currencyForCountry,
   formatCurrency,
 } from '@/constants/currency';
+import { marketForCoordinates, nearestServiceTier, SUPPORTED_MARKETS } from '@/constants/locationTiers';
 
 interface CurrencyContextType {
   currency: SupportedCurrency;
@@ -45,15 +46,22 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     });
     const [place] = await Location.reverseGeocodeAsync(current.coords);
     const nextCountry = place?.country || undefined;
+    const nextMarket = marketForCoordinates(current.coords.latitude, current.coords.longitude);
+    const nextTier = nearestServiceTier(
+      { latitude: current.coords.latitude, longitude: current.coords.longitude },
+      nextMarket
+    );
     const nextCurrency = nextCountry
       ? currencyForCountry(nextCountry)
       : currencyForCoordinates(current.coords.latitude, current.coords.longitude);
 
     setCurrency(nextCurrency);
-    setCountry(nextCountry || (nextCurrency === 'TZS' ? 'Tanzania' : 'Kenya'));
+    setCountry(nextCountry || SUPPORTED_MARKETS[nextMarket].country);
     const nextLocationLabel =
-      [place?.city, place?.region, nextCountry].filter(Boolean).join(', ') ||
-      (nextCurrency === 'TZS' ? 'Tanzania' : 'Kenya');
+      [place?.city || nextTier?.label, place?.region, nextCountry || SUPPORTED_MARKETS[nextMarket].country]
+        .filter(Boolean)
+        .join(', ') ||
+      SUPPORTED_MARKETS[nextMarket].country;
 
     setLocationLabel(nextLocationLabel);
     return nextLocationLabel;

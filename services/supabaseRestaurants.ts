@@ -218,7 +218,7 @@ export async function ensureSupabaseVendorRestaurant(user: {
       image: null,
       cover_image: null,
       address: user.address || 'Restaurant address',
-      is_open: true,
+      is_open: false,
       distance: '0 km',
       categories: ['Meals', 'Drinks'],
     })

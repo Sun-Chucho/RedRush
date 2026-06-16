@@ -126,6 +126,9 @@ $env:SUPABASE_DB_URL="postgresql://..."
 pnpm supabase:launch
 ```
 
+The location-accuracy release requires `supabase/migrations/014_location_accuracy_enforcement.sql`.
+It adds saved restaurant/customer route coordinates to orders and closes live restaurants that do not have a valid GPS pin until the vendor/admin saves one.
+
 If migrations 001-009 are already applied and you only need the final launch tables/policies, apply:
 
 ```powershell

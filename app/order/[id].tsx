@@ -93,15 +93,26 @@ export default function OrderTrackingScreen() {
   }, [pulseAnim]);
 
   const route = useMemo(() => {
+    const restaurant =
+      typeof order?.restaurantLatitude === 'number' && typeof order?.restaurantLongitude === 'number'
+        ? { latitude: order.restaurantLatitude, longitude: order.restaurantLongitude }
+        : RESTAURANT_COORDS;
+    const customer =
+      typeof order?.deliveryLatitude === 'number' && typeof order?.deliveryLongitude === 'number'
+        ? { latitude: order.deliveryLatitude, longitude: order.deliveryLongitude }
+        : CUSTOMER_COORDS;
     const rider = riderCoords
       ? { latitude: riderCoords.latitude, longitude: riderCoords.longitude }
       : RIDER_DEFAULT;
     return {
       rider,
-      restaurantToRider: [RESTAURANT_COORDS, rider],
-      riderToCustomer:   [rider, CUSTOMER_COORDS],
+      restaurant,
+      customer,
+      hasSavedRoute: restaurant !== RESTAURANT_COORDS && customer !== CUSTOMER_COORDS,
+      restaurantToRider: [restaurant, rider],
+      riderToCustomer: [rider, customer],
     };
-  }, [riderCoords]);
+  }, [order?.deliveryLatitude, order?.deliveryLongitude, order?.restaurantLatitude, order?.restaurantLongitude, riderCoords]);
 
   const handleCancelOrder = useCallback(() => {
     if (!order || cancelling) return;
@@ -166,7 +177,7 @@ export default function OrderTrackingScreen() {
   const formatTime = (isoString: string) =>
     new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const mapCenter = showRiderOnMap ? route.rider : RESTAURANT_COORDS;
+  const mapCenter = showRiderOnMap ? route.rider : route.restaurant;
   const totalEta = (order.prepTime || 0) + (order.deliveryTime || 0);
   const etaLabel = order.status === 'delivered'
     ? 'Delivered'
@@ -219,12 +230,12 @@ export default function OrderTrackingScreen() {
               longitudeDelta: 0.032,
             }}
           >
-            <Marker coordinate={RESTAURANT_COORDS} title={order.restaurantName}>
+            <Marker coordinate={route.restaurant} title={order.restaurantName}>
               <View style={styles.restaurantMarker}>
                 <MaterialIcons name="restaurant" size={16} color={Colors.text} />
               </View>
             </Marker>
-            <Marker coordinate={CUSTOMER_COORDS} title="Your location">
+            <Marker coordinate={route.customer} title="Your location">
               <View style={styles.customerMarker}>
                 <MaterialIcons name="home" size={16} color={Colors.text} />
               </View>
@@ -242,13 +253,13 @@ export default function OrderTrackingScreen() {
               </>
             ) : null}
             {!showRiderOnMap && order.status !== 'delivered' && order.status !== 'cancelled' ? (
-              <Polyline coordinates={[RESTAURANT_COORDS, CUSTOMER_COORDS]} strokeColor={Colors.border} strokeWidth={3} lineDashPattern={[6, 4]} />
+              <Polyline coordinates={[route.restaurant, route.customer]} strokeColor={Colors.border} strokeWidth={3} lineDashPattern={[6, 4]} />
             ) : null}
           </MapView>
           <View style={styles.mapTopLeft}>
             <View style={styles.mapBadge}>
               {riderCoords ? <View style={styles.mapDot} /> : null}
-              <Text style={styles.mapBadgeText}>{riderCoords ? 'Live GPS' : 'Route preview'}</Text>
+              <Text style={styles.mapBadgeText}>{riderCoords ? 'Live GPS' : route.hasSavedRoute ? 'Saved route' : 'Legacy route preview'}</Text>
             </View>
           </View>
           <View style={styles.mapEtaChip}>

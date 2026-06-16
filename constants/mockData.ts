@@ -70,6 +70,10 @@ export interface Order {
   paymentMethod: string;
   paymentStatus?: 'pending' | 'collect_on_delivery' | 'cash_collected' | 'remitted' | 'settled' | 'paid' | 'failed' | 'cancelled' | 'refunded';
   address: string;
+  restaurantLatitude?: number;
+  restaurantLongitude?: number;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
   createdAt: string;
   estimatedDelivery: string;
   riderId?: string;

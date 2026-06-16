@@ -30,6 +30,7 @@ interface OrderContextType {
     restaurantId: string,
     restaurantName: string,
     address: string,
+    deliveryCoords: { latitude: number; longitude: number },
     paymentMethod: string,
     deliveryFee: number,
     serviceCharge?: number,
@@ -190,6 +191,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     restaurantId: string,
     _restaurantName: string,
     address: string,
+    deliveryCoords: { latitude: number; longitude: number },
     paymentMethod: string,
     _deliveryFee: number,
     _serviceCharge = 0,
@@ -202,6 +204,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     const order = await createSupabaseOrder({
       restaurantId,
       address,
+      deliveryCoords,
       paymentMethod,
       promoCode,
       items: items.map(item => ({ menuItemId: item.menuItem.id, quantity: item.quantity })),

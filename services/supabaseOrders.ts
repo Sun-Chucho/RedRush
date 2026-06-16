@@ -22,6 +22,10 @@ type OrderRow = {
   payment_method: string;
   payment_status: Order['paymentStatus'] | null;
   address: string;
+  restaurant_latitude: number | null;
+  restaurant_longitude: number | null;
+  delivery_latitude: number | null;
+  delivery_longitude: number | null;
   rider_id: string | null;
   rider_name: string | null;
   prep_time: number | null;
@@ -67,6 +71,8 @@ type RestaurantRow = {
   is_open: boolean;
   min_order: number;
   delivery_fee: number;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export function shouldUseSupabaseOrders() {
@@ -118,6 +124,10 @@ function toOrder(row: OrderRow): Order {
     paymentMethod: row.payment_method,
     paymentStatus: row.payment_status || undefined,
     address: row.address,
+    restaurantLatitude: typeof row.restaurant_latitude === 'number' ? row.restaurant_latitude : undefined,
+    restaurantLongitude: typeof row.restaurant_longitude === 'number' ? row.restaurant_longitude : undefined,
+    deliveryLatitude: typeof row.delivery_latitude === 'number' ? row.delivery_latitude : undefined,
+    deliveryLongitude: typeof row.delivery_longitude === 'number' ? row.delivery_longitude : undefined,
     createdAt: toIsoDate(row.created_at),
     estimatedDelivery: toIsoDate(row.estimated_delivery, Date.now() + 40 * 60000),
     riderId: row.rider_id || undefined,
@@ -177,13 +187,16 @@ export async function createSupabaseOrder(payload: CreateOrderInput) {
 
   const { data: restaurant, error: restaurantError } = await supabase
     .from('restaurants')
-    .select('id, name, is_open, min_order, delivery_fee')
+    .select('id, name, is_open, min_order, delivery_fee, latitude, longitude')
     .eq('id', payload.restaurantId)
     .single();
 
   if (restaurantError) throw restaurantError;
   const restaurantRow = restaurant as RestaurantRow;
   if (!restaurantRow.is_open) throw new Error('Restaurant is currently closed.');
+  if (typeof restaurantRow.latitude !== 'number' || typeof restaurantRow.longitude !== 'number') {
+    throw new Error('This restaurant needs a saved GPS pin before it can accept live orders.');
+  }
 
   const itemIds = payload.items.map(item => item.menuItemId);
   const { data: menuRows, error: menuError } = await supabase
@@ -237,6 +250,10 @@ export async function createSupabaseOrder(payload: CreateOrderInput) {
       payment_method: payload.paymentMethod,
       payment_status: getPaymentStatusForMethod(payload.paymentMethod),
       address: payload.address,
+      restaurant_latitude: restaurantRow.latitude,
+      restaurant_longitude: restaurantRow.longitude,
+      delivery_latitude: payload.deliveryCoords.latitude,
+      delivery_longitude: payload.deliveryCoords.longitude,
       estimated_delivery: estimatedDelivery,
     })
     .select('*')

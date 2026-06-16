@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  ActivityIndicator, View, Text, StyleSheet, TouchableOpacity,
   ScrollView, StatusBar, Platform, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Href, useRouter } from 'expo-router';
+import { Href, Redirect, useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
+import { dashboardForRole } from '@/services/authRoutes';
 
 // Preload all slide images + auth images on module load so they show instantly
 const HOME_1 = require('@/home-1.jpeg');
@@ -43,6 +45,7 @@ export default function OnboardingScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const router = useRouter();
   const { t } = useLanguage();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [dims, setDims] = useState(Dimensions.get('window'));
   useEffect(() => {
     const sub = Dimensions.addEventListener('change', ({ window }) => setDims(window));
@@ -69,6 +72,18 @@ export default function OnboardingScreen() {
 
   const slideWidth = screenWidth;
   const slideHeight = screenHeight;
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Redirect href={dashboardForRole(user?.role)} />;
+  }
 
   return (
     <View style={styles.container}>
@@ -137,6 +152,7 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  loadingScreen: { alignItems: 'center', backgroundColor: Colors.background, flex: 1, justifyContent: 'center' },
   logoContainer: {
     position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40,
     left: Spacing.md, flexDirection: 'row', alignItems: 'center', zIndex: 10,
