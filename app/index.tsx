@@ -13,7 +13,7 @@ export default function AppEntry() {
   if (isLoading) {
     return (
       <View style={styles.loadingScreen}>
-        <ActivityIndicator color={Colors.primary} />
+        <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     );
   }
@@ -23,16 +23,33 @@ export default function AppEntry() {
   }
 
   return (
-    <View style={styles.startScreen}>
-      <View style={styles.hero}>
-        <Image source={require('@/assets/images/hero-delivery.png')} style={styles.heroImage} contentFit="cover" />
+    <View style={styles.container}>
+      {/* Full-screen hero image */}
+      <Image
+        source={require('@/assets/images/fpic.png')}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+      />
+
+      {/* Dark gradient overlay at the bottom for button readability */}
+      <View style={styles.bottomOverlay} />
+
+      {/* Logo at the top */}
+      <View style={styles.logoRow}>
+        <Image
+          source={require('@/assets/images/logo.png')}
+          style={styles.logoIcon}
+          contentFit="contain"
+        />
       </View>
-      <View style={styles.brand}>
-        <Text style={styles.title}>RedRush</Text>
-        <Text style={styles.subtitle}>Food delivery, ready when you are.</Text>
-      </View>
-      <View style={styles.actionWrap}>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace('/auth')} activeOpacity={0.86}>
+
+      {/* Get Started button pinned to the bottom */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() => router.replace('/auth')}
+          activeOpacity={0.86}
+        >
           <Text style={styles.primaryButtonText}>Get Started</Text>
         </TouchableOpacity>
       </View>
@@ -47,51 +64,46 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  startScreen: {
+  container: {
+    flex: 1,
     backgroundColor: Colors.background,
-    flex: 1,
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xl,
   },
-  hero: {
-    borderRadius: BorderRadius.xl,
-    flex: 1,
-    minHeight: 360,
-    overflow: 'hidden',
+  bottomOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 220,
+    // Dark gradient from transparent to near-black
+    backgroundColor: 'rgba(10,0,0,0.72)',
   },
-  heroImage: {
-    height: '100%',
-    width: '100%',
-  },
-  brand: {
+  logoRow: {
+    position: 'absolute',
+    top: Spacing.xl + 16,
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    paddingTop: Spacing.xl,
   },
-  title: {
-    color: Colors.text,
-    fontSize: FontSize.xxl,
-    fontWeight: FontWeight.extrabold,
-    marginTop: Spacing.md,
+  logoIcon: {
+    width: 120,
+    height: 120,
   },
-  subtitle: {
-    color: Colors.textMuted,
-    fontSize: FontSize.body,
-    marginTop: Spacing.xs,
-    textAlign: 'center',
-  },
-  actionWrap: {
-    paddingTop: Spacing.xl,
+  footer: {
+    position: 'absolute',
+    bottom: Spacing.xl + 16,
+    left: Spacing.xl,
+    right: Spacing.xl,
   },
   primaryButton: {
     alignItems: 'center',
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.full,
-    paddingVertical: 16,
+    paddingVertical: 18,
   },
   primaryButtonText: {
     color: Colors.text,
     fontSize: FontSize.body,
     fontWeight: FontWeight.bold,
+    letterSpacing: 0.4,
   },
 });
