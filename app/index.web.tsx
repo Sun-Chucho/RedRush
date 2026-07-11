@@ -11,6 +11,12 @@ const LANDING_LINKS = [
   { label: 'Support', href: '/support' },
 ] as const;
 
+/**
+ * Web landing page. This is the marketing entry for the web build only —
+ * the native apps have their own welcome screen (app/index.tsx +
+ * app/index.android.tsx via the AppWelcome component). It is fully responsive:
+ * one real landing page that reflows for phone, tablet, and desktop widths.
+ */
 export default function WebEntry() {
   const router = useRouter();
   const [width, setWidth] = useState(() => Dimensions.get('window').width);
@@ -20,63 +26,48 @@ export default function WebEntry() {
     return () => sub?.remove();
   }, []);
 
-  // Phone shell / narrow viewport → show the mobile splash experience
-  if (width < 600) {
-    return (
-      <View style={styles.splashContainer}>
-        {/* Full-screen hero image */}
-        <Image
-          source={require('@/assets/images/fpic.png')}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-        />
+  const isNarrow = width < 720;
 
-        {/* Dark gradient overlay at the bottom */}
-        <View style={styles.splashBottomOverlay} />
-
-        {/* Get Started button pinned to the bottom */}
-        <View style={styles.splashFooter}>
-          <TouchableOpacity
-            style={styles.splashPrimaryButton}
-            onPress={() => router.replace('/auth')}
-            activeOpacity={0.86}
-          >
-            <Text style={styles.splashPrimaryButtonText}>Get Started</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  // Desktop / wide viewport → full web landing page
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, isNarrow && styles.heroNarrow]}>
         <Image source={require('@/assets/images/hero.jpeg')} style={StyleSheet.absoluteFill} contentFit="cover" />
         <View style={styles.heroShade} />
+
         <View style={styles.nav}>
-          <View style={styles.brandRow}>
-            <Text style={styles.brandText}>RedRush</Text>
-          </View>
-          <View style={styles.navLinks}>
-            {LANDING_LINKS.map(link => (
-              <TouchableOpacity key={link.href} onPress={() => router.push(link.href)}>
-                <Text style={styles.navLink}>{link.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.brandText}>RedRush</Text>
+          {!isNarrow && (
+            <View style={styles.navLinks}>
+              {LANDING_LINKS.map(link => (
+                <TouchableOpacity key={link.href} onPress={() => router.push(link.href)}>
+                  <Text style={styles.navLink}>{link.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.heroCopy}>
-          <Text style={styles.title}>RedRush</Text>
-          <Text style={styles.subtitle}>
-            Fast local food delivery for customers, restaurants, and riders with live order tracking and accurate shop locations.
+          <Text style={[styles.title, isNarrow && styles.titleNarrow]}>
+            Fast local food delivery
           </Text>
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace('/auth')} activeOpacity={0.86}>
+          <Text style={styles.subtitle}>
+            RedRush connects customers, restaurants, and riders with live order tracking and accurate shop locations.
+          </Text>
+
+          <View style={[styles.actions, isNarrow && styles.actionsNarrow]}>
+            <TouchableOpacity
+              style={[styles.primaryButton, isNarrow && styles.buttonFull]}
+              onPress={() => router.replace('/auth')}
+              activeOpacity={0.86}
+            >
               <Text style={styles.primaryButtonText}>Enter RedRush</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/privacy-policy')} activeOpacity={0.86}>
+            <TouchableOpacity
+              style={[styles.secondaryButton, isNarrow && styles.buttonFull]}
+              onPress={() => router.push('/privacy-policy')}
+              activeOpacity={0.86}
+            >
               <Text style={styles.secondaryButtonText}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
@@ -90,6 +81,19 @@ export default function WebEntry() {
           <Feature title="Order tracking" body="Customers, vendors, riders, and admins see live order states with rider location when available." />
           <Feature title="Ready for launch" body="Public privacy, terms, support, and account deletion pages are available from the landing page." />
         </View>
+      </View>
+
+      {/* Footer — legal links always reachable, including on narrow screens
+          where they are hidden from the top nav. */}
+      <View style={styles.footer}>
+        <View style={styles.footerLinks}>
+          {LANDING_LINKS.map(link => (
+            <TouchableOpacity key={link.href} onPress={() => router.push(link.href)}>
+              <Text style={styles.footerLink}>{link.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={styles.footerCopy}>© {new Date().getFullYear()} RedRush</Text>
       </View>
     </ScrollView>
   );
@@ -105,39 +109,6 @@ function Feature({ title, body }: { title: string; body: string }) {
 }
 
 const styles = StyleSheet.create({
-  // ── Mobile splash styles ─────────────────────────────────────────────────
-  splashContainer: {
-    flex: 1,
-    backgroundColor: '#0a0000',
-  },
-  splashBottomOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 220,
-    backgroundColor: 'rgba(10,0,0,0.72)',
-  },
-  splashFooter: {
-    position: 'absolute',
-    bottom: 40,
-    left: Spacing.xl,
-    right: Spacing.xl,
-  },
-  splashPrimaryButton: {
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.full,
-    paddingVertical: 18,
-  },
-  splashPrimaryButtonText: {
-    color: Colors.text,
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.4,
-  },
-
-  // ── Web landing page styles ──────────────────────────────────────────────
   screen: {
     backgroundColor: '#120D0D',
     flex: 1,
@@ -153,6 +124,10 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     position: 'relative',
   },
+  heroNarrow: {
+    minHeight: 560,
+    paddingHorizontal: Spacing.lg,
+  },
   heroShade: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(18,13,13,0.62)',
@@ -166,11 +141,6 @@ const styles = StyleSheet.create({
     maxWidth: 1120,
     width: '100%',
     zIndex: 1,
-  },
-  brandRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: Spacing.sm,
   },
   brandText: {
     color: Colors.text,
@@ -193,14 +163,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: 'auto',
     maxWidth: 1120,
-    minHeight: 500,
+    minHeight: 460,
     width: '100%',
     zIndex: 1,
   },
   title: {
     color: Colors.text,
-    fontSize: 72,
+    fontSize: 68,
     fontWeight: FontWeight.extrabold,
+    maxWidth: 720,
+  },
+  titleNarrow: {
+    fontSize: 40,
   },
   subtitle: {
     color: 'rgba(255,255,255,0.86)',
@@ -214,6 +188,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.md,
     marginTop: Spacing.xl,
+  },
+  actionsNarrow: {
+    flexDirection: 'column',
+  },
+  buttonFull: {
+    width: '100%',
   },
   primaryButton: {
     alignItems: 'center',
@@ -283,5 +263,29 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     lineHeight: 22,
     marginTop: Spacing.sm,
+  },
+  footer: {
+    alignItems: 'center',
+    backgroundColor: '#120D0D',
+    borderTopColor: Colors.border,
+    borderTopWidth: 1,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: 40,
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.lg,
+    justifyContent: 'center',
+  },
+  footerLink: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+  },
+  footerCopy: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
   },
 });
