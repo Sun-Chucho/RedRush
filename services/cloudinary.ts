@@ -39,11 +39,6 @@ export async function pickCompressAndUploadImage(kind: UploadKind) {
     throw new Error('Cloudinary is not configured. Add EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET.');
   }
 
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (permission.status !== 'granted') {
-    throw new Error('Allow photo library access to upload an image.');
-  }
-
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: false,
