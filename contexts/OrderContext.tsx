@@ -81,6 +81,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   // ─── Fetch orders from Supabase ─────────────────────────────────────────
   const loadOrders = useCallback(async (showLoading = true) => {
     if (!user || !isSupabaseConfigured) return;
+    // A vendor's RLS query and realtime filter both depend on the restaurant
+    // record. Waiting here avoids a throwaway unfiltered request/channel while
+    // RestaurantContext is still hydrating after sign-in.
+    if (user.role === 'vendor' && !vendorRestaurantId) return;
     if (loadPromiseRef.current) return loadPromiseRef.current;
 
     const request = (async () => {
@@ -125,6 +129,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   // ─── Supabase Realtime subscription ─────────────────────────────────────
   useEffect(() => {
     if (!user || !isSupabaseConfigured) return;
+    if (user.role === 'vendor' && !vendorRestaurantId) return;
 
     let filter: string | undefined;
 
@@ -138,7 +143,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     // admin watches all
 
     const channel = supabase
-      .channel(`orders-${user.id}`)
+      .channel(`orders-${user.id}-${vendorRestaurantId || user.role}`)
       .on(
         'postgres_changes',
         {

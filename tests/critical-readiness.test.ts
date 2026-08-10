@@ -44,6 +44,12 @@ test('native Google OAuth returns to the installed app', () => {
   assert.match(manifest, /android:scheme="redrush"/);
 });
 
+test('vendor realtime waits for its restaurant before opening an order channel', () => {
+  const orders = read('contexts/OrderContext.tsx');
+  assert.match(orders, /user\.role === 'vendor' && !vendorRestaurantId/);
+  assert.match(orders, /orders-\$\{user\.id\}-\$\{vendorRestaurantId \|\| user\.role\}/);
+});
+
 test('desktop web uses desktop width while phone web keeps the mobile shell', () => {
   const layout = read('app/_layout.tsx');
   assert.match(layout, /width < 768/);
