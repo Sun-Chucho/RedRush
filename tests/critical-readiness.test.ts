@@ -22,11 +22,23 @@ test('native launch never blocks first paint on authentication restore', () => {
 test('native and web location use platform permission prompts and GPS currency', () => {
   const currencyContext = read('contexts/CurrencyContext.tsx');
   assert.match(currencyContext, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(currencyContext, /navigator\.permissions\?\.query/);
+  assert.match(currencyContext, /permission\?\.state === 'denied'/);
+  assert.match(currencyContext, /withTimeout\(new Promise<ReadableLocation>/);
   assert.match(currencyContext, /Platform\.OS === 'web'/);
   assert.match(currencyContext, /requestForegroundPermissionsAsync\(\)/);
   assert.match(currencyContext, /currencyForCoordinates\(current\.coords\.latitude, current\.coords\.longitude\)/);
   assert.match(currencyContext, /reverseGeocodeAsync[\s\S]*\.catch\(\(\) => \[\]\)/);
   assert.doesNotMatch(currencyContext, /showAlert/);
+});
+
+test('theme hydration never hides the entire application', () => {
+  const theme = read('contexts/ThemeContext.tsx');
+  const html = read('app/+html.tsx');
+  assert.doesNotMatch(theme, /if \(!ready\) return null/);
+  assert.match(theme, /ThemeContext\.Provider value=\{value\}>\{children\}/);
+  assert.match(html, /background: #120D0D/);
+  assert.match(html, /name="theme-color"/);
 });
 
 test('startup requests platform location without a custom permission modal', () => {

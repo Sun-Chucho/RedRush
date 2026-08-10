@@ -32,13 +32,26 @@ type ReadableLocation = {
   coords: { latitude: number; longitude: number };
 };
 
-function browserLocation(): Promise<ReadableLocation> {
-  return new Promise((resolve, reject) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      reject(new Error('Location is not supported by this browser.'));
-      return;
-    }
+async function browserLocation(): Promise<ReadableLocation> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    throw new Error('Location is not supported by this browser.');
+  }
 
+  // When Chrome has automatically blocked repeatedly ignored prompts, asking
+  // again only logs a warning and cannot display a system prompt. Detect that
+  // state first and fail immediately while keeping the rest of the app usable.
+  if (navigator.permissions?.query) {
+    const permission = await withTimeout(
+      navigator.permissions.query({ name: 'geolocation' }),
+      1500,
+      'Location permission status took too long.'
+    ).catch(() => null);
+    if (permission?.state === 'denied') {
+      throw new Error('Location access was denied. Allow it in your browser site settings to see nearby restaurants.');
+    }
+  }
+
+  return withTimeout(new Promise<ReadableLocation>((resolve, reject) => {
     // Calling getCurrentPosition directly is intentional: it lets the browser
     // own the permission UX and show its native site-permission prompt.
     navigator.geolocation.getCurrentPosition(
@@ -59,9 +72,9 @@ function browserLocation(): Promise<ReadableLocation> {
         }
         reject(new Error('Your current location could not be determined.'));
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
-  });
+  }), 12000, 'Location took too long to respond. Check that location services are enabled and try again.');
 }
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {

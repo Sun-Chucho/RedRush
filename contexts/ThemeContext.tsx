@@ -19,7 +19,6 @@ function getInitialMode(): ThemeMode {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>(getInitialMode);
-  const [ready, setReady] = useState(false);
 
   const applyNativeTheme = async (nextMode: ThemeMode) => {
     applyThemeColors(nextMode);
@@ -38,7 +37,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         await applyNativeTheme(nextMode);
         setMode(nextMode);
       })
-      .finally(() => setReady(true));
+      .catch(() => {
+        // Theme persistence is cosmetic and must never block the application.
+        applyThemeColors(getInitialMode());
+      });
   }, []);
 
   const toggleTheme = async () => {
@@ -49,8 +51,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo(() => ({ mode, toggleTheme }), [mode]);
-
-  if (!ready) return null;
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
