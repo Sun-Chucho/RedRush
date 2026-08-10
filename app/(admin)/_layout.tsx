@@ -9,13 +9,14 @@ export default function AdminLayout() {
   useThemeMode();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const useSidebar = width >= 900;
+  const useSidebar = width >= 768;
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarPosition: useSidebar ? 'left' : 'bottom',
         tabBarLabelPosition: useSidebar ? 'beside-icon' : 'below-icon',
+        tabBarActiveBackgroundColor: useSidebar ? Colors.primary + '18' : undefined,
         tabBarItemStyle: useSidebar ? styles.sidebarItem : undefined,
         sceneStyle: useSidebar ? styles.desktopScene : styles.mobileScene,
         tabBarStyle: useSidebar ? styles.sidebar : {
@@ -29,7 +30,7 @@ export default function AdminLayout() {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: { fontSize: FontSize.xs, fontWeight: FontWeight.medium },
+        tabBarLabelStyle: { fontSize: useSidebar ? FontSize.sm : FontSize.xs, fontWeight: useSidebar ? FontWeight.semibold : FontWeight.medium },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Overview', tabBarIcon: ({ color, size }) => <MaterialIcons name="dashboard" size={size} color={color} /> }} />

@@ -7,13 +7,14 @@ import { Colors, FontSize, FontWeight } from '@/constants/theme';
 export default function RiderLayout() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const useSidebar = width >= 900;
+  const useSidebar = width >= 768;
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarPosition: useSidebar ? 'left' : 'bottom',
         tabBarLabelPosition: useSidebar ? 'beside-icon' : 'below-icon',
+        tabBarActiveBackgroundColor: useSidebar ? Colors.primary + '18' : undefined,
         tabBarItemStyle: useSidebar ? styles.sidebarItem : undefined,
         sceneStyle: useSidebar ? styles.desktopScene : styles.mobileScene,
         tabBarStyle: useSidebar ? styles.sidebar : {
@@ -27,7 +28,7 @@ export default function RiderLayout() {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: { fontSize: FontSize.xs, fontWeight: FontWeight.medium },
+        tabBarLabelStyle: { fontSize: useSidebar ? FontSize.sm : FontSize.xs, fontWeight: useSidebar ? FontWeight.semibold : FontWeight.medium },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <MaterialIcons name="home" size={size} color={color} /> }} />

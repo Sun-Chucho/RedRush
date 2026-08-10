@@ -17,6 +17,8 @@ interface CurrencyContextType {
   country: string;
   locationLabel: string;
   coords: { latitude: number; longitude: number } | null;
+  locationStatus: 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable';
+  locationError: string | null;
   formatMoney: (amount: number) => string;
   refreshLocationCurrency: () => Promise<{
     label: string;
@@ -70,6 +72,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [country, setCountry] = useState(localeCountry);
   const [locationLabel, setLocationLabel] = useState(localeCountry);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<CurrencyContextType['locationStatus']>('idle');
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const applyLocation = useCallback(async (current: ReadableLocation) => {
     setCoords({
@@ -84,6 +88,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     setCurrency(currencyForCoordinates(current.coords.latitude, current.coords.longitude));
     setCountry(marketCountry);
     setLocationLabel(marketCountry);
+    setLocationStatus('granted');
+    setLocationError(null);
 
     const [place] = await withTimeout(
       Location.reverseGeocodeAsync(current.coords),
@@ -115,35 +121,45 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshLocationCurrency = useCallback(async () => {
-    if (Platform.OS === 'web') {
-      return applyLocation(await browserLocation());
-    }
-
-    const servicesEnabled = await Location.hasServicesEnabledAsync();
-    if (!servicesEnabled) throw new Error('Turn on device location services and try again.');
-
-    let permission = await Location.getForegroundPermissionsAsync();
-    if (permission.status !== 'granted' && permission.canAskAgain) {
-      permission = await Location.requestForegroundPermissionsAsync();
-    }
-
-    if (permission.status !== 'granted') {
-      setCoords(null);
-      throw new Error('Allow location access in your phone settings to show nearby restaurants and local prices.');
-    }
-
-    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 30 * 60 * 1000, requiredAccuracy: 5000 });
-    if (lastKnown) await applyLocation(lastKnown);
+    setLocationStatus('requesting');
+    setLocationError(null);
 
     try {
-      const current = await withTimeout(
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-        15000,
-        'GPS took too long to respond.'
-      );
-      return applyLocation(current);
+      if (Platform.OS === 'web') {
+        return await applyLocation(await browserLocation());
+      }
+
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) throw new Error('Turn on device location services and try again.');
+
+      let permission = await Location.getForegroundPermissionsAsync();
+      if (permission.status !== 'granted' && permission.canAskAgain) {
+        permission = await Location.requestForegroundPermissionsAsync();
+      }
+
+      if (permission.status !== 'granted') {
+        setCoords(null);
+        throw new Error('Location access was denied.');
+      }
+
+      const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 30 * 60 * 1000, requiredAccuracy: 5000 });
+      if (lastKnown) await applyLocation(lastKnown);
+
+      try {
+        const current = await withTimeout(
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          15000,
+          'GPS took too long to respond.'
+        );
+        return await applyLocation(current);
+      } catch (error) {
+        if (lastKnown) return await applyLocation(lastKnown);
+        throw error;
+      }
     } catch (error) {
-      if (lastKnown) return applyLocation(lastKnown);
+      const message = error instanceof Error ? error.message : 'Location is unavailable.';
+      setLocationStatus(message.toLowerCase().includes('denied') ? 'denied' : 'unavailable');
+      setLocationError(message);
       throw error;
     }
   }, [applyLocation]);
@@ -154,10 +170,12 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       country,
       locationLabel,
       coords,
+      locationStatus,
+      locationError,
       formatMoney: (amount: number) => formatCurrency(amount, currency),
       refreshLocationCurrency,
     }),
-    [currency, country, locationLabel, coords]
+    [currency, country, locationLabel, coords, locationStatus, locationError]
   );
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;

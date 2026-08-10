@@ -24,7 +24,7 @@ export default function CustomerLayout() {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const { width } = useWindowDimensions();
-  const useSidebar = width >= 900;
+  const useSidebar = width >= 768;
 
   return (
     <Tabs
@@ -32,6 +32,7 @@ export default function CustomerLayout() {
         headerShown: false,
         tabBarPosition: useSidebar ? 'left' : 'bottom',
         tabBarLabelPosition: useSidebar ? 'beside-icon' : 'below-icon',
+        tabBarActiveBackgroundColor: useSidebar ? Colors.primary + '18' : undefined,
         tabBarItemStyle: useSidebar ? styles.sidebarItem : undefined,
         sceneStyle: useSidebar ? styles.desktopScene : styles.mobileScene,
         tabBarStyle: useSidebar ? styles.sidebar : {
@@ -45,7 +46,7 @@ export default function CustomerLayout() {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: { fontSize: FontSize.xs, fontWeight: FontWeight.medium },
+        tabBarLabelStyle: { fontSize: useSidebar ? FontSize.sm : FontSize.xs, fontWeight: useSidebar ? FontWeight.semibold : FontWeight.medium },
       }}
     >
       <Tabs.Screen name="index" options={{ title: t('home'), tabBarIcon: ({ color, size }) => <MaterialIcons name="home" size={size} color={color} /> }} />

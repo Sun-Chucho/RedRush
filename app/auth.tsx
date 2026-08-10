@@ -54,9 +54,17 @@ export default function AuthScreen() {
   const { mode: themeMode } = useThemeMode();
   const { height, width } = useWindowDimensions();
   const showHero = Platform.OS === 'web';
-  const isWideWeb = Platform.OS === 'web' && width >= 900;
+  const isWideWeb = Platform.OS === 'web' && width >= 1024;
+  const isTabletWeb = Platform.OS === 'web' && width >= 768 && width < 1024;
   const compactRoles = Platform.OS !== 'web' && width < 370;
   const heroHeight = Math.max(220, Math.min(320, Math.round(height * 0.34)));
+  const authPanelWidth: number | `${number}%` = isWideWeb
+    ? '48%'
+    : isTabletWeb
+    ? Math.min(width - 96, 620)
+    : Platform.OS === 'web'
+    ? Math.min(width - 32, 560)
+    : width;
 
   const heroImage = mode === 'register' ? SIGN_1 : SIGN_2;
 
@@ -123,17 +131,17 @@ export default function AuthScreen() {
         <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={Colors.background} />
         <ScrollView
           style={[styles.scrollView, themed.screen]}
-          contentContainerStyle={[styles.scroll, !showHero && styles.scrollNative, isWideWeb && styles.scrollWide]}
+          contentContainerStyle={[styles.scroll, !showHero && styles.scrollNative, isTabletWeb && styles.scrollTablet, isWideWeb && styles.scrollWide]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >
           {showHero && (
-            <View style={[styles.hero, { height: heroHeight }, isWideWeb && styles.heroWide]}>
+            <View style={[styles.hero, { height: heroHeight }, isTabletWeb && styles.heroTablet, isWideWeb && styles.heroWide]}>
               <Image
                 source={heroImage}
                 style={styles.heroImage}
-                contentFit="contain"
+                contentFit={isWideWeb ? 'cover' : 'contain'}
                 transition={120}
               />
               <LinearGradient
@@ -141,13 +149,29 @@ export default function AuthScreen() {
                 locations={[0, 0.34, 0.72, 1]}
                 style={styles.heroGradient}
               />
+              {isWideWeb ? (
+                <View style={styles.heroContent}>
+                  <View style={styles.brandMark}><Text style={styles.brandMarkText}>R</Text></View>
+                  <Text style={styles.heroEyebrow}>REDRUSH DELIVERY</Text>
+                  <Text style={styles.heroTitle}>Good food, moving fast.</Text>
+                  <Text style={styles.heroSubtitle}>Order nearby, follow every step, and see your rider approach in real time.</Text>
+                </View>
+              ) : null}
             </View>
           )}
 
-          <View style={[styles.authPanel, !showHero && styles.authPanelNative, isWideWeb && styles.authPanelWide, themed.screen]}>
-            <View style={styles.topControls}>
+          <View style={[styles.authPanel, !showHero && styles.authPanelNative, isTabletWeb && styles.authPanelTablet, isWideWeb && styles.authPanelWide, { width: authPanelWidth }]}>
+            <View style={[styles.topControls, (isTabletWeb || isWideWeb) && styles.topControlsWide]}>
               <LanguageToggle />
             </View>
+
+            {isWideWeb ? (
+              <View style={styles.panelHeading}>
+                <Text style={styles.panelEyebrow}>{mode === 'login' ? 'WELCOME BACK' : 'JOIN REDRUSH'}</Text>
+                <Text style={styles.panelTitle}>{mode === 'login' ? 'Sign in to continue' : 'Create your account'}</Text>
+                <Text style={styles.panelSubtitle}>{mode === 'login' ? 'Your restaurants, orders and live delivery updates are ready.' : 'Choose how you use RedRush and get started in minutes.'}</Text>
+              </View>
+            ) : null}
 
             <View style={[styles.modeToggle, themed.modeToggle]}>
               {(['login', 'register'] as const).map(m => (
@@ -256,13 +280,13 @@ export default function AuthScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel="Continue with Google"
-              style={[styles.googleBtn, themed.inputRow, loading && { opacity: 0.7 }]}
+              style={[styles.googleBtn, loading && { opacity: 0.7 }]}
               onPress={handleGoogleSignIn}
               disabled={loading}
               testID="google-sign-in"
             >
               <FontAwesome name="google" size={20} color="#4285F4" style={styles.googleMark} />
-              <Text style={styles.googleBtnText}>Continue with Google</Text>
+              <Text style={styles.googleBtnText} numberOfLines={1}>Continue with Google</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -276,16 +300,30 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollView: { flex: 1, backgroundColor: Colors.background },
   scroll: { paddingBottom: Spacing.xl },
-  scrollWide: { flexGrow: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'center', width: '100%', maxWidth: 1180, paddingHorizontal: 40, paddingVertical: 40, gap: 48 },
+  scrollTablet: { flexGrow: 1, justifyContent: 'center', alignSelf: 'center', width: '100%', maxWidth: 720, paddingHorizontal: 32, paddingVertical: 32 },
+  scrollWide: { flexGrow: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'center', width: '100%', maxWidth: 1240, paddingHorizontal: 32, paddingVertical: 32, gap: 32 },
   scrollNative: { flexGrow: 1, justifyContent: 'center', paddingVertical: Spacing.lg },
   hero: { minHeight: 220, position: 'relative', overflow: 'hidden', backgroundColor: Colors.background },
-  heroWide: { flex: 1, width: '52%', height: 680, maxHeight: 760, borderRadius: BorderRadius.lg },
+  heroTablet: { height: 340, borderRadius: 24 },
+  heroWide: { flex: 1.08, width: '52%', height: 720, maxHeight: 760, borderRadius: 28 },
   heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   heroGradient: { ...StyleSheet.absoluteFillObject },
-  authPanel: { alignSelf: 'center', paddingHorizontal: Spacing.md, paddingTop: 0, width: '100%', maxWidth: 560 },
+  heroContent: { position: 'absolute', left: 36, right: 36, bottom: 36 },
+  brandMark: { alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, height: 50, justifyContent: 'center', marginBottom: 18, width: 50 },
+  brandMarkText: { color: Colors.primary, fontSize: 29, fontWeight: FontWeight.extrabold },
+  heroEyebrow: { color: 'rgba(255,255,255,0.76)', fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.8, marginBottom: 8 },
+  heroTitle: { color: '#FFFFFF', fontSize: 38, fontWeight: FontWeight.extrabold, letterSpacing: -1.1, lineHeight: 43, maxWidth: 440 },
+  heroSubtitle: { color: 'rgba(255,255,255,0.82)', fontSize: FontSize.body, lineHeight: 23, marginTop: 12, maxWidth: 430 },
+  authPanel: { alignSelf: 'center', paddingHorizontal: Spacing.md, paddingTop: 0, maxWidth: 560 },
   authPanelNative: { justifyContent: 'center' },
-  authPanelWide: { flex: 1, width: '48%', maxWidth: 520, paddingHorizontal: 0, paddingTop: Spacing.lg },
+  authPanelTablet: { alignSelf: 'center', backgroundColor: Colors.surfaceCard, borderColor: Colors.border, borderRadius: 24, borderWidth: 1, marginTop: -22, maxWidth: 620, paddingHorizontal: 28, paddingBottom: 26, paddingTop: 22 },
+  authPanelWide: { alignSelf: 'center', flex: 0.92, maxWidth: 520, backgroundColor: Colors.surfaceCard, borderColor: Colors.border, borderRadius: 28, borderWidth: 1, paddingHorizontal: 32, paddingBottom: 28, paddingTop: 24 },
   topControls: { alignSelf: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
+  topControlsWide: { alignSelf: 'flex-end', marginBottom: Spacing.md },
+  panelHeading: { marginBottom: Spacing.lg },
+  panelEyebrow: { color: Colors.primary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.7, marginBottom: 7 },
+  panelTitle: { color: Colors.text, fontSize: 27, fontWeight: FontWeight.extrabold, letterSpacing: -0.5 },
+  panelSubtitle: { color: Colors.textMuted, fontSize: FontSize.sm, lineHeight: 20, marginTop: 7 },
   modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.md },
   modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: BorderRadius.sm },
   modeBtnActive: { backgroundColor: Colors.primary },
@@ -312,7 +350,7 @@ const styles = StyleSheet.create({
   dividerText: { color: Colors.textMuted, fontSize: FontSize.sm },
   googleBtn: { alignItems: 'center', backgroundColor: '#FFFFFF', borderColor: '#DADCE0', borderRadius: BorderRadius.full, borderWidth: 1, flexDirection: 'row', height: 52, justifyContent: 'center', marginBottom: Spacing.md },
   googleMark: { marginRight: Spacing.sm },
-  googleBtnText: { color: '#3C4043', flex: 0, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
+  googleBtnText: { color: '#3C4043', flexShrink: 0, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
   forgotBtn: { alignSelf: 'flex-end', paddingVertical: 2 },
   forgotText: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
 });

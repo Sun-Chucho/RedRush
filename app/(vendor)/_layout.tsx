@@ -7,7 +7,7 @@ import { Colors, FontSize, FontWeight } from '@/constants/theme';
 export default function VendorLayout() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const useSidebar = width >= 900;
+  const useSidebar = width >= 768;
 
   return (
     <Tabs
@@ -15,6 +15,7 @@ export default function VendorLayout() {
         headerShown: false,
         tabBarPosition: useSidebar ? 'left' : 'bottom',
         tabBarLabelPosition: useSidebar ? 'beside-icon' : 'below-icon',
+        tabBarActiveBackgroundColor: useSidebar ? Colors.primary + '18' : undefined,
         tabBarItemStyle: useSidebar ? styles.sidebarItem : undefined,
         sceneStyle: useSidebar ? styles.desktopScene : styles.mobileScene,
         tabBarStyle: useSidebar ? styles.sidebar : {
@@ -28,7 +29,7 @@ export default function VendorLayout() {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: { fontSize: FontSize.xs, fontWeight: FontWeight.medium },
+        tabBarLabelStyle: { fontSize: useSidebar ? FontSize.sm : FontSize.xs, fontWeight: useSidebar ? FontWeight.semibold : FontWeight.medium },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Dashboard', tabBarIcon: ({ color, size }) => <MaterialIcons name="dashboard" size={size} color={color} /> }} />

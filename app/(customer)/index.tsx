@@ -35,14 +35,13 @@ export default function CustomerHome() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { formatMoney, locationLabel, refreshLocationCurrency, coords } = useCurrency();
+  const { formatMoney, locationLabel, refreshLocationCurrency, coords, locationStatus } = useCurrency();
   const { notificationSettings, enablePushNotifications } = useCustomerData();
   const { t } = useLanguage();
   const { showAlert } = useAlert();
   const { restaurants, categories, isLoading, error, refreshRestaurants } = useRestaurants();
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
-  const isExtraWide = width >= 1320;
 
   const cuisines = useMemo(() => {
     if (categories.length > 0) {
@@ -70,22 +69,23 @@ export default function CustomerHome() {
           <TouchableOpacity
             style={styles.locationRow}
             onPress={() => {
-              refreshLocationCurrency()
-                .then(({ label }) => showAlert('Location updated', `Showing restaurants near ${label}.`))
-                .catch(error => showAlert(
-                  'Location unavailable',
-                  error instanceof Error ? error.message : 'Unable to read your current location.',
-                  Platform.OS === 'web'
-                    ? [{ text: 'OK' }]
-                    : [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
-                      ]
-                ));
+              if (locationStatus === 'denied' && Platform.OS !== 'web') {
+                void Linking.openSettings();
+                return;
+              }
+              void refreshLocationCurrency().catch(() => undefined);
             }}
           >
             <MaterialIcons name="location-on" size={14} color={Colors.primary} />
-            <Text style={styles.locationText} numberOfLines={1}>{locationLabel}</Text>
+            <Text style={[styles.locationText, locationStatus === 'denied' && styles.locationTextDenied]} numberOfLines={1}>
+              {locationStatus === 'requesting'
+                ? 'Finding your location…'
+                : locationStatus === 'denied'
+                ? Platform.OS === 'web' ? 'Location blocked — enable it in site settings' : 'Location blocked — open settings'
+                : locationStatus === 'unavailable'
+                ? 'Location unavailable — tap to retry'
+                : locationLabel}
+            </Text>
             <MaterialIcons name="keyboard-arrow-down" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -154,7 +154,7 @@ export default function CustomerHome() {
         <Text style={styles.sectionTitle2}>{selectedCuisine === 'All' ? t('allRestaurants') : selectedCuisine}</Text>
         {isLoading && restaurants.length === 0 ? (
           <View accessibilityLabel="Loading restaurants" style={[styles.restaurantGrid, isWide && styles.restaurantGridWide]}>
-            {[0, 1, 2].map(item => <RestaurantSkeleton key={item} wide={isWide} extraWide={isExtraWide} />)}
+            {[0, 1, 2].map(item => <RestaurantSkeleton key={item} wide={isWide} />)}
           </View>
         ) : null}
         {!isLoading && error ? (
@@ -176,7 +176,7 @@ export default function CustomerHome() {
         ) : null}
         <View style={[styles.restaurantGrid, isWide && styles.restaurantGridWide]}>
           {filtered.map(r => (
-            <RestaurantCard key={r.id} restaurant={r} wide={isWide} extraWide={isExtraWide} closedLabel={t('closed')} deliveryLabel={t('delivery')} formatMoney={formatMoney} onPress={() => router.push(`/restaurant/${r.id}`)} />
+            <RestaurantCard key={r.id} restaurant={r} wide={isWide} closedLabel={t('closed')} deliveryLabel={t('delivery')} formatMoney={formatMoney} onPress={() => router.push(`/restaurant/${r.id}`)} />
           ))}
         </View>
         <View style={{ height: 20 }} />
@@ -185,9 +185,9 @@ export default function CustomerHome() {
   );
 }
 
-function RestaurantSkeleton({ wide, extraWide }: { wide: boolean; extraWide: boolean }) {
+function RestaurantSkeleton({ wide }: { wide: boolean }) {
   return (
-    <View style={[styles.restaurantCard, wide && styles.restaurantCardWide, extraWide && styles.restaurantCardExtraWide]}>
+    <View style={[styles.restaurantCard, wide && styles.restaurantCardWide]}>
       <View style={[styles.restaurantImg, styles.skeleton]} />
       <View style={styles.restaurantInfo}>
         <View style={[styles.skeletonLine, { width: '62%' }]} />
@@ -198,9 +198,9 @@ function RestaurantSkeleton({ wide, extraWide }: { wide: boolean; extraWide: boo
   );
 }
 
-function RestaurantCard({ restaurant, wide, extraWide, closedLabel, deliveryLabel, formatMoney, onPress }: { restaurant: Restaurant; wide: boolean; extraWide: boolean; closedLabel: string; deliveryLabel: string; formatMoney: (amount: number) => string; onPress: () => void }) {
+function RestaurantCard({ restaurant, wide, closedLabel, deliveryLabel, formatMoney, onPress }: { restaurant: Restaurant; wide: boolean; closedLabel: string; deliveryLabel: string; formatMoney: (amount: number) => string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={[styles.restaurantCard, wide && styles.restaurantCardWide, extraWide && styles.restaurantCardExtraWide]} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.restaurantCard, wide && styles.restaurantCardWide]} onPress={onPress} activeOpacity={0.85}>
       <Image source={{ uri: restaurant.image }} style={styles.restaurantImg} contentFit="cover" cachePolicy="memory-disk" transition={120} />
       <View style={styles.restaurantInfo}>
         <View style={styles.restaurantNameRow}>
@@ -235,6 +235,7 @@ const styles = StyleSheet.create({
   welcomeText: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: 4 },
   locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   locationText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, maxWidth: '82%', marginHorizontal: 3 },
+  locationTextDenied: { color: Colors.warning },
   notifBtn: { position: 'relative', width: 42, height: 42, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceCard, borderWidth: 1, borderColor: Colors.border },
   notifDot: { position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   scroll: { flex: 1 },
@@ -270,7 +271,6 @@ const styles = StyleSheet.create({
   restaurantGrid: {},
   restaurantGridWide: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, paddingHorizontal: Spacing.md },
   restaurantCardWide: { width: '48.8%', marginHorizontal: 0, marginBottom: 0, minHeight: 112 },
-  restaurantCardExtraWide: { width: '32.3%' },
   restaurantImg: { width: 100, height: 100 },
   restaurantInfo: { flex: 1, padding: Spacing.sm },
   restaurantNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

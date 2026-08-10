@@ -1,8 +1,8 @@
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { Linking, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AlertProvider, useAlert } from '@/template';
+import { AlertProvider } from '@/template';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
 import { OrderProvider } from '@/contexts/OrderContext';
@@ -30,25 +30,10 @@ function AuthenticatedPushRegistration() {
 
 function NativeLocationBootstrap() {
   const { refreshLocationCurrency } = useCurrency();
-  const { showAlert } = useAlert();
-  const showAlertRef = useRef(showAlert);
-  showAlertRef.current = showAlert;
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      refreshLocationCurrency().catch(error => {
-        const actions = Platform.OS === 'web'
-          ? [{ text: 'OK' }]
-          : [
-              { text: 'Not now', style: 'cancel' as const },
-              { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
-            ];
-        showAlertRef.current(
-          'Location needed',
-          error instanceof Error ? error.message : 'RedRush could not read this device location.',
-          actions
-        );
-      });
+      refreshLocationCurrency().catch(() => undefined);
     }, 700);
 
     return () => clearTimeout(timer);

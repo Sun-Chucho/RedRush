@@ -29,12 +29,13 @@ test('native and web location use platform permission prompts and GPS currency',
   assert.doesNotMatch(currencyContext, /showAlert/);
 });
 
-test('native startup explicitly requests location and reports permission failures', () => {
+test('startup requests platform location without a custom permission modal', () => {
   const layout = read('app/_layout.tsx');
   assert.match(layout, /function NativeLocationBootstrap/);
   assert.doesNotMatch(layout, /attempted\.current/);
   assert.match(layout, /refreshLocationCurrency\(\)\.catch/);
-  assert.match(layout, /Open Settings/);
+  assert.doesNotMatch(layout, /Location needed/);
+  assert.doesNotMatch(layout, /useAlert/);
 });
 
 test('native Google OAuth returns to the installed app', () => {
