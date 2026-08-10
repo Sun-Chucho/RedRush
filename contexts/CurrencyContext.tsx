@@ -1,12 +1,11 @@
 import React, { createContext, ReactNode, useCallback, useMemo, useState } from 'react';
 import * as Location from 'expo-location';
-import { getLocales } from 'expo-localization';
+import { getCalendars, getLocales } from 'expo-localization';
 import { Platform } from 'react-native';
 import {
   DEFAULT_CURRENCY,
   SupportedCurrency,
   currencyForCoordinates,
-  currencyForCountry,
   formatCurrency,
 } from '@/constants/currency';
 import { marketForCoordinates, marketForCountry, nearestServiceTier, SUPPORTED_MARKETS } from '@/constants/locationTiers';
@@ -79,7 +78,8 @@ async function browserLocation(): Promise<ReadableLocation> {
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const localeRegion = getLocales()[0]?.regionCode;
-  const localeMarket = marketForCountry(localeRegion === 'TZ' ? 'Tanzania' : 'Kenya');
+  const deviceTimeZone = getCalendars()[0]?.timeZone;
+  const localeMarket = marketForCountry(`${localeRegion || ''} ${deviceTimeZone || ''}`);
   const localeCountry = SUPPORTED_MARKETS[localeMarket].country;
   const [currency, setCurrency] = useState<SupportedCurrency>(SUPPORTED_MARKETS[localeMarket].currency || DEFAULT_CURRENCY);
   const [country, setCountry] = useState(localeCountry);
@@ -109,14 +109,17 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       6000,
       'Address lookup took too long.'
     ).catch(() => []);
-    const nextCountry = place?.country || marketCountry;
+    const geocodedCountry = place?.country;
+    const nextCountry = geocodedCountry && marketForCountry(geocodedCountry) === nextMarket
+      ? geocodedCountry
+      : marketCountry;
     const nextTier = nearestServiceTier(
       { latitude: current.coords.latitude, longitude: current.coords.longitude },
       nextMarket
     );
-    const nextCurrency = nextCountry
-      ? currencyForCountry(nextCountry)
-      : SUPPORTED_MARKETS[nextMarket].currency;
+    // GPS is the source of truth. Reverse geocoders sometimes return an ISO
+    // code, an old cached result, or no country at all.
+    const nextCurrency = SUPPORTED_MARKETS[nextMarket].currency;
 
     setCurrency(nextCurrency);
     setCountry(nextCountry);
@@ -188,7 +191,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       formatMoney: (amount: number) => formatCurrency(amount, currency),
       refreshLocationCurrency,
     }),
-    [currency, country, locationLabel, coords, locationStatus, locationError]
+    [currency, country, locationLabel, coords, locationStatus, locationError, refreshLocationCurrency]
   );
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;

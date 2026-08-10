@@ -34,11 +34,7 @@ function NativeLocationBootstrap() {
   const { refreshLocationCurrency } = useCurrency();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      refreshLocationCurrency().catch(() => undefined);
-    }, 700);
-
-    return () => clearTimeout(timer);
+    refreshLocationCurrency().catch(() => undefined);
   }, [refreshLocationCurrency]);
 
   return null;

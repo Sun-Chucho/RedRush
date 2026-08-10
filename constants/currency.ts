@@ -2,7 +2,7 @@ import {
   marketForCoordinates,
   marketForCountry,
   SUPPORTED_MARKETS,
-} from './locationTiers';
+} from './locationTiers.ts';
 
 export type SupportedCurrency = 'KES' | 'TZS';
 

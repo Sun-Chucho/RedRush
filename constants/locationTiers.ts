@@ -43,23 +43,50 @@ export function distanceKm(
 }
 
 export function marketForCountry(country?: string | null): SupportedMarketCode {
-  const normalized = country?.trim().toLowerCase();
-  if (normalized?.includes('tanzania')) return 'TZ';
+  const normalized = country?.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+  const parts = normalized?.split(/\s+/).filter(Boolean) ?? [];
+  if (
+    parts.includes('tz') ||
+    parts.includes('tza') ||
+    parts.includes('834') ||
+    normalized?.includes('tanzania') ||
+    normalized?.includes('dar es salaam')
+  ) return 'TZ';
   return 'KE';
 }
 
 export function marketForCoordinates(latitude?: number, longitude?: number): SupportedMarketCode {
   if (latitude == null || longitude == null) return 'KE';
 
-  for (const [marketCode, bounds] of Object.entries(COUNTRY_BOUNDS) as [SupportedMarketCode, typeof COUNTRY_BOUNDS[SupportedMarketCode]][]) {
-    if (
-      latitude >= bounds.minLat &&
-      latitude <= bounds.maxLat &&
-      longitude >= bounds.minLon &&
-      longitude <= bounds.maxLon
-    ) {
-      return marketCode;
-    }
+  const inside = (bounds: typeof COUNTRY_BOUNDS[SupportedMarketCode]) =>
+    latitude >= bounds.minLat && latitude <= bounds.maxLat &&
+    longitude >= bounds.minLon && longitude <= bounds.maxLon;
+  const inKenyaBounds = inside(COUNTRY_BOUNDS.KE);
+  const inTanzaniaBounds = inside(COUNTRY_BOUNDS.TZ);
+
+  if (inTanzaniaBounds && !inKenyaBounds) return 'TZ';
+  if (inKenyaBounds && !inTanzaniaBounds) return 'KE';
+
+  if (inKenyaBounds && inTanzaniaBounds) {
+    // The countries' rectangular bounds overlap heavily. Approximate their
+    // shared border so Arusha, Mwanza and northern Tanzania never become KE,
+    // while Nairobi and Kenya's south coast remain KE.
+    if (longitude < 33.9) return 'TZ';
+    const border = [
+      { longitude: 33.9, latitude: -1.0 },
+      { longitude: 35.0, latitude: -1.0 },
+      { longitude: 36.0, latitude: -1.5 },
+      { longitude: 36.8, latitude: -2.55 },
+      { longitude: 37.7, latitude: -3.3 },
+      { longitude: 39.2, latitude: -4.65 },
+      { longitude: 40.8, latitude: -4.7 },
+    ];
+    const upperIndex = border.findIndex(point => longitude <= point.longitude);
+    const upper = border[Math.max(1, upperIndex === -1 ? border.length - 1 : upperIndex)];
+    const lower = border[Math.max(0, border.indexOf(upper) - 1)];
+    const progress = (longitude - lower.longitude) / (upper.longitude - lower.longitude || 1);
+    const borderLatitude = lower.latitude + progress * (upper.latitude - lower.latitude);
+    return latitude <= borderLatitude ? 'TZ' : 'KE';
   }
 
   return 'KE';
