@@ -20,17 +20,16 @@ export const ResponsiveContainer: React.FC<ResponsiveContainerProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
-  const isLargeScreen = width > 1024;
-
-  const containerWidth = isWeb && isLargeScreen ? Math.min(width - padding * 2, maxWidth) : width;
+  const isLargeScreen = width >= 768;
 
   return (
     <View style={[
       styles.container,
       {
-        width: containerWidth,
-        paddingHorizontal: isWeb ? padding : 0,
-        marginHorizontal: isWeb ? 'auto' : 0,
+        width: '100%',
+        maxWidth: isWeb && isLargeScreen ? maxWidth : undefined,
+        paddingHorizontal: isWeb && isLargeScreen ? padding : 0,
+        alignSelf: isWeb && isLargeScreen ? 'center' : undefined,
       },
       style,
     ]}>
@@ -65,7 +64,7 @@ export const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
     else if (width > 480) gridColumns = Math.min(columns, 2);
   }
 
-  const itemWidth = (width - gap * (gridColumns - 1)) / gridColumns;
+  const itemWidth = `${gridColumns === 1 ? 100 : 100 / gridColumns - 1.5}%` as `${number}%`;
 
   return (
     <View style={[
@@ -83,7 +82,9 @@ export const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
           style: [
             child.props.style,
             {
-              width: isWeb ? itemWidth : '100%',
+              width: isWeb ? undefined : '100%',
+              flexBasis: isWeb ? itemWidth : undefined,
+              maxWidth: isWeb ? itemWidth : undefined,
               marginRight: gridColumns > 1 && !isWeb ? 0 : undefined,
             },
           ],

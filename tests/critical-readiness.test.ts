@@ -19,12 +19,14 @@ test('native launch never blocks first paint on authentication restore', () => {
   assert.match(welcome, /!isLoading && isAuthenticated/);
 });
 
-test('native location selects currency from GPS without requiring reverse geocoding', () => {
+test('native and web location use platform permission prompts and GPS currency', () => {
   const currencyContext = read('contexts/CurrencyContext.tsx');
-  assert.match(currencyContext, /Platform\.OS !== 'web'/);
+  assert.match(currencyContext, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(currencyContext, /Platform\.OS === 'web'/);
   assert.match(currencyContext, /requestForegroundPermissionsAsync\(\)/);
   assert.match(currencyContext, /currencyForCoordinates\(current\.coords\.latitude, current\.coords\.longitude\)/);
   assert.match(currencyContext, /reverseGeocodeAsync[\s\S]*\.catch\(\(\) => \[\]\)/);
+  assert.doesNotMatch(currencyContext, /showAlert/);
 });
 
 test('native startup explicitly requests location and reports permission failures', () => {
@@ -52,8 +54,14 @@ test('vendor realtime waits for its restaurant before opening an order channel',
 
 test('desktop web uses desktop width while phone web keeps the mobile shell', () => {
   const layout = read('app/_layout.tsx');
+  const customerTabs = read('app/(customer)/_layout.tsx');
+  const customerHome = read('app/(customer)/index.tsx');
+  const tracking = read('app/order/[id].tsx');
   assert.match(layout, /width < 768/);
   assert.doesNotMatch(layout, /width >= 768/);
+  assert.match(customerTabs, /tabBarPosition: useSidebar \? 'left' : 'bottom'/);
+  assert.match(customerHome, /restaurantGridWide/);
+  assert.match(tracking, /trackingGridWide/);
 });
 
 test('release branding uses the large square R assets', () => {

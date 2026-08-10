@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated,
-  Linking, Platform,
+  Linking, Platform, useWindowDimensions,
 } from 'react-native';
 import { MapView, Marker, Polyline } from '@/components/MapViewCompat';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -57,6 +57,8 @@ export default function OrderTrackingScreen() {
   const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
 
   const order = getOrderById(id || '');
   const [riderCoords, setRiderCoords] = useState<RiderCoords | null>(null);
@@ -271,7 +273,7 @@ export default function OrderTrackingScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isWide && styles.contentWidth]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
@@ -301,7 +303,9 @@ export default function OrderTrackingScreen() {
         ) : null}
 
         {/* ── Full Map ── */}
-        {hasAccurateRoute ? <View style={styles.mapShell}>
+        <View style={[styles.trackingGrid, isWide && styles.trackingGridWide]}>
+          <View style={[styles.mapColumn, isWide && styles.mapColumnWide]}>
+        {hasAccurateRoute ? <View style={[styles.mapShell, isWide && styles.mapShellWide]}>
           <MapView
             style={styles.map}
             initialRegion={{
@@ -348,15 +352,17 @@ export default function OrderTrackingScreen() {
             <Text style={styles.mapEtaText}>{proximityKm == null ? etaLabel : `${proximityKm.toFixed(1)} km ${proximityLabel}`}</Text>
           </View>
         </View> : (
-          <View style={styles.locationUnavailable}>
+          <View style={[styles.locationUnavailable, isWide && styles.locationUnavailableWide]}>
             <MaterialIcons name="location-off" size={28} color={Colors.warning} />
             <Text style={styles.locationUnavailableTitle}>Live map unavailable for this order</Text>
             <Text style={styles.locationUnavailableText}>This older order does not contain both restaurant and delivery GPS coordinates. Its status timeline still updates live.</Text>
           </View>
         )}
+          </View>
+          <View style={[styles.detailsColumn, isWide && styles.detailsColumnWide]}>
 
         {/* ── Order Info Card ── */}
-        <View style={styles.orderCard}>
+        <View style={[styles.orderCard, isWide && styles.panelCardWide]}>
           <View style={styles.orderCardRow}>
             <View>
               <Text style={styles.orderId}>Order #{order.id.slice(-6).toUpperCase()}</Text>
@@ -423,7 +429,7 @@ export default function OrderTrackingScreen() {
         </View>
 
         {/* ── Live Progress Steps ── */}
-        <View style={styles.stepsContainer}>
+        <View style={[styles.stepsContainer, isWide && styles.panelCardWide]}>
           <Text style={styles.stepsTitle}>Order Progress</Text>
           {STEPS.map((step, index) => {
             const isCompleted = index <= currentStepIndex;
@@ -459,7 +465,7 @@ export default function OrderTrackingScreen() {
         </View>
 
         {/* ── Items ── */}
-        <View style={styles.itemsCard}>
+        <View style={[styles.itemsCard, isWide && styles.panelCardWide]}>
           <Text style={styles.itemsTitle}>Items Ordered</Text>
           {order.items.map((item, i) => (
             <View key={`${order.id}-${item.menuItem.id}-${i}`} style={styles.itemRow}>
@@ -477,7 +483,7 @@ export default function OrderTrackingScreen() {
         {/* ── Cancel Order CTA — only for pending/accepted ── */}
         {canCancel ? (
           <TouchableOpacity
-            style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
+            style={[styles.cancelBtn, isWide && styles.panelCardWide, cancelling && styles.cancelBtnDisabled]}
             onPress={handleCancelOrder}
             disabled={cancelling}
           >
@@ -491,17 +497,20 @@ export default function OrderTrackingScreen() {
         {/* ── Delivered: Review CTA ── */}
         {order.status === 'delivered' ? (
           alreadyRated ? (
-            <View style={styles.ratedBadge}>
+            <View style={[styles.ratedBadge, isWide && styles.panelCardWide]}>
               <MaterialIcons name="check-circle" size={18} color={Colors.success} />
               <Text style={styles.ratedText}>You rated this order</Text>
             </View>
           ) : (
-            <TouchableOpacity style={styles.reviewBtn} onPress={() => setShowRating(true)}>
+            <TouchableOpacity style={[styles.reviewBtn, isWide && styles.panelCardWide]} onPress={() => setShowRating(true)}>
               <MaterialIcons name="star" size={20} color={Colors.gold} />
               <Text style={styles.reviewBtnText}>Rate Your Experience</Text>
             </TouchableOpacity>
           )
         ) : null}
+
+          </View>
+        </View>
 
         <View style={{ height: 80 }} />
       </ScrollView>
@@ -524,7 +533,15 @@ export default function OrderTrackingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  contentWidth: { width: '100%', maxWidth: 1320, alignSelf: 'center' },
   scroll: { paddingBottom: 0 },
+  trackingGrid: {},
+  trackingGridWide: { width: '100%', maxWidth: 1320, alignSelf: 'center', flexDirection: 'row', alignItems: 'flex-start', gap: 24, padding: Spacing.lg },
+  mapColumn: {},
+  mapColumnWide: { width: '58%' },
+  detailsColumn: {},
+  detailsColumnWide: { flex: 1 },
+  panelCardWide: { marginHorizontal: 0 },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background, gap: Spacing.md },
   notFoundText: { color: Colors.text, fontSize: FontSize.lg },
   backLink: { color: Colors.primary, marginTop: Spacing.md },
@@ -541,6 +558,7 @@ const styles = StyleSheet.create({
   cancelledText: { color: Colors.error, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
 
   mapShell: { height: 260, margin: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.md },
+  mapShellWide: { height: 560, margin: 0 },
   map: { flex: 1 },
   mapTopLeft: { position: 'absolute', top: 12, left: 12 },
   mapBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(10,10,10,0.82)', borderRadius: BorderRadius.full, paddingHorizontal: 12, paddingVertical: 6 },
@@ -549,6 +567,7 @@ const styles = StyleSheet.create({
   mapEtaChip: { position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surface, borderRadius: BorderRadius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
   mapEtaText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
   locationUnavailable: { alignItems: 'center', backgroundColor: Colors.surfaceCard, borderColor: Colors.border, borderRadius: BorderRadius.lg, borderWidth: 1, gap: Spacing.xs, margin: Spacing.md, padding: Spacing.lg },
+  locationUnavailableWide: { minHeight: 300, justifyContent: 'center', margin: 0 },
   locationUnavailableTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, textAlign: 'center' },
   locationUnavailableText: { color: Colors.textMuted, fontSize: FontSize.sm, lineHeight: 20, textAlign: 'center' },
 

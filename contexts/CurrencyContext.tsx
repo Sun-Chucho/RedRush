@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useMemo, useState } from 'react';
 import * as Location from 'expo-location';
 import { getLocales } from 'expo-localization';
 import { Platform } from 'react-native';
@@ -26,6 +26,42 @@ interface CurrencyContextType {
 
 export const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
+type ReadableLocation = {
+  coords: { latitude: number; longitude: number };
+};
+
+function browserLocation(): Promise<ReadableLocation> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      reject(new Error('Location is not supported by this browser.'));
+      return;
+    }
+
+    // Calling getCurrentPosition directly is intentional: it lets the browser
+    // own the permission UX and show its native site-permission prompt.
+    navigator.geolocation.getCurrentPosition(
+      position => resolve({
+        coords: {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        },
+      }),
+      error => {
+        if (error.code === error.PERMISSION_DENIED) {
+          reject(new Error('Location access was denied. Allow it in your browser site settings to see nearby restaurants.'));
+          return;
+        }
+        if (error.code === error.TIMEOUT) {
+          reject(new Error('Location took too long to respond. Check that location services are enabled and try again.'));
+          return;
+        }
+        reject(new Error('Your current location could not be determined.'));
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 }
+    );
+  });
+}
+
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const localeRegion = getLocales()[0]?.regionCode;
   const localeMarket = marketForCountry(localeRegion === 'TZ' ? 'Tanzania' : 'Kenya');
@@ -35,7 +71,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [locationLabel, setLocationLabel] = useState(localeCountry);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  const applyLocation = useCallback(async (current: Location.LocationObject) => {
+  const applyLocation = useCallback(async (current: ReadableLocation) => {
     setCoords({
       latitude: current.coords.latitude,
       longitude: current.coords.longitude,
@@ -79,6 +115,10 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshLocationCurrency = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      return applyLocation(await browserLocation());
+    }
+
     const servicesEnabled = await Location.hasServicesEnabledAsync();
     if (!servicesEnabled) throw new Error('Turn on device location services and try again.');
 
@@ -106,22 +146,6 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       if (lastKnown) return applyLocation(lastKnown);
       throw error;
     }
-  }, [applyLocation]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const locate = async () => {
-      if (Platform.OS !== 'web') return;
-
-      const permission = await Location.getForegroundPermissionsAsync();
-      if (permission.status !== 'granted' || cancelled) return;
-      const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 30 * 60 * 1000 });
-      if (lastKnown && !cancelled) await applyLocation(lastKnown);
-    };
-
-    locate()
-      .catch(() => undefined);
-    return () => { cancelled = true; };
   }, [applyLocation]);
 
   const value = useMemo(

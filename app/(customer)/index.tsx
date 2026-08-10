@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Linking, View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  Linking, Platform, View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -40,6 +40,9 @@ export default function CustomerHome() {
   const { t } = useLanguage();
   const { showAlert } = useAlert();
   const { restaurants, categories, isLoading, error, refreshRestaurants } = useRestaurants();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
+  const isExtraWide = width >= 1320;
 
   const cuisines = useMemo(() => {
     if (categories.length > 0) {
@@ -61,7 +64,7 @@ export default function CustomerHome() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isWide && styles.contentWidth]}>
         <View style={styles.headerCopy}>
           <Text style={styles.eyebrow}>DELIVERING TO</Text>
           <TouchableOpacity
@@ -72,10 +75,12 @@ export default function CustomerHome() {
                 .catch(error => showAlert(
                   'Location unavailable',
                   error instanceof Error ? error.message : 'Unable to read your current location.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
-                  ]
+                  Platform.OS === 'web'
+                    ? [{ text: 'OK' }]
+                    : [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+                      ]
                 ));
             }}
           >
@@ -101,19 +106,22 @@ export default function CustomerHome() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
-        <View style={styles.welcomeBlock}>
-          <Text style={styles.greeting}>{t('hello')}, {firstName}</Text>
-          <Text style={styles.welcomeText}>What would you like to eat today?</Text>
-        </View>
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll} contentContainerStyle={[styles.scrollContent, isWide && styles.contentWidth]}>
+        <View style={[styles.intro, isWide && styles.introWide]}>
+          <View style={[styles.introCopy, isWide && styles.introCopyWide]}>
+            <View style={[styles.welcomeBlock, isWide && styles.welcomeBlockWide]}>
+              <Text style={[styles.greeting, isWide && styles.greetingWide]}>{t('hello')}, {firstName}</Text>
+              <Text style={styles.welcomeText}>What would you like to eat today?</Text>
+            </View>
 
-        <TouchableOpacity style={styles.searchRow} onPress={() => router.push('/(customer)/search')} activeOpacity={0.8} accessibilityRole="button">
-          <MaterialIcons name="search" size={20} color={Colors.textMuted} />
-          <Text style={styles.searchPlaceholder}>{t('searchRestaurantsDishes')}</Text>
-          <MaterialIcons name="arrow-forward" size={18} color={Colors.primary} />
-        </TouchableOpacity>
+            <TouchableOpacity style={[styles.searchRow, isWide && styles.searchRowWide]} onPress={() => router.push('/(customer)/search')} activeOpacity={0.8} accessibilityRole="button">
+              <MaterialIcons name="search" size={20} color={Colors.textMuted} />
+              <Text style={styles.searchPlaceholder}>{t('searchRestaurantsDishes')}</Text>
+              <MaterialIcons name="arrow-forward" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
 
-        <TouchableOpacity style={styles.promoBanner} activeOpacity={0.9}>
+          <TouchableOpacity style={[styles.promoBanner, isWide && styles.promoBannerWide]} activeOpacity={0.9}>
           <View style={styles.promoTextBlock}>
             <Text style={styles.promoKicker}>WELCOME OFFER</Text>
             <Text style={styles.promoTitle}>{PROMO_BANNERS[0].titleKey ? t(PROMO_BANNERS[0].titleKey) : PROMO_BANNERS[0].title}</Text>
@@ -123,7 +131,8 @@ export default function CustomerHome() {
             <Image source={PROMO_BANNERS[0].image} style={styles.promoImage} contentFit="cover" />
             <View style={styles.promoImageShade} />
           </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
         {/* Cuisine Filter */}
         <View style={styles.sectionHeader}>
@@ -144,8 +153,8 @@ export default function CustomerHome() {
 
         <Text style={styles.sectionTitle2}>{selectedCuisine === 'All' ? t('allRestaurants') : selectedCuisine}</Text>
         {isLoading && restaurants.length === 0 ? (
-          <View accessibilityLabel="Loading restaurants">
-            {[0, 1, 2].map(item => <RestaurantSkeleton key={item} />)}
+          <View accessibilityLabel="Loading restaurants" style={[styles.restaurantGrid, isWide && styles.restaurantGridWide]}>
+            {[0, 1, 2].map(item => <RestaurantSkeleton key={item} wide={isWide} extraWide={isExtraWide} />)}
           </View>
         ) : null}
         {!isLoading && error ? (
@@ -165,18 +174,20 @@ export default function CustomerHome() {
             <Text style={styles.feedbackBody}>Refresh your location or check again shortly.</Text>
           </View>
         ) : null}
-        {filtered.map(r => (
-          <RestaurantCard key={r.id} restaurant={r} closedLabel={t('closed')} deliveryLabel={t('delivery')} formatMoney={formatMoney} onPress={() => router.push(`/restaurant/${r.id}`)} />
-        ))}
+        <View style={[styles.restaurantGrid, isWide && styles.restaurantGridWide]}>
+          {filtered.map(r => (
+            <RestaurantCard key={r.id} restaurant={r} wide={isWide} extraWide={isExtraWide} closedLabel={t('closed')} deliveryLabel={t('delivery')} formatMoney={formatMoney} onPress={() => router.push(`/restaurant/${r.id}`)} />
+          ))}
+        </View>
         <View style={{ height: 20 }} />
       </ScrollView>
     </View>
   );
 }
 
-function RestaurantSkeleton() {
+function RestaurantSkeleton({ wide, extraWide }: { wide: boolean; extraWide: boolean }) {
   return (
-    <View style={styles.restaurantCard}>
+    <View style={[styles.restaurantCard, wide && styles.restaurantCardWide, extraWide && styles.restaurantCardExtraWide]}>
       <View style={[styles.restaurantImg, styles.skeleton]} />
       <View style={styles.restaurantInfo}>
         <View style={[styles.skeletonLine, { width: '62%' }]} />
@@ -187,9 +198,9 @@ function RestaurantSkeleton() {
   );
 }
 
-function RestaurantCard({ restaurant, closedLabel, deliveryLabel, formatMoney, onPress }: { restaurant: Restaurant; closedLabel: string; deliveryLabel: string; formatMoney: (amount: number) => string; onPress: () => void }) {
+function RestaurantCard({ restaurant, wide, extraWide, closedLabel, deliveryLabel, formatMoney, onPress }: { restaurant: Restaurant; wide: boolean; extraWide: boolean; closedLabel: string; deliveryLabel: string; formatMoney: (amount: number) => string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.restaurantCard} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.restaurantCard, wide && styles.restaurantCardWide, extraWide && styles.restaurantCardExtraWide]} onPress={onPress} activeOpacity={0.85}>
       <Image source={{ uri: restaurant.image }} style={styles.restaurantImg} contentFit="cover" cachePolicy="memory-disk" transition={120} />
       <View style={styles.restaurantInfo}>
         <View style={styles.restaurantNameRow}>
@@ -215,6 +226,7 @@ function RestaurantCard({ restaurant, closedLabel, deliveryLabel, formatMoney, o
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  contentWidth: { width: '100%', maxWidth: 1280, alignSelf: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12 },
   headerCopy: { flex: 1, paddingRight: Spacing.md },
   eyebrow: { color: Colors.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1 },
@@ -226,13 +238,22 @@ const styles = StyleSheet.create({
   notifBtn: { position: 'relative', width: 42, height: 42, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceCard, borderWidth: 1, borderColor: Colors.border },
   notifDot: { position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 24 },
+  intro: {},
+  introWide: { flexDirection: 'row', alignItems: 'stretch', gap: 24, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
+  introCopy: {},
+  introCopyWide: { width: '38%', justifyContent: 'center' },
+  welcomeBlockWide: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: Spacing.lg },
+  greetingWide: { fontSize: 30 },
   searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, paddingHorizontal: Spacing.md, height: 50, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   searchPlaceholder: { flex: 1, color: Colors.textMuted, fontSize: FontSize.sm, marginLeft: Spacing.sm },
+  searchRowWide: { marginHorizontal: 0, marginBottom: 0 },
   promoBanner: { height: 142, borderRadius: BorderRadius.lg, overflow: 'hidden', backgroundColor: Colors.primaryDark, marginHorizontal: Spacing.md, marginBottom: Spacing.lg, flexDirection: 'row' },
   promoImageFrame: { width: '42%', height: '100%', overflow: 'hidden' },
   promoImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.12)' },
   promoImage: { width: '100%', height: '100%' },
   promoTextBlock: { width: '58%', padding: Spacing.md, justifyContent: 'center' },
+  promoBannerWide: { flex: 1, height: 210, marginHorizontal: 0, marginBottom: Spacing.lg },
   promoKicker: { color: 'rgba(255,255,255,0.72)', fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.1, marginBottom: 5 },
   promoTitle: { color: '#FFFFFF', fontSize: FontSize.md, fontWeight: FontWeight.extrabold },
   promoSubtitle: { color: 'rgba(255,255,255,0.78)', fontSize: FontSize.xs, marginTop: 5, lineHeight: 16 },
@@ -246,6 +267,10 @@ const styles = StyleSheet.create({
   cuisineChipTextActive: { color: Colors.text, fontWeight: FontWeight.semibold },
   sectionTitle2: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold, marginHorizontal: Spacing.md, marginBottom: Spacing.sm },
   restaurantCard: { flexDirection: 'row', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, marginBottom: Spacing.sm, overflow: 'hidden', ...Shadow.md },
+  restaurantGrid: {},
+  restaurantGridWide: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, paddingHorizontal: Spacing.md },
+  restaurantCardWide: { width: '48.8%', marginHorizontal: 0, marginBottom: 0, minHeight: 112 },
+  restaurantCardExtraWide: { width: '32.3%' },
   restaurantImg: { width: 100, height: 100 },
   restaurantInfo: { flex: 1, padding: Spacing.sm },
   restaurantNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { formatMoney } = useCurrency();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
 
   const deliveryFee = 500;
   const serviceCharge = Math.round(total * 0.03);
@@ -34,7 +36,7 @@ export default function CartScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isWide && styles.contentWidth]}>
         <Text style={styles.headerTitle}>My Cart</Text>
         <TouchableOpacity onPress={clearCart}>
           <Text style={styles.clearText}>Clear All</Text>
@@ -42,41 +44,43 @@ export default function CartScreen() {
       </View>
 
       {/* Restaurant */}
-      <View style={styles.restaurantTag}>
+      <View style={[styles.restaurantTag, isWide && styles.contentWidth]}>
         <MaterialIcons name="restaurant" size={16} color={Colors.primary} />
         <Text style={styles.restaurantName}> {restaurantName}</Text>
         <Text style={styles.itemCount}>{itemCount} item{itemCount !== 1 ? 's' : ''}</Text>
       </View>
 
-      <FlatList
-        data={items}
-        keyExtractor={i => i.menuItem.id}
-        contentContainerStyle={{ padding: Spacing.md, paddingBottom: 200 }}
-        renderItem={({ item }) => (
-          <View style={styles.cartItem}>
-            <Image source={{ uri: item.menuItem.image }} style={styles.itemImg} contentFit="cover" />
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemName}>{item.menuItem.name}</Text>
-              <Text style={styles.itemPrice}>{formatMoney(item.menuItem.price)}</Text>
-            </View>
-            <View style={styles.qtyRow}>
-              <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQuantity(item.menuItem.id, item.quantity - 1)}>
-                <MaterialIcons name="remove" size={16} color={Colors.primary} />
+      <View style={[styles.body, isWide && styles.bodyWide]}>
+        <FlatList
+          style={styles.itemsList}
+          data={items}
+          keyExtractor={i => i.menuItem.id}
+          contentContainerStyle={[styles.itemsContent, isWide && styles.itemsContentWide]}
+          renderItem={({ item }) => (
+            <View style={styles.cartItem}>
+              <Image source={{ uri: item.menuItem.image }} style={styles.itemImg} contentFit="cover" />
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemName}>{item.menuItem.name}</Text>
+                <Text style={styles.itemPrice}>{formatMoney(item.menuItem.price)}</Text>
+              </View>
+              <View style={styles.qtyRow}>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQuantity(item.menuItem.id, item.quantity - 1)}>
+                  <MaterialIcons name="remove" size={16} color={Colors.primary} />
+                </TouchableOpacity>
+                <Text style={styles.qtyText}>{item.quantity}</Text>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQuantity(item.menuItem.id, item.quantity + 1)}>
+                  <MaterialIcons name="add" size={16} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity onPress={() => removeItem(item.menuItem.id)} style={styles.deleteBtn}>
+                <MaterialIcons name="delete-outline" size={20} color={Colors.error} />
               </TouchableOpacity>
-              <Text style={styles.qtyText}>{item.quantity}</Text>
-              <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQuantity(item.menuItem.id, item.quantity + 1)}>
-                <MaterialIcons name="add" size={16} color={Colors.primary} />
-              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => removeItem(item.menuItem.id)} style={styles.deleteBtn}>
-              <MaterialIcons name="delete-outline" size={20} color={Colors.error} />
-            </TouchableOpacity>
-          </View>
-        )}
-      />
+          )}
+        />
 
-      {/* Order Summary */}
-      <View style={[styles.summary, { paddingBottom: insets.bottom + Spacing.md }]}>
+        {/* Order Summary */}
+        <View style={[styles.summary, isWide && styles.summaryWide, { paddingBottom: isWide ? Spacing.lg : insets.bottom + Spacing.md }]}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal</Text>
           <Text style={styles.summaryValue}>{formatMoney(total)}</Text>
@@ -97,6 +101,7 @@ export default function CartScreen() {
           <Text style={styles.checkoutText}>Proceed to Checkout</Text>
           <MaterialIcons name="arrow-forward" size={20} color={Colors.text} />
         </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -104,6 +109,12 @@ export default function CartScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  contentWidth: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
+  body: { flex: 1 },
+  bodyWide: { width: '100%', maxWidth: 1200, alignSelf: 'center', flexDirection: 'row', alignItems: 'flex-start', gap: 24, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
+  itemsList: { flex: 1, width: '100%' },
+  itemsContent: { padding: Spacing.md, paddingBottom: 200 },
+  itemsContentWide: { padding: 0, paddingBottom: Spacing.xl },
   emptyContainer: { alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   headerTitle: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
@@ -121,6 +132,7 @@ const styles = StyleSheet.create({
   qtyText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, minWidth: 24, textAlign: 'center' },
   deleteBtn: { padding: 4 },
   summary: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border, padding: Spacing.md, ...Shadow.lg },
+  summaryWide: { position: 'relative', bottom: undefined, left: undefined, right: undefined, width: 380, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.lg, padding: Spacing.lg },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   summaryLabel: { color: Colors.textSecondary, fontSize: FontSize.sm },
   summaryValue: { color: Colors.text, fontSize: FontSize.sm },

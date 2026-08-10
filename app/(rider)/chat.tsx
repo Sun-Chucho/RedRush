@@ -2,7 +2,7 @@
  * Rider Chat Inbox — all active delivery chats grouped by order ID
  * Real-time unread badges via supabaseChat.ts
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -44,11 +44,14 @@ export default function RiderChatInbox() {
   const { orders } = useOrders();
 
   // Keep track of realtime subscriptions so we can clean them up
-  const unsubscribers = useRef<Array<() => void>>([]);
+  const unsubscribers = useRef<(() => void)[]>([]);
 
   // Active delivery orders assigned to this rider
-  const activeOrders = orders.filter(
-    o => o.riderId === user?.id && !['delivered', 'cancelled'].includes(o.status)
+  const activeOrders = useMemo(
+    () => orders.filter(
+      o => o.riderId === user?.id && !['delivered', 'cancelled'].includes(o.status)
+    ),
+    [orders, user?.id]
   );
 
   const buildThreads = useCallback(
@@ -108,7 +111,7 @@ export default function RiderChatInbox() {
   useEffect(() => {
     setLoading(true);
     loadThreads().finally(() => setLoading(false));
-  }, [orders.length, user?.id]); // re-run when orders change
+  }, [loadThreads]);
 
   // Subscribe to realtime updates for each active order
   useEffect(() => {
@@ -138,7 +141,7 @@ export default function RiderChatInbox() {
       unsubscribers.current.forEach(fn => fn());
       unsubscribers.current = [];
     };
-  }, [activeOrders.map(o => o.id).join(','), user?.id]);
+  }, [activeOrders, user?.id]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

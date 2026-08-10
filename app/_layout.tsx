@@ -35,17 +35,18 @@ function NativeLocationBootstrap() {
   showAlertRef.current = showAlert;
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-
     const timer = setTimeout(() => {
       refreshLocationCurrency().catch(error => {
+        const actions = Platform.OS === 'web'
+          ? [{ text: 'OK' }]
+          : [
+              { text: 'Not now', style: 'cancel' as const },
+              { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+            ];
         showAlertRef.current(
           'Location needed',
           error instanceof Error ? error.message : 'RedRush could not read this device location.',
-          [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
-          ]
+          actions
         );
       });
     }, 700);

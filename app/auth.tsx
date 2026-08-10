@@ -54,6 +54,7 @@ export default function AuthScreen() {
   const { mode: themeMode } = useThemeMode();
   const { height, width } = useWindowDimensions();
   const showHero = Platform.OS === 'web';
+  const isWideWeb = Platform.OS === 'web' && width >= 900;
   const compactRoles = Platform.OS !== 'web' && width < 370;
   const heroHeight = Math.max(220, Math.min(320, Math.round(height * 0.34)));
 
@@ -122,13 +123,13 @@ export default function AuthScreen() {
         <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={Colors.background} />
         <ScrollView
           style={[styles.scrollView, themed.screen]}
-          contentContainerStyle={[styles.scroll, !showHero && styles.scrollNative]}
+          contentContainerStyle={[styles.scroll, !showHero && styles.scrollNative, isWideWeb && styles.scrollWide]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >
           {showHero && (
-            <View style={[styles.hero, { height: heroHeight }]}>
+            <View style={[styles.hero, { height: heroHeight }, isWideWeb && styles.heroWide]}>
               <Image
                 source={heroImage}
                 style={styles.heroImage}
@@ -143,7 +144,7 @@ export default function AuthScreen() {
             </View>
           )}
 
-          <View style={[styles.authPanel, !showHero && styles.authPanelNative, themed.screen]}>
+          <View style={[styles.authPanel, !showHero && styles.authPanelNative, isWideWeb && styles.authPanelWide, themed.screen]}>
             <View style={styles.topControls}>
               <LanguageToggle />
             </View>
@@ -275,12 +276,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollView: { flex: 1, backgroundColor: Colors.background },
   scroll: { paddingBottom: Spacing.xl },
+  scrollWide: { flexGrow: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'center', width: '100%', maxWidth: 1180, paddingHorizontal: 40, paddingVertical: 40, gap: 48 },
   scrollNative: { flexGrow: 1, justifyContent: 'center', paddingVertical: Spacing.lg },
   hero: { minHeight: 220, position: 'relative', overflow: 'hidden', backgroundColor: Colors.background },
+  heroWide: { flex: 1, width: '52%', height: 680, maxHeight: 760, borderRadius: BorderRadius.lg },
   heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   heroGradient: { ...StyleSheet.absoluteFillObject },
   authPanel: { alignSelf: 'center', paddingHorizontal: Spacing.md, paddingTop: 0, width: '100%', maxWidth: 560 },
   authPanelNative: { justifyContent: 'center' },
+  authPanelWide: { flex: 1, width: '48%', maxWidth: 520, paddingHorizontal: 0, paddingTop: Spacing.lg },
   topControls: { alignSelf: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
   modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.md },
   modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: BorderRadius.sm },

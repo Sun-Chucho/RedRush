@@ -3,6 +3,14 @@
   "buildCommand": "pnpm build:web",
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Permissions-Policy", "value": "geolocation=(self)" }
+      ]
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",

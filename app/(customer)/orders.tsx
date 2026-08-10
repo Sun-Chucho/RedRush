@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, useWindowDimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -62,6 +62,8 @@ export default function OrdersScreen() {
   const { formatMoney } = useCurrency();
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
 
   useEffect(() => {
     if (user?.id) {
@@ -108,10 +110,10 @@ export default function OrdersScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.headerTitle}>{t('myOrders')}</Text>
+      <Text style={[styles.headerTitle, isWide && styles.contentWidth]}>{t('myOrders')}</Text>
 
       {/* Tab Row */}
-      <View style={styles.tabRow}>
+      <View style={[styles.tabRow, isWide && styles.contentWidth]}>
         {(['active', 'history'] as const).map(tabKey => (
           <TouchableOpacity
             key={tabKey}
@@ -128,7 +130,7 @@ export default function OrdersScreen() {
 
       {/* History Filters */}
       {tab === 'history' ? (
-        <View style={styles.filtersWrap}>
+        <View style={[styles.filtersWrap, isWide && styles.contentWidth]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -207,6 +209,9 @@ export default function OrdersScreen() {
       ) : null}
 
       <FlatList
+        key={isWide ? 'orders-grid' : 'orders-list'}
+        numColumns={isWide ? 2 : 1}
+        columnWrapperStyle={isWide ? styles.listRow : undefined}
         data={displayed}
         keyExtractor={(o, index) => `${o.id}-${index}`}
         renderItem={({ item }) => (
@@ -219,7 +224,7 @@ export default function OrdersScreen() {
           />
         )}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, isWide && styles.listWide]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <MaterialIcons name="receipt-long" size={64} color={Colors.textMuted} />
@@ -323,6 +328,7 @@ function OrderCard({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  contentWidth: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
   headerTitle: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
 
   tabRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.sm },
@@ -402,11 +408,13 @@ const styles = StyleSheet.create({
   sortOptionTextActive: { color: Colors.primary, fontWeight: FontWeight.semibold },
 
   list: { paddingHorizontal: Spacing.md, paddingBottom: 80 },
+  listWide: { width: '100%', maxWidth: 1200, alignSelf: 'center', paddingBottom: Spacing.xl },
+  listRow: { gap: Spacing.md },
   empty: { alignItems: 'center', paddingVertical: 80, paddingHorizontal: Spacing.md },
   emptyTitle: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.bold, marginTop: Spacing.md },
   emptySubtitle: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.xs, textAlign: 'center' },
 
-  card: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginBottom: Spacing.md, overflow: 'hidden', flexDirection: 'row', ...Shadow.md },
+  card: { flex: 1, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginBottom: Spacing.md, overflow: 'hidden', flexDirection: 'row', ...Shadow.md },
   cardStripe: { width: 4 },
   cardInner: { flex: 1, padding: Spacing.md },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
