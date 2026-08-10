@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
@@ -260,8 +260,8 @@ export default function AuthScreen() {
               disabled={loading}
               testID="google-sign-in"
             >
-              <Text style={styles.googleMark}>G</Text>
-              <Text style={[styles.googleBtnText, themed.input]}>Continue with Google</Text>
+              <FontAwesome name="google" size={20} color="#4285F4" style={styles.googleMark} />
+              <Text style={styles.googleBtnText}>Continue with Google</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -306,9 +306,9 @@ const styles = StyleSheet.create({
   dividerRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   dividerLine: { backgroundColor: Colors.border, flex: 1, height: 1 },
   dividerText: { color: Colors.textMuted, fontSize: FontSize.sm },
-  googleBtn: { alignItems: 'center', backgroundColor: Colors.surfaceCard, borderColor: Colors.border, borderRadius: BorderRadius.full, borderWidth: 1, flexDirection: 'row', height: 52, justifyContent: 'center', marginBottom: Spacing.md },
-  googleMark: { color: '#4285F4', fontSize: 20, fontWeight: FontWeight.bold, marginRight: Spacing.sm },
-  googleBtnText: { color: Colors.text, flex: 0, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
+  googleBtn: { alignItems: 'center', backgroundColor: '#FFFFFF', borderColor: '#DADCE0', borderRadius: BorderRadius.full, borderWidth: 1, flexDirection: 'row', height: 52, justifyContent: 'center', marginBottom: Spacing.md },
+  googleMark: { marginRight: Spacing.sm },
+  googleBtnText: { color: '#3C4043', flex: 0, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
   forgotBtn: { alignSelf: 'flex-end', paddingVertical: 2 },
   forgotText: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
 });
