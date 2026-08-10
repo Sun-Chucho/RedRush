@@ -28,13 +28,14 @@ export async function registerPushTokenOnBackend(token: string): Promise<void> {
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) return;
 
-  await registerSupabasePushToken(
+  const registered = await registerSupabasePushToken(
     authData.user.id,
     token,
     Platform.OS === 'ios' || Platform.OS === 'android' || Platform.OS === 'web'
       ? Platform.OS
       : 'unknown'
   );
+  if (!registered) throw new Error('Push token could not be saved.');
 }
 
 /**

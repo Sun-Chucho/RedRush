@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { UserRole } from '@/constants/mockData';
 import { useAlert } from '@/template';
 import { reviewRoleRequestOnBackend } from '@/services/backend';
-import { fetchSupabaseAdminUsers, fetchSupabaseRoleRequests } from '@/services/supabaseRoles';
+import { fetchSupabaseAdminUsers, fetchSupabaseRoleRequests, updateSupabaseUserStatus } from '@/services/supabaseRoles';
 
 const ROLE_TABS = ['All', 'Customers', 'Vendors', 'Riders'];
 
@@ -43,6 +44,7 @@ export default function AdminUsers() {
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
   const styles = useMemo(() => createStyles(), []);
+  const router = useRouter();
 
   useEffect(() => {
     fetchSupabaseAdminUsers().then(nextUsers => {
@@ -62,8 +64,14 @@ export default function AdminUsers() {
     return matchTab && matchSearch;
   });
 
-  const handleAction = (user: AdminUser, action: string) => {
-    showAlert(`${action} User`, `${action} action recorded for ${user.name}.`);
+  const handleStatusAction = async (user: AdminUser, status: 'active' | 'suspended' | 'banned') => {
+    try {
+      await updateSupabaseUserStatus(user.id, status);
+      setUsers(current => current.map(item => item.id === user.id ? { ...item, status } : item));
+      showAlert('Account updated', `${user.name} is now ${status}.`);
+    } catch (error) {
+      showAlert('Update failed', error instanceof Error ? error.message : 'Unable to update this account.');
+    }
   };
 
   const handleReviewRoleRequest = async (request: RoleRequest, decision: 'approved' | 'rejected') => {
@@ -141,9 +149,12 @@ export default function AdminUsers() {
                 <Text style={styles.joinedText}>Joined {item.joined}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.moreBtn} onPress={() => showAlert(item.name, `Actions: View Profile, Suspend, Ban, Message`, [
-              { text: 'Suspend', style: 'destructive', onPress: () => handleAction(item, 'Suspend') },
-              { text: 'View', onPress: () => handleAction(item, 'View') },
+            <TouchableOpacity style={styles.moreBtn} onPress={() => showAlert(item.name, 'Choose an account action.', [
+              { text: 'View profile', onPress: () => router.push(`/(admin)/user/${item.id}` as any) },
+              ...(item.status === 'active'
+                ? [{ text: 'Suspend', style: 'destructive' as const, onPress: () => void handleStatusAction(item, 'suspended') }]
+                : [{ text: 'Reactivate', onPress: () => void handleStatusAction(item, 'active') }]),
+              { text: 'Ban', style: 'destructive', onPress: () => void handleStatusAction(item, 'banned') },
               { text: 'Cancel', style: 'cancel' },
             ])}>
               <MaterialIcons name="more-vert" size={20} color={Colors.textMuted} />

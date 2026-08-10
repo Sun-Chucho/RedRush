@@ -32,6 +32,7 @@ type ProfileRow = {
   avatar: string | null;
   address: string | null;
   restaurant_id: string | null;
+  status?: string | null;
 };
 
 function safeSignupRole(role: Partial<AuthUser>['role']) {
@@ -92,6 +93,10 @@ async function ensureSupabaseProfile(userId: string, data: Partial<AuthUser>): P
   if (selectError) throw selectError;
 
   if (existing) {
+    if (existing.status === 'suspended' || existing.status === 'banned') {
+      await supabase.auth.signOut().catch(() => undefined);
+      throw new Error(`This account is ${existing.status}. Contact RedRush support for help.`);
+    }
     return toAuthUser(existing as ProfileRow, data.email);
   }
 
@@ -372,7 +377,13 @@ export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { pass
     password: data.password,
   });
 
-  if (signInError) throw signInError;
+  if (signInError) {
+    const message = signInError.message.toLowerCase();
+    if (message.includes('confirm') || message.includes('verified')) {
+      throw new Error('Account created. Check your email and confirm it, then return to sign in.');
+    }
+    throw signInError;
+  }
   if (!signInResult.user) throw new Error('Account created, but sign in failed.');
 
   return ensureSupabaseProfile(signInResult.user.id, {

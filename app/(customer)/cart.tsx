@@ -1,22 +1,24 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useCart } from '@/hooks/useCart';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 export default function CartScreen() {
-  const { items, total, itemCount, updateQuantity, removeItem, restaurantName, clearCart } = useCart();
+  const { items, total, itemCount, updateQuantity, removeItem, restaurantId, restaurantName, clearCart } = useCart();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { formatMoney } = useCurrency();
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
 
-  const deliveryFee = 500;
+  const { getRestaurantById } = useRestaurants();
+  const deliveryFee = Math.max(0, Number((restaurantId ? getRestaurantById(restaurantId) : undefined)?.deliveryFee || 0));
   const serviceCharge = Math.round(total * 0.03);
   const grandTotal = total + deliveryFee + serviceCharge;
 

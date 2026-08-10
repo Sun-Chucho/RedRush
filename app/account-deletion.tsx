@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import { requestAccountDeletion } from '@/services/accountDeletion';
 

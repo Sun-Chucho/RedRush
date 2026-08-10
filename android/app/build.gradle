@@ -123,9 +123,12 @@ android {
         }
         release {
             def isEasBuild = System.getenv('EAS_BUILD') == 'true'
+            def isReleaseTask = gradle.startParameter.taskNames.any { taskName ->
+                taskName.toLowerCase().contains('release') || taskName.toLowerCase().contains('bundle')
+            }
             if (signingConfigs.release.storeFile) {
                 signingConfig signingConfigs.release
-            } else if (!isEasBuild) {
+            } else if (!isEasBuild && isReleaseTask) {
                 throw new GradleException("Production release signing is not configured. Set REDRUSH_RELEASE_STORE_FILE, REDRUSH_RELEASE_STORE_PASSWORD, REDRUSH_RELEASE_KEY_ALIAS, and REDRUSH_RELEASE_KEY_PASSWORD.")
             }
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'true'

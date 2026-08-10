@@ -6,7 +6,7 @@ import {
   Modal, View, Text, StyleSheet, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
 
 interface Props {
@@ -55,6 +55,7 @@ function RatingModal({ visible, restaurantName, onSubmit, onDismiss }: Props) {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const canSubmit = overall > 0 && food > 0 && delivery > 0 && !submitting;
 
@@ -65,6 +66,7 @@ function RatingModal({ visible, restaurantName, onSubmit, onDismiss }: Props) {
     setComment('');
     setSubmitting(false);
     setSubmitted(false);
+    setSubmitError('');
   };
 
   const handleClose = () => {
@@ -75,9 +77,12 @@ function RatingModal({ visible, restaurantName, onSubmit, onDismiss }: Props) {
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
+    setSubmitError('');
     try {
       await onSubmit({ rating: overall, foodRating: food, deliveryRating: delivery, comment });
       setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Your review was not saved. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -175,6 +180,7 @@ function RatingModal({ visible, restaurantName, onSubmit, onDismiss }: Props) {
                   </>
                 )}
               </TouchableOpacity>
+              {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
 
               <View style={{ height: 20 }} />
             </ScrollView>
@@ -312,6 +318,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontWeight: FontWeight.bold,
   },
+  submitError: { color: Colors.error, fontSize: FontSize.sm, marginTop: Spacing.sm, textAlign: 'center' },
 
   // Success
   successState: {

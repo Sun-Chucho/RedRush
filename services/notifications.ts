@@ -121,9 +121,10 @@ export async function registerForPushNotifications(userId?: string): Promise<str
     const token = (
       await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)
     ).data;
-    await registerPushTokenOnBackend(token).catch(() => undefined);
+    await registerPushTokenOnBackend(token);
     return token;
-  } catch {
+  } catch (error) {
+    console.warn('[notifications] Push registration failed:', error);
     return null;
   }
 }

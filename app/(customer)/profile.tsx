@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Linking, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -274,17 +274,15 @@ export default function ProfileScreen() {
 
         {activePanel === 'paymentMethods' ? (
           <>
-            {customerData.paymentMethods.map(method => (
-              <TouchableOpacity key={method.id} style={styles.dataRow} onPress={() => customerData.setDefaultPaymentMethod(method.id)}>
-                <MaterialIcons name={method.type === 'card' ? 'credit-card' : method.type === 'cash' ? 'payments' : 'phone-android'} size={22} color={Colors.primary} />
-                <View style={styles.dataText}>
-                  <Text style={styles.dataTitle}>{method.label}</Text>
-                  <Text style={styles.dataSub}>{method.detail}</Text>
-                </View>
-                {method.isDefault ? <MaterialIcons name="check-circle" size={20} color={Colors.success} /> : null}
-              </TouchableOpacity>
-            ))}
-            {customerData.paymentMethods.length === 0 ? <EmptyPanel text="No saved payment methods yet. Checkout still supports cash while online payment is pending." /> : null}
+            <View style={styles.dataRow}>
+              <MaterialIcons name="payments" size={22} color={Colors.success} />
+              <View style={styles.dataText}>
+                <Text style={styles.dataTitle}>Cash on Delivery</Text>
+                <Text style={styles.dataSub}>Pay the rider when your order arrives</Text>
+              </View>
+              <MaterialIcons name="check-circle" size={20} color={Colors.success} />
+            </View>
+            <EmptyPanel text="Mobile Money and card payments are coming soon." />
           </>
         ) : null}
 

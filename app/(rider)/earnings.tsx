@@ -3,11 +3,10 @@
  */
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useAlert } from '@/template';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrders } from '@/hooks/useOrders';
 
@@ -48,7 +47,6 @@ export default function RiderEarnings() {
   const [period, setPeriod] = useState<Period>('Week');
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
-  const { showAlert } = useAlert();
   const { formatMoney } = useCurrency();
   const { user } = useAuth();
   const { orders, refreshOrders } = useOrders();
@@ -195,23 +193,13 @@ export default function RiderEarnings() {
       <View style={styles.payoutCard}>
         <View style={styles.payoutHeader}>
           <MaterialIcons name="account-balance-wallet" size={22} color={Colors.primary} />
-          <Text style={styles.payoutTitle}>Lifetime Payout Balance</Text>
+          <Text style={styles.payoutTitle}>Estimated Delivery Earnings</Text>
         </View>
         <Text style={styles.payoutBalance}>{formatMoney(lifetimeEarnings)}</Text>
-        <Text style={styles.payoutNote}>Available for withdrawal · Updated in real time</Text>
-        <TouchableOpacity
-          style={styles.withdrawBtn}
-          onPress={() =>
-            lifetimeEarnings > 0
-              ? showAlert(
-                  'Withdrawal Request',
-                  `Withdrawal for ${formatMoney(lifetimeEarnings)} queued for Mobile Money payout review. You will receive payment within 24 hours.`
-                )
-              : showAlert('No payout available', 'Completed deliveries with delivery fees will appear here when they are ready for payout.')
-          }
-        >
-          <MaterialIcons name="phone-android" size={18} color={Colors.text} />
-          <Text style={styles.withdrawText}>Withdraw via Mobile Money</Text>
+        <Text style={styles.payoutNote}>Payout withdrawals are not available yet</Text>
+        <TouchableOpacity style={[styles.withdrawBtn, styles.withdrawBtnDisabled]} disabled>
+          <MaterialIcons name="lock-clock" size={18} color={Colors.textMuted} />
+          <Text style={styles.withdrawTextDisabled}>Mobile Money withdrawals — Coming soon</Text>
         </TouchableOpacity>
       </View>
 
@@ -224,12 +212,12 @@ export default function RiderEarnings() {
         />
         <View style={styles.bonusInfo}>
           <Text style={styles.bonusTitle}>
-            {bonusEarned ? 'Bonus Earned! 🎉' : 'Weekly Bonus Active 🔥'}
+            {bonusEarned ? 'Bonus target reached' : 'Weekly bonus preview'}
           </Text>
           <Text style={styles.bonusDesc}>
             {bonusEarned
-              ? `You completed ${bonusGoal}+ deliveries — ${formatMoney(bonusAmount)} bonus credited!`
-              : `Complete ${bonusGoal - bonusProgress} more deliveries to earn ${formatMoney(bonusAmount)} bonus`}
+              ? `You completed ${bonusGoal}+ deliveries. Bonus payouts are coming soon.`
+              : `Complete ${bonusGoal - bonusProgress} more deliveries to reach the ${formatMoney(bonusAmount)} target`}
           </Text>
           <View style={styles.bonusProgress}>
             <View style={[styles.bonusFill, { width: `${(bonusProgress / bonusGoal) * 100}%` }]} />
@@ -307,6 +295,8 @@ const styles = StyleSheet.create({
   payoutBalance: { color: Colors.success, fontSize: 32, fontWeight: FontWeight.extrabold },
   payoutNote: { color: Colors.textMuted, fontSize: FontSize.xs, marginBottom: Spacing.md },
   withdrawBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 12, gap: Spacing.sm },
+  withdrawBtnDisabled: { backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.border },
+  withdrawTextDisabled: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   withdrawText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
 
   bonusCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.warning + '12', borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, padding: Spacing.md, gap: Spacing.md, borderWidth: 1, borderColor: Colors.warning + '30', marginBottom: Spacing.md },

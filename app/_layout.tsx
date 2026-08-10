@@ -16,6 +16,8 @@ import { Colors } from '@/constants/theme';
 import { registerForPushNotifications, subscribeToNotificationResponses } from '@/services/notifications';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
+// Register the native rider background-location task at application startup.
+import '../services/riderLocationTask';
 
 function AuthenticatedPushRegistration() {
   const { user } = useAuth();

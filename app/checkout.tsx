@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Linking, View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -13,27 +13,22 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useCustomerData } from '@/hooks/useCustomerData';
 import { useAlert } from '@/template';
 import { getCashPaymentLabel } from '@/services/payments';
+import { useRestaurants } from '@/hooks/useRestaurants';
+import { validatePromoForCustomer, ValidatedPromo } from '@/services/supabasePromos';
 
 export default function CheckoutScreen() {
   const {
     savedAddresses,
-    paymentMethods,
-    promoCodes,
-    redeemPromoCode,
     addSavedAddress,
     setDefaultAddress,
     sendLocalNotification,
   } = useCustomerData();
-  const checkoutPaymentMethods = paymentMethods.length
-    ? paymentMethods
-    : [{ id: 'cash', label: getCashPaymentLabel(), detail: 'Pay when your food arrives', type: 'cash' as const, isDefault: true }];
   const defaultAddress = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
-  const defaultPayment = checkoutPaymentMethods.find(p => p.isDefault) || checkoutPaymentMethods[0];
   const [address, setAddress] = useState(defaultAddress?.details || '');
   const [selectedAddress, setSelectedAddress] = useState(defaultAddress?.id || '');
-  const [selectedPayment, setSelectedPayment] = useState(defaultPayment?.id || 'cash');
   const [promoCode, setPromoCode] = useState('');
-  const [appliedPromoId, setAppliedPromoId] = useState<string | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<ValidatedPromo | null>(null);
+  const [checkingPromo, setCheckingPromo] = useState(false);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -42,10 +37,11 @@ export default function CheckoutScreen() {
   const { coords, formatMoney, refreshLocationCurrency, locationLabel } = useCurrency();
   const { showAlert } = useAlert();
   const [deliveryCoords, setDeliveryCoords] = useState(coords);
+  const { getRestaurantById } = useRestaurants();
+  const restaurant = restaurantId ? getRestaurantById(restaurantId) : undefined;
 
-  const deliveryFee = 500;
+  const deliveryFee = Math.max(0, Number(restaurant?.deliveryFee || 0));
   const serviceCharge = Math.round(total * 0.03);
-  const appliedPromo = useMemo(() => promoCodes.find(promo => promo.id === appliedPromoId), [appliedPromoId, promoCodes]);
   const discount = appliedPromo ? Math.round(total * (appliedPromo.discountPercent / 100)) : 0;
   const grandTotal = Math.max(0, total - discount) + deliveryFee + serviceCharge;
 
@@ -53,16 +49,18 @@ export default function CheckoutScreen() {
     if (coords) setDeliveryCoords(coords);
   }, [coords]);
 
-  const handleApplyPromo = () => {
-    const promo = redeemPromoCode(promoCode);
-
-    if (!promo) {
-      showAlert('Promo Code', 'Enter a valid unused promo code, for example WELCOME20 or RUSH10.');
-      return;
+  const handleApplyPromo = async () => {
+    setCheckingPromo(true);
+    try {
+      const promo = await validatePromoForCustomer(promoCode, total);
+      setAppliedPromo(promo);
+      showAlert('Promo Applied', `${promo.title} has been applied to this order.`);
+    } catch (error) {
+      setAppliedPromo(null);
+      showAlert('Promo Code', error instanceof Error ? error.message : 'Unable to validate this promo.');
+    } finally {
+      setCheckingPromo(false);
     }
-
-    setAppliedPromoId(promo.id);
-    showAlert('Promo Applied', `${promo.title} has been applied to this order.`);
   };
 
   const selectAddress = (addressId: string) => {
@@ -90,6 +88,10 @@ export default function CheckoutScreen() {
       showAlert('Cart Empty', 'Add items to your cart before placing an order.');
       return;
     }
+    if (!restaurant) {
+      showAlert('Pricing unavailable', 'Restaurant pricing is still loading. Please wait a moment and try again.');
+      return;
+    }
     if (!restaurantId || !restaurantName) return;
     const orderDeliveryCoords = deliveryCoords || coords;
     if (!orderDeliveryCoords) {
@@ -103,14 +105,13 @@ export default function CheckoutScreen() {
         addSavedAddress({ label: 'Recent delivery', details: address.trim(), isDefault: true });
       }
 
-      const paymentLabel = checkoutPaymentMethods.find(p => p.id === selectedPayment)?.label || getCashPaymentLabel();
       const order = await placeOrder(
         items,
         restaurantId,
         restaurantName,
         address,
         orderDeliveryCoords,
-        paymentLabel,
+        getCashPaymentLabel(),
         deliveryFee,
         serviceCharge,
         discount,
@@ -233,16 +234,9 @@ export default function CheckoutScreen() {
               placeholderTextColor={Colors.textMuted}
               autoCapitalize="characters"
             />
-            <TouchableOpacity style={styles.applyBtn} onPress={handleApplyPromo}>
-              <Text style={styles.applyBtnText}>Apply</Text>
+            <TouchableOpacity style={styles.applyBtn} onPress={handleApplyPromo} disabled={checkingPromo}>
+              <Text style={styles.applyBtnText}>{checkingPromo ? 'Checking…' : 'Apply'}</Text>
             </TouchableOpacity>
-          </View>
-          <View style={styles.availablePromos}>
-            {promoCodes.filter(promo => !promo.used).map(promo => (
-              <TouchableOpacity key={promo.id} style={styles.promoPill} onPress={() => setPromoCode(promo.code)}>
-                <Text style={styles.promoPillText}>{promo.code}</Text>
-              </TouchableOpacity>
-            ))}
           </View>
         </View>
 
@@ -252,23 +246,18 @@ export default function CheckoutScreen() {
             <MaterialIcons name="payment" size={18} color={Colors.primary} />
             <Text style={styles.sectionTitle}>Payment Method</Text>
           </View>
-          {checkoutPaymentMethods.map(pm => (
-            <TouchableOpacity
-              key={pm.id}
-              style={[styles.paymentOption, selectedPayment === pm.id && styles.paymentOptionActive]}
-              onPress={() => setSelectedPayment(pm.id)}
-            >
-              <MaterialIcons
-                name={pm.type === 'card' ? 'credit-card' : pm.type === 'cash' ? 'payments' : 'phone-android'}
-                size={22}
-                color={pm.type === 'cash' ? Colors.success : pm.type === 'card' ? Colors.info : Colors.primary}
-              />
-              <Text style={styles.paymentLabel}>{pm.label}</Text>
-              <View style={[styles.radio, selectedPayment === pm.id && styles.radioActive]}>
-                {selectedPayment === pm.id ? <View style={styles.radioInner} /> : null}
-              </View>
-            </TouchableOpacity>
-          ))}
+          <View style={[styles.paymentOption, styles.paymentOptionActive]}>
+            <MaterialIcons name="payments" size={22} color={Colors.success} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.paymentLabel}>{getCashPaymentLabel()}</Text>
+              <Text style={styles.paymentDetail}>Pay the rider when your order arrives</Text>
+            </View>
+            <View style={[styles.radio, styles.radioActive]}><View style={styles.radioInner} /></View>
+          </View>
+          <View style={styles.comingSoonRow}>
+            <MaterialIcons name="lock-clock" size={17} color={Colors.textMuted} />
+            <Text style={styles.comingSoonText}>Mobile Money and cards — coming soon</Text>
+          </View>
         </View>
 
         <View style={{ height: 100 }} />
@@ -333,7 +322,10 @@ const styles = StyleSheet.create({
   promoPillText: { color: Colors.primary, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
   paymentOption: { flexDirection: 'row', alignItems: 'center', padding: Spacing.sm, borderRadius: BorderRadius.md, marginBottom: Spacing.xs, borderWidth: 1.5, borderColor: 'transparent', gap: Spacing.sm },
   paymentOptionActive: { borderColor: Colors.primary, backgroundColor: 'rgba(204,0,0,0.08)' },
-  paymentLabel: { flex: 1, color: Colors.text, fontSize: FontSize.body },
+  paymentLabel: { color: Colors.text, fontSize: FontSize.body },
+  paymentDetail: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
+  comingSoonRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingTop: Spacing.sm },
+  comingSoonText: { color: Colors.textMuted, fontSize: FontSize.sm },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.border, justifyContent: 'center', alignItems: 'center' },
   radioActive: { borderColor: Colors.primary },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },

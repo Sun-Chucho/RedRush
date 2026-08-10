@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Switch, Animated, Linking, Platform,
 } from 'react-native';
 import { MapView, Marker, Polyline } from '@/components/MapViewCompat';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -26,8 +26,7 @@ import {
   saveRiderProfileSettings,
 } from '@/services/supabaseProfileSettings';
 import { ApprovalStatusCard } from '@/components/ApprovalStatusCard';
-
-const LAGOS_DEFAULT = { latitude: 6.4541, longitude: 3.3947 };
+import { getHaversineDistanceKm } from '@/services/routing';
 
 function openMapsDirections(destination: string, lat?: number, lng?: number) {
   let url: string;
@@ -58,7 +57,7 @@ function calculateRiderEarning(deliveryFee = 0): number {
 export default function RiderHome() {
   const [isOnline, setIsOnline] = useState(false);
   const [hasRequest, setHasRequest] = useState(false);
-  const [myCoords, setMyCoords] = useState(LAGOS_DEFAULT);
+  const [myCoords, setMyCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationGranted, setLocationGranted] = useState(false);
   const [settings, setSettings] = useState<RiderProfileSettings>(emptyRiderSettings);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -73,17 +72,35 @@ export default function RiderHome() {
   const activeDelivery = orders.find(
     o => o.riderId === user?.id && ['assigned', 'picked_up'].includes(o.status)
   );
-  const readyOrder = orders.find(o => o.status === 'ready' && !o.riderId);
+  const nearbyReadyOrders = useMemo(() => {
+    if (!myCoords) return [];
+    return orders
+      .filter(o =>
+        o.status === 'ready' && !o.riderId &&
+        typeof o.restaurantLatitude === 'number' && typeof o.restaurantLongitude === 'number'
+      )
+      .map(order => ({
+        order,
+        distanceKm: getHaversineDistanceKm(myCoords, {
+          latitude: order.restaurantLatitude!,
+          longitude: order.restaurantLongitude!,
+        }),
+      }))
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  }, [myCoords, orders]);
+  const nearestReady = nearbyReadyOrders[0];
+  const readyOrder = nearestReady?.order;
   const profileReady = isRiderReadyForDeliveries(settings);
 
-  const request = readyOrder
+  const request = readyOrder && nearestReady
     ? {
         id: readyOrder.id,
         restaurant: readyOrder.restaurantName,
         restaurantAddress: 'Restaurant pickup',
         customerAddress: readyOrder.address,
         customerPhone: readyOrder.customerPhone,
-        distance: '3.2 km',
+        distance: `${nearestReady.distanceKm.toFixed(1)} km`,
+        distanceKm: nearestReady.distanceKm,
         estimatedTime: `${(readyOrder.prepTime || 15) + (readyOrder.deliveryTime || 20)} min`,
         earnings: calculateRiderEarning(readyOrder.deliveryFee),
         items: readyOrder.items.reduce((sum, item) => sum + item.quantity, 0),
@@ -132,10 +149,10 @@ export default function RiderHome() {
       sendRiderRequestNotification(
         readyOrder.restaurantName,
         calculateRiderEarning(readyOrder.deliveryFee),
-        3.2
+        nearestReady.distanceKm
       ).catch(() => undefined);
     }
-  }, [readyOrder, isOnline, hasRequest]);
+  }, [readyOrder, nearestReady?.distanceKm, isOnline, hasRequest]);
 
   const handleToggle = async (val: boolean) => {
     if (val && !profileReady) {
@@ -212,8 +229,8 @@ export default function RiderHome() {
     .reduce((sum, o) => sum + calculateRiderEarning(o.deliveryFee), 0);
 
   const mapRegion = {
-    latitude: myCoords.latitude,
-    longitude: myCoords.longitude,
+    latitude: myCoords?.latitude || 0,
+    longitude: myCoords?.longitude || 0,
     latitudeDelta: 0.025,
     longitudeDelta: 0.025,
   };
@@ -444,34 +461,34 @@ export default function RiderHome() {
       ) : null}
 
       {/* Live Map */}
-      <View style={styles.mapCard}>
+      {myCoords ? <View style={styles.mapCard}>
         <MapView style={styles.map} initialRegion={mapRegion}>
           <Marker coordinate={myCoords} title="Your Location">
             <View style={styles.myMarker}>
               <MaterialIcons name="delivery-dining" size={18} color={Colors.text} />
             </View>
           </Marker>
-          {request ? (
+          {request && typeof readyOrder?.restaurantLatitude === 'number' && typeof readyOrder?.restaurantLongitude === 'number' ? (
             <>
               <Marker
-                coordinate={{ latitude: myCoords.latitude + 0.008, longitude: myCoords.longitude + 0.008 }}
+                coordinate={{ latitude: readyOrder.restaurantLatitude, longitude: readyOrder.restaurantLongitude }}
                 title={request.restaurant}
               />
               <Polyline
                 coordinates={[
                   myCoords,
-                  { latitude: myCoords.latitude + 0.008, longitude: myCoords.longitude + 0.008 },
+                  { latitude: readyOrder.restaurantLatitude, longitude: readyOrder.restaurantLongitude },
                 ]}
                 strokeColor={Colors.warning}
                 strokeWidth={4}
               />
             </>
           ) : null}
-          {activeDelivery ? (
+          {activeDelivery && typeof activeDelivery.deliveryLatitude === 'number' && typeof activeDelivery.deliveryLongitude === 'number' ? (
             <Polyline
               coordinates={[
                 myCoords,
-                { latitude: myCoords.latitude + 0.012, longitude: myCoords.longitude + 0.012 },
+                { latitude: activeDelivery.deliveryLatitude, longitude: activeDelivery.deliveryLongitude },
               ]}
               strokeColor={Colors.primary}
               strokeWidth={4}
@@ -484,7 +501,12 @@ export default function RiderHome() {
             <Text style={styles.mapBadgeText}>{isOnline ? 'GPS Active' : 'Map View'}</Text>
           </View>
         </View>
-      </View>
+      </View> : (
+        <View style={styles.mapUnavailable}>
+          <MaterialIcons name="location-off" size={24} color={Colors.warning} />
+          <Text style={styles.mapUnavailableText}>Waiting for your real GPS location</Text>
+        </View>
+      )}
 
       {/* Quick Stats */}
       <View style={styles.quickStats}>
@@ -556,6 +578,8 @@ const styles = StyleSheet.create({
   acceptBtnText: { color: Colors.text, fontWeight: FontWeight.bold, fontSize: FontSize.sm },
 
   mapCard: { height: 220, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.md },
+  mapUnavailable: { height: 120, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceCard, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
+  mapUnavailableText: { color: Colors.textMuted, fontSize: FontSize.sm },
   map: { flex: 1 },
   mapOverlay: { position: 'absolute', top: 12, left: 12 },
   mapBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(10,10,10,0.85)', borderRadius: BorderRadius.full, paddingHorizontal: 12, paddingVertical: 6, gap: 6 },

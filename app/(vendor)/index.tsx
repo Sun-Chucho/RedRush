@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -168,7 +168,7 @@ export default function VendorDashboard() {
               style={styles.actionCard}
               onPress={() => {
                 if (a.label === 'Add Item') router.push('/(vendor)/menu');
-                else showAlert(a.label, `${a.label} action recorded for this store.`);
+                else showAlert('Coming soon', `${a.label} is not available yet. No store data was changed.`);
               }}
             >
               <MaterialIcons name={a.icon as any} size={28} color={a.color} />

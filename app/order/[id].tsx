@@ -4,7 +4,7 @@ import {
   Linking, Platform, useWindowDimensions,
 } from 'react-native';
 import { MapView, Marker, Polyline } from '@/components/MapViewCompat';
-import { MaterialIcons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -27,10 +27,6 @@ const STEPS = [
   { key: 'picked_up', label: 'On the Way',       icon: 'delivery-dining',  desc: 'Rider is heading to you' },
   { key: 'delivered', label: 'Delivered',        icon: 'home',             desc: 'Enjoy your meal!' },
 ];
-
-const RESTAURANT_COORDS = { latitude: -1.2833, longitude: 36.8172 };
-const CUSTOMER_COORDS   = { latitude: -1.2921, longitude: 36.8219 };
-const RIDER_DEFAULT     = { latitude: -1.2868, longitude: 36.8201 };
 
 /** Orders that can still be cancelled by the customer */
 const CANCELLABLE_STATUSES = ['pending', 'accepted'];
@@ -107,19 +103,18 @@ export default function OrderTrackingScreen() {
     const restaurant =
       typeof order?.restaurantLatitude === 'number' && typeof order?.restaurantLongitude === 'number'
         ? { latitude: order.restaurantLatitude, longitude: order.restaurantLongitude }
-        : RESTAURANT_COORDS;
+        : { latitude: 0, longitude: 0 };
     const customer =
       typeof order?.deliveryLatitude === 'number' && typeof order?.deliveryLongitude === 'number'
         ? { latitude: order.deliveryLatitude, longitude: order.deliveryLongitude }
-        : CUSTOMER_COORDS;
+        : { latitude: 0, longitude: 0 };
     const rider = riderCoords
       ? { latitude: riderCoords.latitude, longitude: riderCoords.longitude }
-      : RIDER_DEFAULT;
+      : restaurant;
     return {
       rider,
       restaurant,
       customer,
-      hasSavedRoute: restaurant !== RESTAURANT_COORDS && customer !== CUSTOMER_COORDS,
       restaurantToRider: [restaurant, rider],
       riderToCustomer: [rider, customer],
     };
@@ -130,7 +125,8 @@ export default function OrderTrackingScreen() {
     typeof order?.restaurantLongitude === 'number' &&
     typeof order?.deliveryLatitude === 'number' &&
     typeof order?.deliveryLongitude === 'number';
-  const showRiderOnMap = !!order && ['assigned', 'picked_up'].includes(order.status);
+  const isRiderTrackingExpected = !!order && ['assigned', 'picked_up'].includes(order.status);
+  const showRiderOnMap = isRiderTrackingExpected && !!riderCoords;
   const routeOrigin = order?.status === 'picked_up' && riderCoords
     ? route.rider
     : order?.status === 'assigned' && riderCoords
@@ -223,12 +219,13 @@ export default function OrderTrackingScreen() {
     comment: string;
   }) => {
     if (!user || !order) return;
-    await submitReview(user.id, {
+    const result = await submitReview(user.id, {
       orderId: order.id,
       restaurantId: order.restaurantId,
       restaurantName: order.restaurantName,
       ...data,
     });
+    if (result.error) throw new Error(result.error);
     setAlreadyRated(true);
   }, [user, order]);
 
@@ -344,7 +341,9 @@ export default function OrderTrackingScreen() {
           <View style={styles.mapTopLeft}>
             <View style={styles.mapBadge}>
               {riderCoords ? <View style={styles.mapDot} /> : null}
-              <Text style={styles.mapBadgeText}>{riderCoords ? 'Live GPS + road route' : 'Saved road route'}</Text>
+              <Text style={styles.mapBadgeText}>
+                {riderCoords ? 'Live GPS + road route' : isRiderTrackingExpected ? 'Waiting for rider location…' : 'Delivery route'}
+              </Text>
             </View>
           </View>
           <View style={styles.mapEtaChip}>
@@ -475,7 +474,7 @@ export default function OrderTrackingScreen() {
             </View>
           ))}
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Paid</Text>
+            <Text style={styles.totalLabel}>{order.paymentStatus === 'cash_collected' || order.paymentStatus === 'paid' || order.paymentStatus === 'settled' ? 'Total Paid' : 'Order Total'}</Text>
             <Text style={styles.totalValue}>{formatMoney(order.total)}</Text>
           </View>
         </View>

@@ -172,6 +172,13 @@ export function subscribeToSupabaseThreads(
 ) {
   if (!shouldUseSupabaseSupport()) return null;
 
+  let poll: ReturnType<typeof setInterval> | null = null;
+  const refresh = () => fetchSupabaseThreadsForUser(userId).then(threads => {
+    if (threads) onUpdate(threads);
+  });
+  const startPolling = () => { if (!poll) poll = setInterval(refresh, 10000); };
+  const stopPolling = () => { if (poll) clearInterval(poll); poll = null; };
+
   // Initial fetch
   fetchSupabaseThreadsForUser(userId).then(threads => {
     if (threads) onUpdate(threads);
@@ -194,9 +201,13 @@ export function subscribeToSupabaseThreads(
         });
       }
     )
-    .subscribe();
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') stopPolling();
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') startPolling();
+    });
 
   return () => {
+    stopPolling();
     supabase!.removeChannel(channel);
   };
 }
@@ -206,9 +217,14 @@ export function subscribeToSupabaseAdminThreads(
 ) {
   if (!shouldUseSupabaseSupport()) return null;
 
-  fetchSupabaseAllThreads().then(threads => {
+  let poll: ReturnType<typeof setInterval> | null = null;
+  const refresh = () => fetchSupabaseAllThreads().then(threads => {
     if (threads) onUpdate(threads);
   });
+  const startPolling = () => { if (!poll) poll = setInterval(refresh, 10000); };
+  const stopPolling = () => { if (poll) clearInterval(poll); poll = null; };
+
+  refresh();
 
   const channel = supabase!
     .channel('support-threads-admin')
@@ -221,9 +237,13 @@ export function subscribeToSupabaseAdminThreads(
         });
       }
     )
-    .subscribe();
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') stopPolling();
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') startPolling();
+    });
 
   return () => {
+    stopPolling();
     supabase!.removeChannel(channel);
   };
 }
@@ -234,9 +254,14 @@ export function subscribeToSupabaseMessages(
 ) {
   if (!shouldUseSupabaseSupport()) return null;
 
-  fetchSupabaseMessages(threadId).then(messages => {
+  let poll: ReturnType<typeof setInterval> | null = null;
+  const refresh = () => fetchSupabaseMessages(threadId).then(messages => {
     if (messages) onUpdate(messages);
   });
+  const startPolling = () => { if (!poll) poll = setInterval(refresh, 7000); };
+  const stopPolling = () => { if (poll) clearInterval(poll); poll = null; };
+
+  refresh();
 
   const channel = supabase!
     .channel(`support-messages-${threadId}`)
@@ -254,9 +279,13 @@ export function subscribeToSupabaseMessages(
         });
       }
     )
-    .subscribe();
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') stopPolling();
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') startPolling();
+    });
 
   return () => {
+    stopPolling();
     supabase!.removeChannel(channel);
   };
 }

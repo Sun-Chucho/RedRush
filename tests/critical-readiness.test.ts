@@ -133,3 +133,51 @@ test('trusted maintenance still follows the order transition graph', () => {
   assert.match(sql, /auth\.role\(\)\s*=\s*'service_role'/i);
   assert.match(sql, /valid_sequence/i);
 });
+
+test('rider tracking uses a native background task and never invents customer-facing GPS', () => {
+  const tracking = read('services/riderLocation.ts');
+  const orderScreen = read('app/order/[id].tsx');
+  const riderScreen = read('app/(rider)/index.tsx');
+  const appJson = JSON.parse(read('app.json'));
+  assert.match(tracking, /TaskManager\.defineTask/);
+  assert.match(tracking, /startLocationUpdatesAsync/);
+  assert.match(tracking, /foregroundService/);
+  assert.equal(appJson.expo.android.permissions.includes('ACCESS_BACKGROUND_LOCATION'), true);
+  assert.doesNotMatch(orderScreen, /RIDER_DEFAULT|RESTAURANT_COORDS|CUSTOMER_COORDS/);
+  assert.match(orderScreen, /isRiderTrackingExpected && !!riderCoords/);
+  assert.doesNotMatch(riderScreen, /3\.2 km/);
+  assert.match(riderScreen, /sort\(\(a, b\) => a\.distanceKm - b\.distanceKm\)/);
+});
+
+test('checkout is cash-only and uses restaurant pricing with atomic promo redemption', () => {
+  const checkout = read('app/checkout.tsx');
+  const cart = read('app/(customer)/cart.tsx');
+  const sql = read('supabase/migrations/020_prelaunch_integrity_repairs.sql');
+  assert.doesNotMatch(checkout, /const deliveryFee = 500/);
+  assert.doesNotMatch(cart, /const deliveryFee = 500/);
+  assert.match(checkout, /Mobile Money and cards — coming soon/);
+  assert.match(sql, /unique \(user_id, promo_code\)/);
+  assert.match(sql, /'Cash on Delivery'/);
+  assert.match(sql, /insert into public\.promo_redemptions/);
+});
+
+test('account controls, chat participation, and account-scoped carts are enforced', () => {
+  const sql = read('supabase/migrations/020_prelaunch_integrity_repairs.sql');
+  const admin = read('app/(admin)/users.tsx');
+  const cart = read('contexts/CartContext.tsx');
+  assert.match(sql, /admin_set_profile_status/);
+  assert.match(sql, /status in \('suspended', 'banned'\)/);
+  assert.match(sql, /chat messages participant create/);
+  assert.match(admin, /updateSupabaseUserStatus/);
+  assert.match(cart, /redrush-cart-v2/);
+  assert.match(cart, /user\?\.id \|\| 'guest'/);
+});
+
+test('chat and support recover from unavailable realtime', () => {
+  const chat = read('services/supabaseChat.ts');
+  const support = read('services/supabaseSupport.ts');
+  assert.match(chat, /setInterval\(\(\) => void pollMessages\(\), 7000\)/);
+  assert.match(chat, /CHANNEL_ERROR.*TIMED_OUT.*CLOSED/s);
+  assert.match(support, /setInterval\(refresh, 10000\)/);
+  assert.match(support, /setInterval\(refresh, 7000\)/);
+});

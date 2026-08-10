@@ -83,6 +83,24 @@ export function subscribeToChatMessages(
 ): () => void {
   if (!isSupabaseConfigured) return () => undefined;
 
+  let disposed = false;
+  let poll: ReturnType<typeof setInterval> | null = null;
+  const seen = new Set<string>();
+  const pollMessages = async () => {
+    const messages = await fetchChatMessages(orderId);
+    messages.forEach(message => {
+      if (seen.has(message.id)) return;
+      seen.add(message.id);
+      onMessage(message);
+    });
+  };
+  const startPolling = () => {
+    if (poll || disposed) return;
+    void pollMessages();
+    poll = setInterval(() => void pollMessages(), 7000);
+  };
+  const stopPolling = () => { if (poll) clearInterval(poll); poll = null; };
+
   const channel = supabase
     .channel(`chat-${orderId}`)
     .on(
@@ -94,12 +112,23 @@ export function subscribeToChatMessages(
         filter: `order_id=eq.${orderId}`,
       },
       payload => {
-        if (payload.new) onMessage(mapRow(payload.new as any));
+        if (payload.new) {
+          const message = mapRow(payload.new as any);
+          seen.add(message.id);
+          onMessage(message);
+        }
       }
     )
-    .subscribe();
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') stopPolling();
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') startPolling();
+    });
 
-  return () => supabase.removeChannel(channel);
+  return () => {
+    disposed = true;
+    stopPolling();
+    void supabase.removeChannel(channel);
+  };
 }
 
 /** Mark messages as read for a participant */

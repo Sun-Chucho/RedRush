@@ -8,11 +8,24 @@
     "scheme": "redrush",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/071337b3-dc14-4e0a-9372-195a52541177",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
       "bundleIdentifier": "com.redrush.app",
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "RedRush uses your location for nearby restaurants, delivery addresses, and live delivery tracking.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RedRush shares an active rider's location while a delivery is in progress, including when navigation is open or the phone is locked.",
+        "UIBackgroundModes": [
+          "location"
+        ],
         "NSPhotoLibraryUsageDescription": "RedRush lets vendors and users choose images for menus, restaurant profiles, and account profiles.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -29,7 +42,10 @@
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ],
       "blockedPermissions": [
         "android.permission.CAMERA",
@@ -67,7 +83,16 @@
       "expo-localization",
       "expo-mail-composer",
       "expo-secure-store",
-      "expo-location"
+      "expo-updates",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "RedRush shares an active rider's location while a delivery is in progress.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

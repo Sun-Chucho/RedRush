@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useEffect, useState, ReactNode } from 'react';
 import { MenuItem } from '@/constants/mockData';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface CartItem {
   menuItem: MenuItem;
@@ -23,9 +24,11 @@ interface CartContextType {
 
 export const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const CART_STORAGE_KEY = 'redrush-cart-v1';
+const CART_STORAGE_PREFIX = 'redrush-cart-v2';
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const storageKey = `${CART_STORAGE_PREFIX}:${user?.id || 'guest'}`;
   const [items, setItems] = useState<CartItem[]>([]);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
@@ -35,7 +38,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
-    AsyncStorage.getItem(CART_STORAGE_KEY)
+    setHydrated(false);
+    setItems([]);
+    setRestaurantId(null);
+    setRestaurantName(null);
+    AsyncStorage.getItem(storageKey)
       .then(raw => {
         if (!raw) return;
         const saved = JSON.parse(raw) as {
@@ -49,15 +56,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     if (!hydrated) return;
     AsyncStorage.setItem(
-      CART_STORAGE_KEY,
+      storageKey,
       JSON.stringify({ items, restaurantId, restaurantName })
     ).catch(() => undefined);
-  }, [hydrated, items, restaurantId, restaurantName]);
+  }, [hydrated, items, restaurantId, restaurantName, storageKey]);
 
   const addItem = (menuItem: MenuItem, resId: string, resName: string) => {
     if (restaurantId && restaurantId !== resId) {
@@ -100,7 +107,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([]);
     setRestaurantId(null);
     setRestaurantName(null);
-    AsyncStorage.removeItem(CART_STORAGE_KEY).catch(() => undefined);
+    AsyncStorage.removeItem(storageKey).catch(() => undefined);
   };
 
   return (

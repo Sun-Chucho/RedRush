@@ -120,6 +120,18 @@ export async function fetchSupabaseAdminUsers() {
   })) as SupabaseAdminUser[];
 }
 
+export async function updateSupabaseUserStatus(
+  userId: string,
+  status: 'active' | 'suspended' | 'banned'
+): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error('Backend not connected.');
+  const { error } = await supabase.rpc('admin_set_profile_status', {
+    p_user_id: userId,
+    p_status: status,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function fetchSupabaseRoleRequests() {
   if (!isSupabaseConfigured) return null;
 

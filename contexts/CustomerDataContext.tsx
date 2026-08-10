@@ -254,7 +254,9 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
 
     // Also register token in Supabase push_tokens table
     if (token) {
-      registerSupabasePushToken(user.id, token).catch(() => undefined);
+      registerSupabasePushToken(user.id, token).then(saved => {
+        if (!saved) console.warn('[notifications] Push token was not persisted.');
+      }).catch(error => console.warn('[notifications] Push token registration failed:', error));
     }
 
     return enabled;
