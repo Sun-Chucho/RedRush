@@ -8,9 +8,7 @@
     "scheme": "redrush",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.2",
     "updates": {
       "url": "https://u.expo.dev/071337b3-dc14-4e0a-9372-195a52541177",
       "enabled": true,
