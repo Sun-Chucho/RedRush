@@ -181,3 +181,13 @@ test('chat and support recover from unavailable realtime', () => {
   assert.match(support, /setInterval\(refresh, 10000\)/);
   assert.match(support, /setInterval\(refresh, 7000\)/);
 });
+
+test('Android notification channels exist before the runtime permission prompt', () => {
+  const notifications = read('services/notifications.ts');
+  const channelIndex = notifications.indexOf('await configureAndroidChannels(Notifications)');
+  const permissionIndex = notifications.indexOf('await Notifications.requestPermissionsAsync()');
+  assert.ok(channelIndex >= 0 && permissionIndex > channelIndex);
+  assert.match(notifications, /canAskAgain/);
+  assert.match(notifications, /Install the RedRush test or Play Store build/);
+  assert.match(read('android/app/src/main/AndroidManifest.xml'), /POST_NOTIFICATIONS/);
+});

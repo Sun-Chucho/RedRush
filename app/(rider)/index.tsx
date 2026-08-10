@@ -128,7 +128,7 @@ export default function RiderHome() {
   useEffect(() => {
     const userId = user?.id;
     if (userId) {
-      registerForPushNotifications(userId).catch(() => undefined);
+      registerForPushNotifications(userId, { requestPermission: false }).catch(() => undefined);
       loadRiderProfileSettings(userId).then(setSettings).catch(() => undefined);
     }
     (async () => {

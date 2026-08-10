@@ -132,10 +132,17 @@ export default function ProfileScreen() {
   };
 
   const enableNotifications = async () => {
-    const granted = await customerData.enablePushNotifications();
+    const outcome = await customerData.enablePushNotifications();
+    if (!outcome.enabled && outcome.reason === 'denied' && outcome.canAskAgain === false) {
+      showAlert('Notifications blocked', outcome.message || 'Allow notifications in phone settings.', [
+        { text: 'Open Settings', onPress: () => Linking.openSettings().catch(() => undefined) },
+        { text: 'Not now', style: 'cancel' },
+      ]);
+      return;
+    }
     showAlert(
       'Notifications',
-      granted ? 'In-app notifications are enabled for order updates and account alerts.' : 'Notification permission was not granted.'
+      outcome.enabled ? 'Order and account notifications are enabled on this phone.' : outcome.message || 'Unable to enable notifications.'
     );
   };
 

@@ -1,11 +1,10 @@
 import React, { createContext, ReactNode, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { registerForPushNotifications } from '@/services/notifications';
+import { requestPushNotificationRegistration, PushRegistrationOutcome } from '@/services/notifications';
 import {
   loadSupabaseCustomerData,
   saveSupabaseCustomerData,
   saveSupabaseLastNotification,
-  registerSupabasePushToken,
   saveSupabaseSearchHistory,
   SearchHistoryItem,
 } from '@/services/supabaseCustomerData';
@@ -66,7 +65,7 @@ interface CustomerDataContextType {
   redeemPromoCode: (code: string) => PromoCode | null;
   addReview: (review: Omit<CustomerReview, 'id' | 'createdAt'>) => void;
   updateNotificationSetting: (key: keyof NotificationSettings, value: boolean) => void;
-  enablePushNotifications: () => Promise<boolean>;
+  enablePushNotifications: () => Promise<PushRegistrationOutcome>;
   sendLocalNotification: (title: string, body: string) => Promise<void>;
   addSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
@@ -247,19 +246,10 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
   };
 
   const enablePushNotifications = async () => {
-    if (!user) return false;
-    const token = await registerForPushNotifications(user.id);
-    const enabled = !!token;
-    updateNotificationSetting('pushEnabled', enabled);
-
-    // Also register token in Supabase push_tokens table
-    if (token) {
-      registerSupabasePushToken(user.id, token).then(saved => {
-        if (!saved) console.warn('[notifications] Push token was not persisted.');
-      }).catch(error => console.warn('[notifications] Push token registration failed:', error));
-    }
-
-    return enabled;
+    if (!user) return { enabled: false, token: null, reason: 'error' as const, message: 'Sign in before enabling notifications.' };
+    const outcome = await requestPushNotificationRegistration(user.id, true);
+    updateNotificationSetting('pushEnabled', outcome.enabled);
+    return outcome;
   };
 
   const sendLocalNotification = async (title: string, body: string) => {

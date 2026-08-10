@@ -24,7 +24,7 @@ function AuthenticatedPushRegistration() {
 
   useEffect(() => {
     if (!user?.id) return;
-    registerForPushNotifications(user.id).catch(() => undefined);
+    registerForPushNotifications(user.id, { requestPermission: false }).catch(() => undefined);
   }, [user?.id]);
 
   return null;

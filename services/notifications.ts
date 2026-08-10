@@ -10,8 +10,8 @@ import { registerPushTokenOnBackend } from './backend';
 type ExpoNotifications = {
   AndroidImportance: { HIGH: number; MAX: number };
   getExpoPushTokenAsync: (options?: { projectId?: string }) => Promise<{ data: string }>;
-  getPermissionsAsync: () => Promise<{ status: string }>;
-  requestPermissionsAsync: () => Promise<{ status: string }>;
+  getPermissionsAsync: () => Promise<{ status: string; canAskAgain?: boolean }>;
+  requestPermissionsAsync: () => Promise<{ status: string; canAskAgain?: boolean }>;
   scheduleNotificationAsync: (request: {
     content: Record<string, unknown>;
     trigger: null;
@@ -71,46 +71,81 @@ async function getNativeNotifications(): Promise<ExpoNotifications | null> {
   return notificationsPromise;
 }
 
-export async function registerForPushNotifications(userId?: string): Promise<string | null> {
-  if (!userId || Platform.OS === 'web') return null;
-  if (await isExpoGo()) return null;
+export type PushRegistrationOutcome = {
+  enabled: boolean;
+  token: string | null;
+  reason?: 'web' | 'expo_go' | 'simulator' | 'denied' | 'error';
+  canAskAgain?: boolean;
+  message?: string;
+};
+
+async function configureAndroidChannels(Notifications: ExpoNotifications) {
+  if (Platform.OS !== 'android') return;
+  // Android 13 does not present the runtime notification prompt reliably until
+  // the app has created at least one notification channel.
+  await Notifications.setNotificationChannelAsync('redrush-orders', {
+    name: 'Order Updates',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#CC0000',
+    sound: 'default',
+  });
+  await Notifications.setNotificationChannelAsync('redrush-rider', {
+    name: 'Rider Requests',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 100, 200, 300],
+    lightColor: '#CC0000',
+    sound: 'default',
+  });
+  await Notifications.setNotificationChannelAsync('redrush-vendor', {
+    name: 'Vendor Alerts',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#CC0000',
+    sound: 'default',
+  });
+}
+
+export async function requestPushNotificationRegistration(
+  userId?: string,
+  requestPermission = true
+): Promise<PushRegistrationOutcome> {
+  if (!userId) return { enabled: false, token: null, reason: 'error', message: 'Sign in before enabling notifications.' };
+  if (Platform.OS === 'web') return { enabled: false, token: null, reason: 'web', message: 'Background push notifications are not available on web yet.' };
+  if (await isExpoGo()) return { enabled: false, token: null, reason: 'expo_go', message: 'Install the RedRush test or Play Store build to enable notifications. Expo Go does not support RedRush push notifications.' };
 
   const Device = await import('expo-device');
-  if (!Device.isDevice) return null;
+  if (!Device.isDevice) return { enabled: false, token: null, reason: 'simulator', message: 'Push notifications require a physical phone.' };
 
   const Notifications = await getNativeNotifications();
-  if (!Notifications) return null;
+  if (!Notifications) return { enabled: false, token: null, reason: 'error', message: 'Notification services are unavailable in this build.' };
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  const finalStatus =
-    existing === 'granted'
-      ? existing
-      : (await Notifications.requestPermissionsAsync()).status;
+  try {
+    await configureAndroidChannels(Notifications);
+  } catch (error) {
+    console.warn('[notifications] Channel setup failed:', error);
+    return { enabled: false, token: null, reason: 'error', message: 'RedRush could not prepare Android notifications. Please restart the app and try again.' };
+  }
 
-  if (finalStatus !== 'granted') return null;
+  const existing = await Notifications.getPermissionsAsync();
+  const permission = existing.status === 'granted'
+    ? existing
+    : requestPermission && existing.canAskAgain !== false
+      ? await Notifications.requestPermissionsAsync()
+      : existing;
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('redrush-orders', {
-      name: 'Order Updates',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#CC0000',
-      sound: 'default',
-    });
-    await Notifications.setNotificationChannelAsync('redrush-rider', {
-      name: 'Rider Requests',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 100, 200, 300],
-      lightColor: '#CC0000',
-      sound: 'default',
-    });
-    await Notifications.setNotificationChannelAsync('redrush-vendor', {
-      name: 'Vendor Alerts',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#CC0000',
-      sound: 'default',
-    });
+  if (permission.status !== 'granted') {
+    return {
+      enabled: false,
+      token: null,
+      reason: 'denied',
+      canAskAgain: permission.canAskAgain !== false,
+      message: permission.canAskAgain === false
+        ? 'Notifications are blocked for RedRush. Open phone settings and allow notifications.'
+        : requestPermission
+          ? 'Notification permission was not allowed.'
+          : 'Notification permission has not been granted yet.',
+    };
   }
 
   try {
@@ -122,11 +157,19 @@ export async function registerForPushNotifications(userId?: string): Promise<str
       await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)
     ).data;
     await registerPushTokenOnBackend(token);
-    return token;
+    return { enabled: true, token };
   } catch (error) {
     console.warn('[notifications] Push registration failed:', error);
-    return null;
+    return { enabled: false, token: null, reason: 'error', message: 'Permission was granted, but RedRush could not register this phone. Check your internet connection and try again.' };
   }
+}
+
+export async function registerForPushNotifications(
+  userId?: string,
+  options: { requestPermission?: boolean } = {}
+): Promise<string | null> {
+  const result = await requestPushNotificationRegistration(userId, options.requestPermission ?? true);
+  return result.token;
 }
 
 export function subscribeToNotificationResponses(

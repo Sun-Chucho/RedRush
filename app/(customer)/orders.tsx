@@ -67,7 +67,7 @@ export default function OrdersScreen() {
 
   useEffect(() => {
     if (user?.id) {
-      registerForPushNotifications(user.id).catch(() => undefined);
+      registerForPushNotifications(user.id, { requestPermission: false }).catch(() => undefined);
     }
   }, [user?.id]);
 

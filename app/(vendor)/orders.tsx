@@ -37,7 +37,7 @@ export default function VendorOrders() {
 
   // Register for push notifications so vendor receives new order alerts
   useEffect(() => {
-    if (user?.id) registerForPushNotifications(user.id).catch(() => undefined);
+    if (user?.id) registerForPushNotifications(user.id, { requestPermission: false }).catch(() => undefined);
   }, [user?.id]);
 
   const filtered = orders.filter(o => {

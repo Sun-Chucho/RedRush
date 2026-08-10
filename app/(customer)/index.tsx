@@ -96,8 +96,15 @@ export default function CustomerHome() {
               router.push('/(customer)/profile');
               return;
             }
-            enablePushNotifications().then(granted => {
-              showAlert('Notifications', granted ? 'In-app order notifications are enabled.' : 'Notification permission was not granted.');
+            enablePushNotifications().then(outcome => {
+              if (!outcome.enabled && outcome.reason === 'denied' && outcome.canAskAgain === false) {
+                showAlert('Notifications blocked', outcome.message || 'Allow notifications in phone settings.', [
+                  { text: 'Open Settings', onPress: () => Linking.openSettings().catch(() => undefined) },
+                  { text: 'Not now', style: 'cancel' },
+                ]);
+                return;
+              }
+              showAlert('Notifications', outcome.enabled ? 'Order notifications are enabled on this phone.' : outcome.message || 'Unable to enable notifications.');
             });
           }}
         >
