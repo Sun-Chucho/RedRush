@@ -100,57 +100,99 @@ export function subscribeToRiderLocation(
 ): () => void {
   if (!isSupabaseConfigured) return () => undefined;
 
-  // Seed with current position from DB immediately
-  void (async () => {
+  let disposed = false;
+  let attempt = 0;
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  let fallbackPoll: ReturnType<typeof setInterval> | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastSignature = '';
+
+  const emitRow = (row: {
+    latitude?: number;
+    longitude?: number;
+    heading?: number | null;
+    speed?: number | null;
+    updated_at?: string | null;
+  }) => {
+    if (disposed || typeof row.latitude !== 'number' || typeof row.longitude !== 'number') return;
+    const signature = `${row.updated_at || ''}:${row.latitude}:${row.longitude}:${row.heading || 0}:${row.speed || 0}`;
+    if (signature === lastSignature) return;
+    lastSignature = signature;
+    onUpdate({
+      latitude: row.latitude,
+      longitude: row.longitude,
+      heading: row.heading ?? undefined,
+      speed: row.speed ?? undefined,
+      updatedAt: row.updated_at ?? undefined,
+    });
+  };
+
+  const fetchLatest = async () => {
     const { data } = await supabase
       .from('rider_locations')
       .select('latitude, longitude, heading, speed, updated_at')
       .eq('rider_id', riderId)
       .maybeSingle();
+    if (data) emitRow(data);
+  };
 
-    if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-      onUpdate({
-        latitude: data.latitude,
-        longitude: data.longitude,
-        heading: data.heading ?? undefined,
-        speed: data.speed ?? undefined,
-        updatedAt: data.updated_at ?? undefined,
-      });
-    }
-  })().catch(() => undefined);
-
-  // Real-time subscription for subsequent updates
-  const channel = supabase
-    .channel(`rider-loc-${riderId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'rider_locations',
-        filter: `rider_id=eq.${riderId}`,
-      },
-      payload => {
-        const row = payload.new as {
-          latitude?: number;
-          longitude?: number;
-          heading?: number;
-          speed?: number;
-          updated_at?: string;
-        };
-        if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') return;
-        onUpdate({
-          latitude: row.latitude,
-          longitude: row.longitude,
-          heading: row.heading,
-          speed: row.speed,
-          updatedAt: row.updated_at,
-        });
+  const stopPolling = () => {
+    if (fallbackPoll) clearInterval(fallbackPoll);
+    fallbackPoll = null;
+  };
+  const startPolling = () => {
+    if (fallbackPoll || disposed) return;
+    void fetchLatest().catch(() => undefined);
+    // Rider devices publish about every 4 seconds, so a 6-second fallback
+    // stays responsive without hammering the database when WSS is blocked.
+    fallbackPoll = setInterval(() => {
+      void fetchLatest().catch(() => undefined);
+    }, 6000);
+  };
+  const connect = () => {
+    if (disposed) return;
+    attempt += 1;
+    const candidate = supabase
+      .channel(`rider-loc-${riderId}-${attempt}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rider_locations',
+          filter: `rider_id=eq.${riderId}`,
+        },
+        payload => emitRow(payload.new as Parameters<typeof emitRow>[0])
+      );
+    channel = candidate;
+    candidate.subscribe(status => {
+      if (disposed) return;
+      if (status === 'SUBSCRIBED') {
+        stopPolling();
+        return;
       }
-    )
-    .subscribe();
+      if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
+
+      startPolling();
+      if (channel === candidate) channel = null;
+      void supabase.removeChannel(candidate);
+      if (!reconnectTimer) {
+        reconnectTimer = setTimeout(() => {
+          reconnectTimer = null;
+          connect();
+        }, 60000);
+      }
+    });
+  };
+
+  // Show the last known position immediately, then prefer Realtime updates.
+  void fetchLatest().catch(() => undefined);
+  connect();
 
   return () => {
-    supabase.removeChannel(channel);
+    disposed = true;
+    stopPolling();
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (channel) void supabase.removeChannel(channel);
   };
 }

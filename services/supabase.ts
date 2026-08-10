@@ -26,5 +26,12 @@ export const supabase = createClient(
       persistSession: true,
       detectSessionInUrl: Platform.OS === 'web',
     },
+    realtime: {
+      // Connections from East Africa and some mobile networks can take longer
+      // than the SDK's 10 s default handshake. Avoid rejecting a healthy but
+      // high-latency WebSocket just before it finishes connecting.
+      timeout: 30000,
+      heartbeatIntervalMs: 25000,
+    },
   }
 );

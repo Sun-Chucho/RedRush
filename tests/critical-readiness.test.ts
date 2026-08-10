@@ -53,6 +53,17 @@ test('vendor realtime waits for its restaurant before opening an order channel',
   assert.match(orders, /orders-\$\{user\.id\}-\$\{vendorRestaurantId \|\| user\.role\}/);
 });
 
+test('slow or blocked realtime connections fall back to REST order and rider polling', () => {
+  const client = read('services/supabase.ts');
+  const orders = read('contexts/OrderContext.tsx');
+  const riderLocation = read('services/riderLocation.ts');
+  assert.match(client, /timeout: 30000/);
+  assert.match(orders, /status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT'/);
+  assert.match(orders, /setInterval[\s\S]*12000/);
+  assert.match(riderLocation, /status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT'/);
+  assert.match(riderLocation, /setInterval[\s\S]*6000/);
+});
+
 test('desktop web uses desktop width while phone web keeps the mobile shell', () => {
   const layout = read('app/_layout.tsx');
   const customerTabs = read('app/(customer)/_layout.tsx');

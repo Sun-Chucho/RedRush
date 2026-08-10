@@ -142,34 +142,77 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     }
     // admin watches all
 
-    const channel = supabase
-      .channel(`orders-${user.id}-${vendorRestaurantId || user.role}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          ...(filter ? { filter } : {}),
-        },
-        () => {
-          // Coalesce bursts of database events and refresh silently so live
-          // updates do not repeatedly flash a full-screen loading state.
-          if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
-          realtimeRefreshTimerRef.current = setTimeout(() => {
-            realtimeRefreshTimerRef.current = null;
-            void loadOrders(false);
-          }, 300);
+    let disposed = false;
+    let attempt = 0;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let fallbackPoll: ReturnType<typeof setInterval> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const stopPolling = () => {
+      if (fallbackPoll) clearInterval(fallbackPoll);
+      fallbackPoll = null;
+    };
+    const startPolling = () => {
+      if (fallbackPoll || disposed) return;
+      void loadOrders(false);
+      fallbackPoll = setInterval(() => { void loadOrders(false); }, 12000);
+    };
+    const scheduleRefresh = () => {
+      // Coalesce bursts of database events and refresh silently so live
+      // updates do not repeatedly flash a full-screen loading state.
+      if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
+      realtimeRefreshTimerRef.current = setTimeout(() => {
+        realtimeRefreshTimerRef.current = null;
+        void loadOrders(false);
+      }, 300);
+    };
+    const connect = () => {
+      if (disposed) return;
+      attempt += 1;
+      const candidate = supabase
+        .channel(`orders-${user.id}-${vendorRestaurantId || user.role}-${attempt}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders',
+            ...(filter ? { filter } : {}),
+          },
+          scheduleRefresh
+        );
+      channel = candidate;
+      candidate.subscribe(status => {
+        if (disposed) return;
+        if (status === 'SUBSCRIBED') {
+          stopPolling();
+          return;
         }
-      )
-      .subscribe();
+        if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
+
+        startPolling();
+        if (channel === candidate) channel = null;
+        void supabase.removeChannel(candidate);
+        if (!reconnectTimer) {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            connect();
+          }, 60000);
+        }
+      });
+    };
+
+    connect();
 
     return () => {
+      disposed = true;
+      stopPolling();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (realtimeRefreshTimerRef.current) {
         clearTimeout(realtimeRefreshTimerRef.current);
         realtimeRefreshTimerRef.current = null;
       }
-      supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [user, vendorRestaurantId, loadOrders]);
 
