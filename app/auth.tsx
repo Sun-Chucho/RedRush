@@ -15,7 +15,7 @@ import {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
@@ -34,8 +34,8 @@ const SIGNUP_ROLES: { role: SignupRole; icon: keyof typeof MaterialIcons.glyphMa
 ];
 
 // Preload both auth images so they appear instantly on tab switch
-const SIGN_1 = require('@/sign-1.jpeg');
-const SIGN_2 = require('@/sign-2.jpeg');
+const SIGN_1 = require('@/sign-1.webp');
+const SIGN_2 = require('@/sign-2.webp');
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -47,20 +47,15 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { isAuthenticated, isLoading, login, register, user } = useAuth();
+  const { isAuthenticated, isLoading, login, loginWithGoogle, register, user } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
   const { t } = useLanguage();
   const { mode: themeMode } = useThemeMode();
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
   const showHero = Platform.OS === 'web';
+  const compactRoles = Platform.OS !== 'web' && width < 370;
   const heroHeight = Math.max(220, Math.min(320, Math.round(height * 0.34)));
-
-  // Prefetch both images on mount so the swap is instant
-  useEffect(() => {
-    Image.prefetch([SIGN_1, SIGN_2] as any)
-      .catch(() => undefined);
-  }, []);
 
   const heroImage = mode === 'register' ? SIGN_1 : SIGN_2;
 
@@ -105,27 +100,33 @@ export default function AuthScreen() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <View style={[styles.loadingScreen, themed.screen]}>
-        <ActivityIndicator color={Colors.primary} />
-      </View>
-    );
-  }
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const profile = await loginWithGoogle();
+      if (profile) router.replace(dashboardForRole(profile.role));
+    } catch (e) {
+      showAlert('Google sign-in failed', e instanceof Error ? e.message : t('tryAgain'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (isAuthenticated) {
-    return (
-      <View style={[styles.loadingScreen, themed.screen]}>
-        <ActivityIndicator color={Colors.primary} />
-      </View>
-    );
+  if (!isLoading && isAuthenticated) {
+    return <Redirect href={dashboardForRole(user?.role)} />;
   }
 
   return (
     <View style={styles.webStage}>
       <KeyboardAvoidingView style={[styles.container, themed.screen]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={Colors.background} />
-        <ScrollView style={[styles.scrollView, themed.screen]} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={[styles.scrollView, themed.screen]}
+          contentContainerStyle={[styles.scroll, !showHero && styles.scrollNative]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        >
           {showHero && (
             <View style={[styles.hero, { height: heroHeight }]}>
               <Image
@@ -183,13 +184,13 @@ export default function AuthScreen() {
                   </View>
                   <View>
                     <Text style={styles.sectionLabel}>Account type</Text>
-                    <View style={styles.rolesGrid}>
+                    <View style={[styles.rolesGrid, compactRoles && styles.rolesGridCompact]}>
                       {SIGNUP_ROLES.map(item => {
                         const active = signupRole === item.role;
                         return (
                           <TouchableOpacity
                             key={item.role}
-                            style={[styles.roleCard, active && styles.roleCardActive]}
+                            style={[styles.roleCard, compactRoles && styles.roleCardCompact, active && styles.roleCardActive]}
                             onPress={() => setSignupRole(item.role)}
                             activeOpacity={0.85}
                           >
@@ -230,6 +231,11 @@ export default function AuthScreen() {
                   <MaterialIcons name={showPassword ? 'visibility-off' : 'visibility'} size={20} color={Colors.textMuted} />
                 </TouchableOpacity>
               </View>
+              {mode === 'login' ? (
+                <TouchableOpacity onPress={() => router.push('/forgot-password' as any)} style={styles.forgotBtn}>
+                  <Text style={styles.forgotText}>Forgot password?</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
@@ -238,6 +244,24 @@ export default function AuthScreen() {
               ) : (
                 <Text style={styles.submitBtnText}>{mode === 'login' ? t('login') : t('createAccount')}</Text>
               )}
+            </TouchableOpacity>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={[styles.dividerText, themed.muted]}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Continue with Google"
+              style={[styles.googleBtn, themed.inputRow, loading && { opacity: 0.7 }]}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+              testID="google-sign-in"
+            >
+              <Text style={styles.googleMark}>G</Text>
+              <Text style={[styles.googleBtnText, themed.input]}>Continue with Google</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -248,15 +272,15 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   webStage: { flex: 1, backgroundColor: Colors.background },
-  loadingScreen: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   container: { flex: 1, backgroundColor: Colors.background },
   scrollView: { flex: 1, backgroundColor: Colors.background },
   scroll: { paddingBottom: Spacing.xl },
+  scrollNative: { flexGrow: 1, justifyContent: 'center', paddingVertical: Spacing.lg },
   hero: { minHeight: 220, position: 'relative', overflow: 'hidden', backgroundColor: Colors.background },
   heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   heroGradient: { ...StyleSheet.absoluteFillObject },
-  authPanel: { paddingHorizontal: Spacing.md, paddingTop: 0 },
-  authPanelNative: { flex: 1, justifyContent: 'center', paddingTop: Spacing.xl },
+  authPanel: { alignSelf: 'center', paddingHorizontal: Spacing.md, paddingTop: 0, width: '100%', maxWidth: 560 },
+  authPanelNative: { justifyContent: 'center' },
   topControls: { alignSelf: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
   modeToggle: { flexDirection: 'row', backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.md },
   modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: BorderRadius.sm },
@@ -265,7 +289,9 @@ const styles = StyleSheet.create({
   modeBtnTextActive: { color: Colors.text },
   sectionLabel: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginBottom: Spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
   rolesGrid: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
+  rolesGridCompact: { flexDirection: 'column' },
   roleCard: { flex: 1, minHeight: 88, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, padding: Spacing.sm, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  roleCardCompact: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'flex-start', minHeight: 58, paddingHorizontal: Spacing.md },
   roleCardActive: { borderColor: Colors.primary, backgroundColor: 'rgba(204,0,0,0.08)' },
   roleLabel: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginTop: 6 },
   roleLabelActive: { color: Colors.primary },
@@ -277,4 +303,12 @@ const styles = StyleSheet.create({
   eyeBtn: { padding: 4 },
   submitBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 16, alignItems: 'center', marginBottom: Spacing.md },
   submitBtnText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
+  dividerRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  dividerLine: { backgroundColor: Colors.border, flex: 1, height: 1 },
+  dividerText: { color: Colors.textMuted, fontSize: FontSize.sm },
+  googleBtn: { alignItems: 'center', backgroundColor: Colors.surfaceCard, borderColor: Colors.border, borderRadius: BorderRadius.full, borderWidth: 1, flexDirection: 'row', height: 52, justifyContent: 'center', marginBottom: Spacing.md },
+  googleMark: { color: '#4285F4', fontSize: 20, fontWeight: FontWeight.bold, marginRight: Spacing.sm },
+  googleBtnText: { color: Colors.text, flex: 0, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
+  forgotBtn: { alignSelf: 'flex-end', paddingVertical: 2 },
+  forgotText: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
 });

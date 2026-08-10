@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput,
+  Linking, View, Text, StyleSheet, TouchableOpacity, ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -25,14 +25,13 @@ const PROMO_BANNERS: {
   subtitleKey?: TranslationKey;
   image: number;
 }[] = [
-  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', image: require('@/home-1.jpeg') },
-  { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/home-2.jpeg') },
-  { id: '3', title: 'Cash on Delivery', subtitle: 'Pay when your food arrives', image: require('@/home-3.jpeg') },
+  { id: '1', titleKey: 'freeDelivery', subtitleKey: 'first3Orders', image: require('@/home-1.webp') },
+  { id: '2', title: '20% OFF', subtitle: 'Chicken Republic today only', image: require('@/home-2.webp') },
+  { id: '3', title: 'Cash on Delivery', subtitle: 'Pay when your food arrives', image: require('@/home-3.webp') },
 ];
 
 export default function CustomerHome() {
   const [selectedCuisine, setSelectedCuisine] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
@@ -40,7 +39,7 @@ export default function CustomerHome() {
   const { notificationSettings, enablePushNotifications } = useCustomerData();
   const { t } = useLanguage();
   const { showAlert } = useAlert();
-  const { restaurants, categories } = useRestaurants();
+  const { restaurants, categories, isLoading, error, refreshRestaurants } = useRestaurants();
 
   const cuisines = useMemo(() => {
     if (categories.length > 0) {
@@ -53,11 +52,9 @@ export default function CustomerHome() {
     .map(restaurant => projectRestaurantForCustomer(restaurant, coords))
     .filter(r => {
       const matchCuisine = selectedCuisine === 'All' || r.cuisine === selectedCuisine;
-      const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.cuisine.toLowerCase().includes(searchQuery.toLowerCase());
       const matchArea = !coords || r.inServiceArea;
-      return matchCuisine && matchSearch && matchArea;
-    })), [coords, restaurants, searchQuery, selectedCuisine]);
+      return matchCuisine && matchArea;
+    })), [coords, restaurants, selectedCuisine]);
 
   const firstName = user?.name?.split(' ')[0] || 'there';
 
@@ -65,18 +62,25 @@ export default function CustomerHome() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>{t('hello')}, {firstName}</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.eyebrow}>DELIVERING TO</Text>
           <TouchableOpacity
             style={styles.locationRow}
             onPress={() => {
               refreshLocationCurrency()
-                .then(label => showAlert('Location updated', `Showing restaurants near ${label}.`))
-                .catch(() => showAlert('Location', 'Unable to read your current location.'));
+                .then(({ label }) => showAlert('Location updated', `Showing restaurants near ${label}.`))
+                .catch(error => showAlert(
+                  'Location unavailable',
+                  error instanceof Error ? error.message : 'Unable to read your current location.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+                  ]
+                ));
             }}
           >
             <MaterialIcons name="location-on" size={14} color={Colors.primary} />
-            <Text style={styles.locationText}>{locationLabel}  </Text>
+            <Text style={styles.locationText} numberOfLines={1}>{locationLabel}</Text>
             <MaterialIcons name="keyboard-arrow-down" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -98,38 +102,28 @@ export default function CustomerHome() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
-        {/* Search */}
-        <View style={styles.searchRow}>
-          <MaterialIcons name="search" size={20} color={Colors.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={t('searchRestaurantsDishes')}
-            placeholderTextColor={Colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onFocus={() => router.push('/(customer)/search')}
-          />
-          <TouchableOpacity style={styles.filterBtn}>
-            <MaterialIcons name="tune" size={18} color={Colors.primary} />
-          </TouchableOpacity>
+        <View style={styles.welcomeBlock}>
+          <Text style={styles.greeting}>{t('hello')}, {firstName}</Text>
+          <Text style={styles.welcomeText}>What would you like to eat today?</Text>
         </View>
 
-        {/* Promo Banners */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promoScroll} contentContainerStyle={styles.promoContent}>
-          {PROMO_BANNERS.map(banner => (
-            <TouchableOpacity key={banner.id} style={styles.promoBanner}>
-              <View style={styles.promoImageFrame}>
-                <Image source={banner.image} style={styles.promoImageBackdrop} contentFit="cover" blurRadius={22} />
-                <View style={styles.promoImageShade} />
-                <Image source={banner.image} style={styles.promoImage} contentFit="contain" />
-              </View>
-              <View style={styles.promoTextBlock}>
-                <Text style={styles.promoTitle}>{banner.titleKey ? t(banner.titleKey) : banner.title}</Text>
-                <Text style={styles.promoSubtitle}>{banner.subtitleKey ? t(banner.subtitleKey) : banner.subtitle}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <TouchableOpacity style={styles.searchRow} onPress={() => router.push('/(customer)/search')} activeOpacity={0.8} accessibilityRole="button">
+          <MaterialIcons name="search" size={20} color={Colors.textMuted} />
+          <Text style={styles.searchPlaceholder}>{t('searchRestaurantsDishes')}</Text>
+          <MaterialIcons name="arrow-forward" size={18} color={Colors.primary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.promoBanner} activeOpacity={0.9}>
+          <View style={styles.promoTextBlock}>
+            <Text style={styles.promoKicker}>WELCOME OFFER</Text>
+            <Text style={styles.promoTitle}>{PROMO_BANNERS[0].titleKey ? t(PROMO_BANNERS[0].titleKey) : PROMO_BANNERS[0].title}</Text>
+            <Text style={styles.promoSubtitle}>{PROMO_BANNERS[0].subtitleKey ? t(PROMO_BANNERS[0].subtitleKey) : PROMO_BANNERS[0].subtitle}</Text>
+          </View>
+          <View style={styles.promoImageFrame}>
+            <Image source={PROMO_BANNERS[0].image} style={styles.promoImage} contentFit="cover" />
+            <View style={styles.promoImageShade} />
+          </View>
+        </TouchableOpacity>
 
         {/* Cuisine Filter */}
         <View style={styles.sectionHeader}>
@@ -148,13 +142,29 @@ export default function CustomerHome() {
           ))}
         </ScrollView>
 
-        {/* Featured */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredContent}>
-          {filtered.slice(0, 3).map(r => <FeaturedCard key={r.id} restaurant={r} onPress={() => router.push(`/restaurant/${r.id}`)} />)}
-        </ScrollView>
-
-        {/* All Restaurants */}
-        <Text style={styles.sectionTitle2}>{t('allRestaurants')}</Text>
+        <Text style={styles.sectionTitle2}>{selectedCuisine === 'All' ? t('allRestaurants') : selectedCuisine}</Text>
+        {isLoading && restaurants.length === 0 ? (
+          <View accessibilityLabel="Loading restaurants">
+            {[0, 1, 2].map(item => <RestaurantSkeleton key={item} />)}
+          </View>
+        ) : null}
+        {!isLoading && error ? (
+          <View style={styles.feedbackCard}>
+            <MaterialIcons name="cloud-off" size={28} color={Colors.textMuted} />
+            <Text style={styles.feedbackTitle}>Restaurants could not load</Text>
+            <Text style={styles.feedbackBody}>Check your connection and try again.</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={refreshRestaurants}>
+              <Text style={styles.retryButtonText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        {!isLoading && !error && filtered.length === 0 ? (
+          <View style={styles.feedbackCard}>
+            <MaterialIcons name="restaurant" size={28} color={Colors.textMuted} />
+            <Text style={styles.feedbackTitle}>No restaurants nearby yet</Text>
+            <Text style={styles.feedbackBody}>Refresh your location or check again shortly.</Text>
+          </View>
+        ) : null}
         {filtered.map(r => (
           <RestaurantCard key={r.id} restaurant={r} closedLabel={t('closed')} deliveryLabel={t('delivery')} formatMoney={formatMoney} onPress={() => router.push(`/restaurant/${r.id}`)} />
         ))}
@@ -164,32 +174,23 @@ export default function CustomerHome() {
   );
 }
 
-function FeaturedCard({ restaurant, onPress }: { restaurant: Restaurant; onPress: () => void }) {
+function RestaurantSkeleton() {
   return (
-    <TouchableOpacity style={styles.featuredCard} onPress={onPress} activeOpacity={0.9}>
-      <Image source={{ uri: restaurant.coverImage }} style={styles.featuredImg} contentFit="cover" />
-      <View style={styles.featuredOverlay} />
-      {restaurant.promo ? (
-        <View style={styles.promoBadge}><Text style={styles.promoBadgeText}>{restaurant.promo}</Text></View>
-      ) : null}
-      {!restaurant.isOpen ? (
-        <View style={styles.closedBadge}><Text style={styles.closedText}>CLOSED</Text></View>
-      ) : null}
-      <View style={styles.featuredInfo}>
-        <Text style={styles.featuredName}>{restaurant.name}</Text>
-        <View style={styles.featuredMeta}>
-          <MaterialIcons name="star" size={12} color={Colors.gold} />
-          <Text style={styles.featuredRating}> {restaurant.rating}  •  {restaurant.deliveryTime}</Text>
-        </View>
+    <View style={styles.restaurantCard}>
+      <View style={[styles.restaurantImg, styles.skeleton]} />
+      <View style={styles.restaurantInfo}>
+        <View style={[styles.skeletonLine, { width: '62%' }]} />
+        <View style={[styles.skeletonLine, { width: '42%' }]} />
+        <View style={[styles.skeletonLine, { width: '78%' }]} />
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
 function RestaurantCard({ restaurant, closedLabel, deliveryLabel, formatMoney, onPress }: { restaurant: Restaurant; closedLabel: string; deliveryLabel: string; formatMoney: (amount: number) => string; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.restaurantCard} onPress={onPress} activeOpacity={0.85}>
-      <Image source={{ uri: restaurant.image }} style={styles.restaurantImg} contentFit="cover" />
+      <Image source={{ uri: restaurant.image }} style={styles.restaurantImg} contentFit="cover" cachePolicy="memory-disk" transition={120} />
       <View style={styles.restaurantInfo}>
         <View style={styles.restaurantNameRow}>
           <Text style={styles.restaurantName}>{restaurant.name}</Text>
@@ -214,26 +215,27 @@ function RestaurantCard({ restaurant, closedLabel, deliveryLabel, formatMoney, o
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
-  greeting: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
-  locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  locationText: { color: Colors.textSecondary, fontSize: FontSize.sm },
-  notifBtn: { position: 'relative', padding: 4 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12 },
+  headerCopy: { flex: 1, paddingRight: Spacing.md },
+  eyebrow: { color: Colors.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1 },
+  greeting: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.extrabold },
+  welcomeBlock: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.md },
+  welcomeText: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: 4 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  locationText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, maxWidth: '82%', marginHorizontal: 3 },
+  notifBtn: { position: 'relative', width: 42, height: 42, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceCard, borderWidth: 1, borderColor: Colors.border },
   notifDot: { position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   scroll: { flex: 1 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, marginHorizontal: Spacing.md, paddingHorizontal: Spacing.md, height: 48, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  searchInput: { flex: 1, color: Colors.text, fontSize: FontSize.body, marginLeft: Spacing.sm },
-  filterBtn: { backgroundColor: 'rgba(204,0,0,0.15)', borderRadius: BorderRadius.sm, padding: 6 },
-  promoScroll: { marginBottom: Spacing.md },
-  promoContent: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
-  promoBanner: { width: 180, height: 286, borderRadius: BorderRadius.lg, overflow: 'hidden', backgroundColor: Colors.surfaceCard, borderWidth: 1, borderColor: Colors.border },
-  promoImageFrame: { height: 222, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  promoImageBackdrop: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.7 },
-  promoImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, paddingHorizontal: Spacing.md, height: 50, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  searchPlaceholder: { flex: 1, color: Colors.textMuted, fontSize: FontSize.sm, marginLeft: Spacing.sm },
+  promoBanner: { height: 142, borderRadius: BorderRadius.lg, overflow: 'hidden', backgroundColor: Colors.primaryDark, marginHorizontal: Spacing.md, marginBottom: Spacing.lg, flexDirection: 'row' },
+  promoImageFrame: { width: '42%', height: '100%', overflow: 'hidden' },
+  promoImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.12)' },
   promoImage: { width: '100%', height: '100%' },
-  promoTextBlock: { minHeight: 64, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, justifyContent: 'center' },
-  promoTitle: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold },
-  promoSubtitle: { color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 },
+  promoTextBlock: { width: '58%', padding: Spacing.md, justifyContent: 'center' },
+  promoKicker: { color: 'rgba(255,255,255,0.72)', fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.1, marginBottom: 5 },
+  promoTitle: { color: '#FFFFFF', fontSize: FontSize.md, fontWeight: FontWeight.extrabold },
+  promoSubtitle: { color: 'rgba(255,255,255,0.78)', fontSize: FontSize.xs, marginTop: 5, lineHeight: 16 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
   sectionTitle: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold },
   sectionCount: { color: Colors.textMuted, fontSize: FontSize.sm },
@@ -242,18 +244,6 @@ const styles = StyleSheet.create({
   cuisineChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   cuisineChipText: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.medium },
   cuisineChipTextActive: { color: Colors.text, fontWeight: FontWeight.semibold },
-  featuredContent: { paddingHorizontal: Spacing.md, gap: Spacing.sm, paddingBottom: Spacing.md },
-  featuredCard: { width: 220, height: 150, borderRadius: BorderRadius.lg, overflow: 'hidden', position: 'relative', ...Shadow.md },
-  featuredImg: { width: '100%', height: '100%' },
-  featuredOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
-  promoBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, paddingHorizontal: 8, paddingVertical: 3 },
-  promoBadgeText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
-  closedBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: BorderRadius.sm, paddingHorizontal: 8, paddingVertical: 3 },
-  closedText: { color: Colors.textMuted, fontSize: FontSize.xs, fontWeight: FontWeight.semibold },
-  featuredInfo: { position: 'absolute', bottom: Spacing.sm, left: Spacing.sm },
-  featuredName: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-  featuredMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  featuredRating: { color: 'rgba(255,255,255,0.8)', fontSize: FontSize.xs },
   sectionTitle2: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.bold, marginHorizontal: Spacing.md, marginBottom: Spacing.sm },
   restaurantCard: { flexDirection: 'row', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginHorizontal: Spacing.md, marginBottom: Spacing.sm, overflow: 'hidden', ...Shadow.md },
   restaurantImg: { width: 100, height: 100 },
@@ -270,4 +260,11 @@ const styles = StyleSheet.create({
   deliveryFee: { color: Colors.textMuted, fontSize: FontSize.xs },
   promoTag: { backgroundColor: 'rgba(204,0,0,0.2)', borderRadius: BorderRadius.sm, paddingHorizontal: 6, paddingVertical: 2 },
   promoTagText: { color: Colors.primary, fontSize: FontSize.xs, fontWeight: FontWeight.semibold },
+  skeleton: { backgroundColor: Colors.surfaceElevated },
+  skeletonLine: { backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.sm, height: 11, marginBottom: 10 },
+  feedbackCard: { alignItems: 'center', backgroundColor: Colors.surfaceCard, borderColor: Colors.border, borderRadius: BorderRadius.lg, borderWidth: 1, marginHorizontal: Spacing.md, padding: Spacing.lg },
+  feedbackTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginTop: Spacing.sm },
+  feedbackBody: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: 4, textAlign: 'center' },
+  retryButton: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, marginTop: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
+  retryButtonText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
 });

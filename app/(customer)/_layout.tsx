@@ -43,7 +43,7 @@ export default function CustomerLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: t('home'), tabBarIcon: ({ color, size }) => <MaterialIcons name="home" size={size} color={color} /> }} />
-      <Tabs.Screen name="search" options={{ title: t('search'), tabBarIcon: ({ color, size }) => <MaterialIcons name="search" size={size} color={color} /> }} />
+      <Tabs.Screen name="search" options={{ href: null }} />
       <Tabs.Screen name="cart" options={{ title: t('cart'), tabBarIcon: ({ color, size }) => <CartTabIcon color={color} size={size} /> }} />
       <Tabs.Screen name="orders" options={{ title: t('orders'), tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt-long" size={size} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: t('profile'), tabBarIcon: ({ color, size }) => <MaterialIcons name="person" size={size} color={color} /> }} />

@@ -11,7 +11,6 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { ApprovalStatusCard } from '@/components/ApprovalStatusCard';
 import {
   emptyVendorSettings,
@@ -22,6 +21,7 @@ import {
   VendorProfileSettings,
 } from '@/services/supabaseProfileSettings';
 import { requestRoleOnSupabase } from '@/services/supabaseRoles';
+import { VerificationUploadButton } from '@/components/VerificationUploadButton';
 
 type Panel = 'profile' | 'payout' | 'mobileMoney' | 'legal' | 'notifications' | null;
 
@@ -243,10 +243,11 @@ export default function VendorProfile() {
 
       <View style={styles.settingsCard}>
         <Text style={styles.sectionTitle}>Settings</Text>
-        <View style={styles.settingRow}>
-          <Text style={styles.settingLabel}>Theme</Text>
-          <ThemeToggle showLabel />
-        </View>
+        <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/settings')}>
+          <MaterialIcons name="settings" size={20} color={Colors.primary} />
+          <Text style={styles.settingLabel}>App Settings</Text>
+          <MaterialIcons name="chevron-right" size={20} color={Colors.textMuted} />
+        </TouchableOpacity>
         {[
           { icon: 'credit-card', label: 'Payout Settings', panel: 'payout' as const },
           { icon: 'phone-android', label: 'Mobile Money', panel: 'mobileMoney' as const },
@@ -272,6 +273,7 @@ export default function VendorProfile() {
       </TouchableOpacity>
 
       <VendorSettingsModal
+        userId={user?.id}
         panel={activePanel}
         draft={draft}
         setDraft={setDraft}
@@ -286,6 +288,7 @@ export default function VendorProfile() {
 }
 
 function VendorSettingsModal({
+  userId,
   panel,
   draft,
   setDraft,
@@ -293,6 +296,7 @@ function VendorSettingsModal({
   onClose,
   onSave,
 }: {
+  userId?: string;
   panel: Panel;
   draft: VendorProfileSettings;
   setDraft: React.Dispatch<React.SetStateAction<VendorProfileSettings>>;
@@ -341,13 +345,7 @@ function VendorSettingsModal({
             ) : null}
 
             {panel === 'legal' ? (
-              <View style={styles.uploadRow}>
-                <MaterialIcons name="info" size={22} color={Colors.primary} />
-                <View style={styles.uploadText}>
-                  <Text style={styles.dataTitle}>Document uploads coming soon</Text>
-                  <Text style={styles.dataSub}>For this storage-light release, admin approval should use restaurant profile details, phone, address, and direct manual verification.</Text>
-                </View>
-              </View>
+              userId ? <VerificationUploadButton userId={userId} role="vendor" kind="business-registration" label="business registration document" value={draft.legalDocumentUrl} onUploaded={legalDocumentUrl => setDraft(prev => ({ ...prev, legalDocumentUrl }))} /> : null
             ) : null}
 
             {panel === 'notifications' ? (

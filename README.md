@@ -36,6 +36,20 @@ Copy `.env.example` to `.env.local` and fill in:
 - `EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET`
 - `GOOGLE_MAPS_API_KEY` only if you enable native Google Maps. The current in-app maps use Leaflet/OpenStreetMap and do not require a Google key.
 
+Google sign-in uses Supabase OAuth (the public Google client IDs are not read by
+the app directly). In Supabase Authentication > Providers, enable Google with a
+Google Web OAuth client ID and client secret. Add these redirect URLs to the
+Supabase allow list:
+
+- `https://red-rush.vercel.app/auth-callback`
+- the relevant local web URL ending in `/auth-callback`
+- `redrush://auth-callback` for installed iOS/Android builds
+- `https://red-rush.vercel.app/reset-password`
+- `redrush://reset-password`
+
+Also add the Supabase callback shown on the Google provider page to the Google
+Cloud OAuth client's authorized redirect URIs.
+
 Future online payment keys are listed in `.env.example`, but must stay server-only.
 
 Android local release builds require these environment variables or Gradle properties:
@@ -128,6 +142,35 @@ pnpm supabase:launch
 
 The location-accuracy release requires `supabase/migrations/014_location_accuracy_enforcement.sql`.
 It adds saved restaurant/customer route coordinates to orders and closes live restaurants that do not have a valid GPS pin until the vendor/admin saves one.
+
+Apply `supabase/migrations/015_order_workflow_enforcement.sql` as well. It prevents
+customers, vendors, riders, or stale clients from skipping required order states.
+
+Apply migrations 016, 017, and 018 after it:
+
+- `016_atomic_order_creation.sql` creates the order, cash payment ledger, and
+  item snapshots in one database transaction.
+- `017_private_verification_documents.sql` creates a private verification bucket
+  for vendor/rider documents with owner/admin-only access.
+- `018_secure_order_push_webhook.sql` sends order changes to the Edge Function
+  asynchronously and keeps webhook credentials encrypted in Supabase Vault.
+
+## Production Activation Checks
+
+Run the read-only live audit after applying migrations and deploying:
+
+```bash
+pnpm check:live
+```
+
+For remote notifications, deploy `supabase/functions/push-notifications`, apply
+migration 018, then run `pnpm configure:push-webhook`. Verify on
+physical customer, vendor, and rider devices; Expo Go does not provide the
+production push-notification behavior.
+
+Cash on Delivery remains the only enabled payment method. Paystack and M-Pesa
+must remain disabled until merchant credentials, signed webhooks, refunds,
+idempotency, and settlement reconciliation are available.
 
 If migrations 001-009 are already applied and you only need the final launch tables/policies, apply:
 

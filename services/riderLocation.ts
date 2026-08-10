@@ -3,6 +3,7 @@
  * Publishes GPS to rider_locations table; customers subscribe via Supabase Realtime.
  */
 import * as Location from 'expo-location';
+import { AppState, AppStateStatus, NativeEventSubscription } from 'react-native';
 import { isSupabaseConfigured, supabase } from './supabase';
 import { setRiderOnlineStatus } from './dispatchService';
 
@@ -15,22 +16,19 @@ export interface RiderCoords {
 }
 
 let _locationSubscription: Location.LocationSubscription | null = null;
+let _appStateSubscription: NativeEventSubscription | null = null;
+let _activeRiderId: string | null = null;
+let _trackingRequested = false;
 
-/**
- * Start publishing rider GPS to Supabase rider_locations every 4 s / 10 m
- */
-export async function startRiderTracking(riderId: string): Promise<boolean> {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== 'granted') return false;
+function removeLocationWatcher() {
+  _locationSubscription?.remove();
+  _locationSubscription = null;
+}
 
-  stopRiderTracking(); // clear any previous watcher
-
+async function beginLocationWatcher(riderId: string) {
+  removeLocationWatcher();
   _locationSubscription = await Location.watchPositionAsync(
-    {
-      accuracy: Location.Accuracy.High,
-      timeInterval: 4000,
-      distanceInterval: 10,
-    },
+    { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 10 },
     async location => {
       const { latitude, longitude, heading, speed } = location.coords;
       await setRiderOnlineStatus(riderId, true, {
@@ -41,6 +39,33 @@ export async function startRiderTracking(riderId: string): Promise<boolean> {
       }).catch(() => undefined);
     }
   );
+}
+
+async function handleAppState(nextState: AppStateStatus) {
+  if (!_trackingRequested || !_activeRiderId) return;
+  if (nextState === 'active') {
+    if (!_locationSubscription) await beginLocationWatcher(_activeRiderId).catch(() => undefined);
+    return;
+  }
+
+  removeLocationWatcher();
+  await setRiderOnlineStatus(_activeRiderId, false).catch(() => undefined);
+}
+
+/**
+ * Start publishing rider GPS to Supabase rider_locations every 4 s / 10 m
+ */
+export async function startRiderTracking(riderId: string): Promise<boolean> {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') return false;
+
+  stopRiderTracking();
+  _trackingRequested = true;
+  _activeRiderId = riderId;
+  await beginLocationWatcher(riderId);
+  _appStateSubscription = AppState.addEventListener('change', next => {
+    void handleAppState(next);
+  });
 
   return true;
 }
@@ -49,10 +74,13 @@ export async function startRiderTracking(riderId: string): Promise<boolean> {
  * Stop the GPS watcher
  */
 export function stopRiderTracking(): void {
-  if (_locationSubscription) {
-    _locationSubscription.remove();
-    _locationSubscription = null;
-  }
+  const riderId = _activeRiderId;
+  _trackingRequested = false;
+  removeLocationWatcher();
+  _appStateSubscription?.remove();
+  _appStateSubscription = null;
+  _activeRiderId = null;
+  if (riderId) void setRiderOnlineStatus(riderId, false).catch(() => undefined);
 }
 
 /**

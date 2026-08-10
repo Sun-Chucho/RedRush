@@ -17,6 +17,7 @@ import {
   updateSupabaseVendorRestaurantLocation,
 } from '@/services/supabaseRestaurants';
 import { useAuth } from '@/hooks/useAuth';
+import { withTimeout } from '@/services/asyncUtils';
 
 type MenuItemInput = Omit<MenuItem, 'id'>;
 type MenuItemUpdate = Partial<MenuItemInput>;
@@ -49,10 +50,10 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
   const loadRestaurants = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [data, nextCategories] = await Promise.all([
+      const [data, nextCategories] = await withTimeout(Promise.all([
         fetchSupabaseRestaurants(),
         fetchSupabaseCategories(),
-      ]);
+      ]), 10000, 'Restaurants took too long to load.');
       setRestaurants(data);
       setCategories(nextCategories);
       setError(null);

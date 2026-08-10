@@ -1,6 +1,27 @@
 import type { AuthUser } from '@/contexts/AuthContext';
 import { UserRole } from '@/constants/mockData';
+import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { isSupabaseConfigured, supabase } from './supabase';
+import { withTimeout } from './asyncUtils';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const NATIVE_AUTH_CALLBACK = 'redrush://auth-callback';
+
+function redirectUriFor(path: string) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return `${window.location.origin}/${path}`;
+  }
+
+  // Expo Go cannot open the standalone redrush:// scheme. During QR testing,
+  // use Expo's current exp:// development URL; installed builds always return
+  // directly to the RedRush app through its registered custom scheme.
+  if (Constants.appOwnership === 'expo') return makeRedirectUri({ path });
+  return path === 'auth-callback' ? NATIVE_AUTH_CALLBACK : `redrush://${path}`;
+}
 
 type ProfileRow = {
   id: string;
@@ -126,13 +147,21 @@ async function ensureSupabaseRoleDetails(userId: string, data: Partial<AuthUser>
 export async function getCurrentSupabaseUser() {
   if (!shouldUseSupabaseAuth()) return null;
 
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.user) return null;
 
-  return ensureSupabaseProfile(data.user.id, {
-    email: data.user.email || '',
-    name: data.user.user_metadata?.name,
-    phone: data.user.user_metadata?.phone,
+  return getSupabaseProfileForSessionUser(data.session.user);
+}
+
+export function getSupabaseProfileForSessionUser(user: {
+  id: string;
+  email?: string;
+  user_metadata?: Record<string, any>;
+}) {
+  return ensureSupabaseProfile(user.id, {
+    email: user.email || '',
+    name: user.user_metadata?.name,
+    phone: user.user_metadata?.phone,
     role: 'customer',
   });
 }
@@ -150,6 +179,169 @@ export async function loginWithSupabaseEmail(email: string, password: string) {
     phone: data.user.user_metadata?.phone,
     role: 'customer',
   });
+}
+
+function googleProfile(user: {
+  id: string;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+}) {
+  const metadata = user.user_metadata || {};
+  const metadataName = metadata.full_name || metadata.name;
+  const metadataAvatar = metadata.avatar_url || metadata.picture;
+
+  return ensureSupabaseProfile(user.id, {
+    email: user.email || '',
+    name: typeof metadataName === 'string' ? metadataName : undefined,
+    avatar: typeof metadataAvatar === 'string' ? metadataAvatar : undefined,
+    role: 'customer',
+  });
+}
+
+function nativeSessionParams(callbackUrl: string) {
+  const parsed = new URL(callbackUrl);
+  const hash = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+
+  return {
+    accessToken: hash.get('access_token'),
+    refreshToken: hash.get('refresh_token'),
+    code: parsed.searchParams.get('code'),
+    error: parsed.searchParams.get('error_description') || hash.get('error_description'),
+  };
+}
+
+/**
+ * Starts Google OAuth. Web redirects back to /auth-callback; native completes
+ * inside the secure system browser and exchanges the returned session locally.
+ */
+export async function loginWithSupabaseGoogle(): Promise<AuthUser | null> {
+  if (!shouldUseSupabaseAuth()) return null;
+
+  const redirectTo = redirectUriFor('auth-callback');
+
+  const { data, error } = await withTimeout(
+    supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: Platform.OS !== 'web',
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      },
+    }),
+    15000,
+    'Google sign-in could not start. Check your connection and try again.'
+  );
+
+  if (error) throw error;
+  if (Platform.OS === 'web') return null;
+  if (!data.url) throw new Error('Google did not return a sign-in URL.');
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (result.type === 'cancel' || result.type === 'dismiss') {
+    throw new Error('Google sign-in was cancelled.');
+  }
+  if (result.type !== 'success' || !result.url) {
+    throw new Error('Google sign-in did not complete.');
+  }
+
+  const params = nativeSessionParams(result.url);
+  if (params.error) throw new Error(params.error);
+
+  if (params.code) {
+    const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(params.code);
+    if (exchangeError) throw exchangeError;
+    if (!sessionData.user) throw new Error('Google sign-in returned no user.');
+    return googleProfile(sessionData.user);
+  }
+
+  if (!params.accessToken || !params.refreshToken) {
+    throw new Error('Google sign-in returned an invalid session.');
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+    access_token: params.accessToken,
+    refresh_token: params.refreshToken,
+  });
+  if (sessionError) throw sessionError;
+  if (!sessionData.user) throw new Error('Google sign-in returned no user.');
+
+  return googleProfile(sessionData.user);
+}
+
+export async function completeSupabaseOAuthCallback(callbackUrl?: string): Promise<AuthUser> {
+  const { data: current } = await supabase.auth.getSession();
+  if (current.session?.user) return googleProfile(current.session.user);
+
+  if (!callbackUrl) throw new Error('Google sign-in returned no callback URL.');
+  const params = nativeSessionParams(callbackUrl);
+  if (params.error) throw new Error(params.error);
+
+  if (params.code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
+    if (error) throw error;
+    if (!data.user) throw new Error('Google sign-in returned no user.');
+    return googleProfile(data.user);
+  }
+
+  if (params.accessToken && params.refreshToken) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: params.accessToken,
+      refresh_token: params.refreshToken,
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error('Google sign-in returned no user.');
+    return googleProfile(data.user);
+  }
+
+  throw new Error('Google sign-in returned an invalid callback.');
+}
+
+function authRedirectUrl(path: string) {
+  return redirectUriFor(path);
+}
+
+export async function requestSupabasePasswordReset(email: string) {
+  if (!shouldUseSupabaseAuth()) throw new Error('Backend not configured.');
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: authRedirectUrl('reset-password'),
+  });
+  if (error) throw error;
+}
+
+export async function completeSupabaseRecoveryCallback(callbackUrl?: string) {
+  const { data: current } = await supabase.auth.getSession();
+  if (current.session) return true;
+  if (!callbackUrl) throw new Error('The password reset link is invalid.');
+
+  const params = nativeSessionParams(callbackUrl);
+  if (params.error) throw new Error(params.error);
+
+  if (params.code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(params.code);
+    if (error) throw error;
+    return true;
+  }
+
+  if (params.accessToken && params.refreshToken) {
+    const { error } = await supabase.auth.setSession({
+      access_token: params.accessToken,
+      refresh_token: params.refreshToken,
+    });
+    if (error) throw error;
+    return true;
+  }
+
+  throw new Error('The password reset link is invalid or expired.');
+}
+
+export async function updateSupabasePassword(password: string) {
+  if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
 }
 
 export async function registerWithSupabaseEmail(data: Partial<AuthUser> & { password: string }) {

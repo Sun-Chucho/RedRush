@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useRouter } from 'expo-router';
@@ -18,25 +18,20 @@ export default function AppWelcome() {
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator color={Colors.primary} size="large" />
-      </View>
-    );
-  }
-
   // Returning, signed-in users skip the landing and go straight to their dashboard.
-  if (isAuthenticated) {
+  // Never block first paint on session restoration: show the welcome screen
+  // immediately and redirect only after auth has settled.
+  if (!isLoading && isAuthenticated) {
     return <Redirect href={dashboardForRole(user?.role)} />;
   }
 
   return (
     <View style={styles.container}>
       <Image
-        source={require('@/assets/images/fpic.png')}
+        source={require('@/assets/images/fpic.webp')}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
+        cachePolicy="memory-disk"
       />
 
       {/* Dark gradient so the copy and button stay legible over any image. */}
@@ -75,12 +70,6 @@ export default function AppWelcome() {
 }
 
 const styles = StyleSheet.create({
-  loadingScreen: {
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    flex: 1,
-    justifyContent: 'center',
-  },
   container: {
     backgroundColor: '#0a0000',
     flex: 1,

@@ -20,6 +20,7 @@ import {
   sendChatMessage,
   subscribeToChatMessages,
 } from '@/services/supabaseChat';
+import { withTimeout } from '@/services/asyncUtils';
 
 export default function ChatScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -33,6 +34,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [sending, setSending] = useState(false);
   const flatRef = useRef<FlatList>(null);
 
@@ -48,14 +50,26 @@ export default function ChatScreen() {
   })();
 
   // Load messages
-  useEffect(() => {
-    if (!orderId) return;
-    setLoading(true);
-    fetchChatMessages(orderId).then(msgs => {
-      setMessages(msgs);
+  const loadMessages = useCallback(async () => {
+    if (!orderId) {
       setLoading(false);
-    });
+      return;
+    }
+    setLoading(true);
+    setLoadError('');
+    try {
+      const msgs = await withTimeout(fetchChatMessages(orderId), 12000, 'Messages took too long to load.');
+      setMessages(msgs);
+    } catch (value) {
+      setLoadError(value instanceof Error ? value.message : 'Unable to load messages.');
+    } finally {
+      setLoading(false);
+    }
   }, [orderId]);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
 
   // Subscribe to real-time messages
   useEffect(() => {
@@ -174,6 +188,14 @@ export default function ChatScreen() {
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Loading messages...</Text>
         </View>
+      ) : loadError ? (
+        <View style={styles.loadingState}>
+          <MaterialIcons name="error-outline" size={44} color={Colors.error} />
+          <Text style={styles.loadingText}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadMessages}>
+            <Text style={styles.retryText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           ref={flatRef}
@@ -258,6 +280,8 @@ const styles = StyleSheet.create({
 
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
   loadingText: { color: Colors.textMuted, fontSize: FontSize.body },
+  retryButton: { backgroundColor: Colors.primary, borderRadius: 999, marginTop: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
+  retryText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
 
   messagesList: { padding: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm },
 

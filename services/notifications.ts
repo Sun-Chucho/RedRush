@@ -31,6 +31,9 @@ type ExpoNotifications = {
       shouldShowList: boolean;
     }>;
   }) => void;
+  addNotificationResponseReceivedListener: (listener: (response: {
+    notification: { request: { content: { data?: Record<string, unknown> } } };
+  }) => void) => { remove: () => void };
 };
 
 let notificationsPromise: Promise<ExpoNotifications> | null = null;
@@ -123,6 +126,26 @@ export async function registerForPushNotifications(userId?: string): Promise<str
   } catch {
     return null;
   }
+}
+
+export function subscribeToNotificationResponses(
+  onResponse: (data: Record<string, unknown>) => void
+) {
+  let remove: (() => void) | undefined;
+  let active = true;
+
+  void getNativeNotifications().then(Notifications => {
+    if (!active || !Notifications) return;
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      onResponse(response.notification.request.content.data || {});
+    });
+    remove = () => subscription.remove();
+  });
+
+  return () => {
+    active = false;
+    remove?.();
+  };
 }
 
 async function scheduleLocalNotification(

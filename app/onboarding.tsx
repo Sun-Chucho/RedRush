@@ -14,15 +14,9 @@ import { TranslationKey } from '@/contexts/LanguageContext';
 const ONBOARDING_KEY = 'redrush_onboarding_seen';
 
 const LOGO = require('@/assets/images/logo.png');
-const HOME_1 = require('@/assets/images/home-1.png');
-const HOME_2 = require('@/assets/images/home-2.png');
-const HOME_3 = require('@/assets/images/home-3.png');
-
-// Prefetch auth images so they load instantly after onboarding
-Image.prefetch([
-  require('@/assets/images/sign-1.png'),
-  require('@/assets/images/sign-2.png'),
-] as any).catch(() => undefined);
+const HOME_1 = require('@/assets/images/home-1.webp');
+const HOME_2 = require('@/assets/images/home-2.webp');
+const HOME_3 = require('@/assets/images/home-3.webp');
 
 const slides: { id: number; image: any; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   { id: 1, image: HOME_1, titleKey: 'orderFood', subtitleKey: 'startOrdering' },
@@ -109,8 +103,7 @@ export default function OnboardingScreen() {
       >
         {slides.map(slide => (
           <View key={slide.id} style={[styles.slide, { width: screenWidth, height: screenHeight }]}>
-            <Image source={slide.image} style={styles.slideImageBlur} contentFit="cover" blurRadius={20} />
-            <Image source={slide.image} style={styles.slideImage} contentFit="cover" />
+            <Image source={slide.image} style={styles.slideImage} contentFit="cover" cachePolicy="memory-disk" />
             <View style={styles.slideShade} />
             <View style={styles.slideContent}>
               <Text style={styles.slideTitle}>{t(slide.titleKey)}</Text>

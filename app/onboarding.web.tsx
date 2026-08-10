@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  ActivityIndicator, View, Text, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   ScrollView, StatusBar, Platform, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -13,12 +13,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { dashboardForRole } from '@/services/authRoutes';
 
 // Preload all slide images + auth images on module load so they show instantly
-const HOME_1 = require('@/home-1.jpeg');
-const HOME_2 = require('@/home-2.jpeg');
-const HOME_3 = require('@/home-3.jpeg');
-// Also prefetch auth images so switching to auth screen is instant
-Image.prefetch([require('@/sign-1.jpeg'), require('@/sign-2.jpeg')] as any).catch(() => undefined);
-
+const HOME_1 = require('@/home-1.webp');
+const HOME_2 = require('@/home-2.webp');
+const HOME_3 = require('@/home-3.webp');
 const slides: { id: number; image: number; titleKey: TranslationKey; subtitleKey: TranslationKey }[] = [
   {
     id: 1,
@@ -73,15 +70,7 @@ export default function OnboardingScreen() {
   const slideWidth = screenWidth;
   const slideHeight = screenHeight;
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator color={Colors.primary} />
-      </View>
-    );
-  }
-
-  if (isAuthenticated) {
+  if (!isLoading && isAuthenticated) {
     return <Redirect href={dashboardForRole(user?.role)} />;
   }
 
@@ -152,7 +141,6 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  loadingScreen: { alignItems: 'center', backgroundColor: Colors.background, flex: 1, justifyContent: 'center' },
   logoContainer: {
     position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40,
     left: Spacing.md, flexDirection: 'row', alignItems: 'center', zIndex: 10,

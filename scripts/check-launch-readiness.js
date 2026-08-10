@@ -25,6 +25,12 @@ const requiredFiles = [
   'supabase/migrations/010_payments_infrastructure.sql',
   'supabase/migrations/011_launch_hardening_cash_dispatch.sql',
   'supabase/migrations/014_location_accuracy_enforcement.sql',
+  'supabase/migrations/015_order_workflow_enforcement.sql',
+  'supabase/migrations/016_atomic_order_creation.sql',
+  'supabase/migrations/017_private_verification_documents.sql',
+  'supabase/migrations/018_secure_order_push_webhook.sql',
+  'supabase/migrations/019_service_role_order_maintenance.sql',
+  'app/auth-callback.tsx',
 ];
 
 requiredFiles.forEach(file => check(`Required file: ${file}`, exists(file), 'Missing file blocks store or backend readiness.'));
@@ -60,6 +66,10 @@ const appJson = JSON.parse(read('app.json'));
 check('Android package set', appJson.expo?.android?.package === 'com.redrush.app', 'Expected com.redrush.app.');
 check('iOS bundle identifier set', !!appJson.expo?.ios?.bundleIdentifier, 'Required for App Store.');
 check('Online payment keys are not public', !read('.env.example').includes('EXPO_PUBLIC_PAYSTACK'), 'Payment secrets must stay server-only.');
+check('Google OAuth callback is routed on web', read('vercel.json').includes('auth-callback'), 'Vercel must serve /auth-callback.html.');
+check('Google sign-in is exposed in auth UI', read('app/auth.tsx').includes('loginWithGoogle'), 'Auth UI must call Supabase Google OAuth.');
+check('Password recovery is exposed in auth UI', read('app/auth.tsx').includes('forgot-password'), 'Users need a recovery path.');
+check('Live readiness script registered', !!packageJson.scripts?.['check:live'], 'Add npm script check:live.');
 
 const androidBuild = read('android/app/build.gradle');
 check(

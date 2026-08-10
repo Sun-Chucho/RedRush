@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Linking, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,6 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useAlert } from '@/template';
 import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { pickCompressAndUploadImage } from '@/services/cloudinary';
 import { requestAccountDeletion } from '@/services/accountDeletion';
 
@@ -107,11 +106,18 @@ export default function ProfileScreen() {
 
   const addCurrentLocation = async () => {
     try {
-      const label = await refreshLocationCurrency();
+      const { label } = await refreshLocationCurrency();
       customerData.addSavedAddress({ label: 'Current location', details: label, isDefault: true });
       showAlert('Location saved', 'Your current location is now saved as the default delivery address.');
-    } catch {
-      showAlert('Location', 'Unable to read your current location. Check location permission and try again.');
+    } catch (error) {
+      showAlert(
+        'Location unavailable',
+        error instanceof Error ? error.message : 'Unable to read your current location.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+        ]
+      );
     }
   };
 
@@ -214,11 +220,11 @@ export default function ProfileScreen() {
 
       <Text style={styles.sectionTitle}>{t('settings')}</Text>
       <View style={styles.menuSection}>
-        <View style={styles.menuItem}>
-          <MaterialIcons name="contrast" size={22} color={Colors.textSecondary} />
-          <Text style={styles.menuLabel}>Theme</Text>
-          <ThemeToggle showLabel />
-        </View>
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/settings')}>
+          <MaterialIcons name="settings" size={22} color={Colors.textSecondary} />
+          <Text style={styles.menuLabel}>Settings</Text>
+          <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
+        </TouchableOpacity>
         {settingsItems.map(item => (
           <TouchableOpacity
             key={item.labelKey}

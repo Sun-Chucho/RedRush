@@ -30,7 +30,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="menu" options={{ title: 'Menu', tabBarIcon: ({ color, size }) => <MaterialIcons name="restaurant-menu" size={size} color={color} /> }} />
       <Tabs.Screen name="analytics" options={{ title: 'Analytics', tabBarIcon: ({ color, size }) => <MaterialIcons name="bar-chart" size={size} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <MaterialIcons name="store" size={size} color={color} /> }} />
-      <Tabs.Screen name="chat" options={{ title: 'Chats', tabBarIcon: ({ color, size }) => <MaterialIcons name="chat" size={size} color={color} /> }} />
+      <Tabs.Screen name="chat" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -11,10 +11,12 @@ export type DispatchRider = {
 };
 
 export async function fetchOnlineRiders(): Promise<DispatchRider[]> {
+  const freshAfter = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   const { data: locations, error: locError } = await supabase
     .from('rider_locations')
     .select('*')
-    .eq('is_online', true);
+    .eq('is_online', true)
+    .gte('updated_at', freshAfter);
 
   if (locError || !locations) return [];
 

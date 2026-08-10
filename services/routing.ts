@@ -17,9 +17,12 @@ export async function getDrivingRoute(
   // OSRM coordinates are in longitude,latitude format
   const coords = `${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}`;
   const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return null;
     const data = await response.json();
 
     if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
@@ -34,7 +37,11 @@ export async function getDrivingRoute(
       return { distanceKm, durationMin, coordinates };
     }
   } catch (error) {
-    console.warn('OSRM routing failed:', error);
+    if (!(error instanceof Error && error.name === 'AbortError')) {
+      console.warn('OSRM routing failed:', error);
+    }
+  } finally {
+    clearTimeout(timeout);
   }
 
   return null;

@@ -13,6 +13,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { RiderCoords, subscribeToRiderLocation } from '@/services/riderLocation';
+import { getDrivingRoute, getHaversineDistanceKm } from '@/services/routing';
 import { submitReview, hasReviewedOrder } from '@/services/supabaseRatings';
 import RatingModal from '@/components/RatingModal';
 import FloatingChatButton from '@/components/FloatingChatButton';
@@ -62,7 +63,15 @@ export default function OrderTrackingScreen() {
   const [showRating, setShowRating] = useState(false);
   const [alreadyRated, setAlreadyRated] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [roadRoute, setRoadRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const lastRouteRequest = useRef<{
+    latitude: number;
+    longitude: number;
+    requestedAt: number;
+  } | null>(null);
+  const routeRequestId = useRef(0);
 
   // Check if already rated
   useEffect(() => {
@@ -113,6 +122,71 @@ export default function OrderTrackingScreen() {
       riderToCustomer: [rider, customer],
     };
   }, [order?.deliveryLatitude, order?.deliveryLongitude, order?.restaurantLatitude, order?.restaurantLongitude, riderCoords]);
+
+  const hasAccurateRoute =
+    typeof order?.restaurantLatitude === 'number' &&
+    typeof order?.restaurantLongitude === 'number' &&
+    typeof order?.deliveryLatitude === 'number' &&
+    typeof order?.deliveryLongitude === 'number';
+  const showRiderOnMap = !!order && ['assigned', 'picked_up'].includes(order.status);
+  const routeOrigin = order?.status === 'picked_up' && riderCoords
+    ? route.rider
+    : order?.status === 'assigned' && riderCoords
+    ? route.rider
+    : route.restaurant;
+  const routeDestination = order?.status === 'assigned' && riderCoords
+    ? route.restaurant
+    : route.customer;
+
+  useEffect(() => {
+    if (!hasAccurateRoute) {
+      setRoadRoute([]);
+      setRoadDistanceKm(null);
+      return undefined;
+    }
+
+    const now = Date.now();
+    const previous = lastRouteRequest.current;
+    const movedKm = previous
+      ? getHaversineDistanceKm(previous, routeOrigin)
+      : Number.POSITIVE_INFINITY;
+
+    // Rider GPS can update every four seconds. Reusing the current road
+    // polyline between meaningful movements prevents slow route requests from
+    // accumulating during a long-running tracking session.
+    if (previous && now - previous.requestedAt < 15000 && movedKm < 0.15) {
+      setRoadDistanceKm(getHaversineDistanceKm(routeOrigin, routeDestination));
+      return undefined;
+    }
+
+    lastRouteRequest.current = {
+      latitude: routeOrigin.latitude,
+      longitude: routeOrigin.longitude,
+      requestedAt: now,
+    };
+    const requestId = ++routeRequestId.current;
+    let active = true;
+    const timer = setTimeout(() => {
+      getDrivingRoute(routeOrigin, routeDestination)
+        .then(result => {
+          if (active && requestId === routeRequestId.current) {
+            setRoadRoute(result?.coordinates?.length ? result.coordinates : [routeOrigin, routeDestination]);
+            setRoadDistanceKm(result?.distanceKm ?? getHaversineDistanceKm(routeOrigin, routeDestination));
+          }
+        })
+        .catch(() => {
+          if (active && requestId === routeRequestId.current) {
+            setRoadRoute([routeOrigin, routeDestination]);
+            setRoadDistanceKm(getHaversineDistanceKm(routeOrigin, routeDestination));
+          }
+        });
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [hasAccurateRoute, routeDestination, routeOrigin]);
 
   const handleCancelOrder = useCallback(() => {
     if (!order || cancelling) return;
@@ -172,7 +246,14 @@ export default function OrderTrackingScreen() {
   const isLive = ['accepted', 'preparing', 'ready', 'assigned', 'picked_up'].includes(order.status);
   const isActive = !['delivered', 'cancelled'].includes(order.status);
   const canCancel = CANCELLABLE_STATUSES.includes(order.status);
-  const showRiderOnMap = order.status === 'picked_up';
+  const proximityKm = hasAccurateRoute
+    ? roadDistanceKm ?? getHaversineDistanceKm(routeOrigin, routeDestination)
+    : null;
+  const proximityLabel = order.status === 'assigned'
+    ? 'to restaurant'
+    : order.status === 'picked_up'
+    ? 'to you'
+    : 'restaurant to you';
 
   const formatTime = (isoString: string) =>
     new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -220,7 +301,7 @@ export default function OrderTrackingScreen() {
         ) : null}
 
         {/* ── Full Map ── */}
-        <View style={styles.mapShell}>
+        {hasAccurateRoute ? <View style={styles.mapShell}>
           <MapView
             style={styles.map}
             initialRegion={{
@@ -243,30 +324,36 @@ export default function OrderTrackingScreen() {
             {showRiderOnMap ? (
               <>
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                  <Marker coordinate={route.rider} title={order.riderName || 'Rider'}>
+                  <Marker coordinate={route.rider} title={`Rider: ${order.riderName || 'Assigned rider'}`}>
                     <View style={styles.riderMarker}>
                       <MaterialIcons name="delivery-dining" size={18} color={Colors.text} />
                     </View>
                   </Marker>
                 </Animated.View>
-                <Polyline coordinates={route.riderToCustomer} strokeColor={Colors.primary} strokeWidth={4} lineDashPattern={[1]} />
+                <Polyline coordinates={roadRoute.length > 1 ? roadRoute : [routeOrigin, routeDestination]} strokeColor={Colors.primary} strokeWidth={4} />
               </>
             ) : null}
             {!showRiderOnMap && order.status !== 'delivered' && order.status !== 'cancelled' ? (
-              <Polyline coordinates={[route.restaurant, route.customer]} strokeColor={Colors.border} strokeWidth={3} lineDashPattern={[6, 4]} />
+              <Polyline coordinates={roadRoute.length > 1 ? roadRoute : [route.restaurant, route.customer]} strokeColor={Colors.border} strokeWidth={3} />
             ) : null}
           </MapView>
           <View style={styles.mapTopLeft}>
             <View style={styles.mapBadge}>
               {riderCoords ? <View style={styles.mapDot} /> : null}
-              <Text style={styles.mapBadgeText}>{riderCoords ? 'Live GPS' : route.hasSavedRoute ? 'Saved route' : 'Legacy route preview'}</Text>
+              <Text style={styles.mapBadgeText}>{riderCoords ? 'Live GPS + road route' : 'Saved road route'}</Text>
             </View>
           </View>
           <View style={styles.mapEtaChip}>
             <MaterialIcons name="access-time" size={13} color={Colors.primary} />
-            <Text style={styles.mapEtaText}>{etaLabel}</Text>
+            <Text style={styles.mapEtaText}>{proximityKm == null ? etaLabel : `${proximityKm.toFixed(1)} km ${proximityLabel}`}</Text>
           </View>
-        </View>
+        </View> : (
+          <View style={styles.locationUnavailable}>
+            <MaterialIcons name="location-off" size={28} color={Colors.warning} />
+            <Text style={styles.locationUnavailableTitle}>Live map unavailable for this order</Text>
+            <Text style={styles.locationUnavailableText}>This older order does not contain both restaurant and delivery GPS coordinates. Its status timeline still updates live.</Text>
+          </View>
+        )}
 
         {/* ── Order Info Card ── */}
         <View style={styles.orderCard}>
@@ -461,6 +548,9 @@ const styles = StyleSheet.create({
   mapBadgeText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
   mapEtaChip: { position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surface, borderRadius: BorderRadius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
   mapEtaText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+  locationUnavailable: { alignItems: 'center', backgroundColor: Colors.surfaceCard, borderColor: Colors.border, borderRadius: BorderRadius.lg, borderWidth: 1, gap: Spacing.xs, margin: Spacing.md, padding: Spacing.lg },
+  locationUnavailableTitle: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold, textAlign: 'center' },
+  locationUnavailableText: { color: Colors.textMuted, fontSize: FontSize.sm, lineHeight: 20, textAlign: 'center' },
 
   restaurantMarker: { width: 34, height: 34, borderRadius: 8, backgroundColor: Colors.warning, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.text },
   customerMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.text },

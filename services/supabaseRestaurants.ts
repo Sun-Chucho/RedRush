@@ -144,18 +144,14 @@ function toMenuPayload(item: MenuItemInput | MenuItemUpdate) {
 export async function fetchSupabaseRestaurants(): Promise<Restaurant[]> {
   if (!shouldUseSupabaseRestaurants()) return [];
 
-  const { data: restaurants, error: restaurantError } = await supabase
-    .from('restaurants')
-    .select('*')
-    .order('created_at', { ascending: true });
+  const [restaurantResult, menuResult] = await Promise.all([
+    supabase.from('restaurants').select('*').order('created_at', { ascending: true }),
+    supabase.from('menu_items').select('*').order('created_at', { ascending: true }),
+  ]);
+  const { data: restaurants, error: restaurantError } = restaurantResult;
+  const { data: menuItems, error: menuError } = menuResult;
 
   if (restaurantError) throw restaurantError;
-
-  const { data: menuItems, error: menuError } = await supabase
-    .from('menu_items')
-    .select('*')
-    .order('created_at', { ascending: true });
-
   if (menuError) throw menuError;
 
   const menuByRestaurant = (menuItems || []).reduce<Record<string, MenuItem[]>>((acc, row) => {

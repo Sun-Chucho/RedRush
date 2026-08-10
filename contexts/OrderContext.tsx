@@ -2,7 +2,7 @@
 /**
  * OrderContext — Supabase-only order management with real-time subscriptions
  */
-import React, { createContext, useCallback, useEffect, useMemo, useState, ReactNode } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { Order } from '@/constants/mockData';
 import { CartItem } from './CartContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +20,8 @@ import {
   sendNewOrderNotification,
   sendRiderRequestNotification,
 } from '@/services/notifications';
+import { assertOrderTransition } from '@/services/orderWorkflow';
+import { withTimeout } from '@/services/asyncUtils';
 
 interface OrderContextType {
   orders: Order[];
@@ -71,25 +73,42 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [prevStatuses, setPrevStatuses] = useState<Record<string, string>>({});
+  const loadPromiseRef = useRef<Promise<void> | null>(null);
+  const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const vendorRestaurantId = getVendorRestaurant()?.id;
 
   // ─── Fetch orders from Supabase ─────────────────────────────────────────
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (showLoading = true) => {
     if (!user || !isSupabaseConfigured) return;
-    setIsLoading(true);
-    try {
-      const fetched = await fetchSupabaseOrders(user, vendorRestaurantId);
-      if (fetched !== null) {
-        setOrders(uniqueById(fetched));
-        setActiveOrder(prev =>
-          prev ? fetched.find(o => o.id === prev.id) || prev : null
+    if (loadPromiseRef.current) return loadPromiseRef.current;
+
+    const request = (async () => {
+      if (showLoading) setIsLoading(true);
+      try {
+        const fetched = await withTimeout(
+          fetchSupabaseOrders(user, vendorRestaurantId),
+          10000,
+          'Orders took too long to load.'
         );
+        if (fetched !== null) {
+          setOrders(uniqueById(fetched));
+          setActiveOrder(prev =>
+            prev ? fetched.find(o => o.id === prev.id) || prev : null
+          );
+        }
+      } catch (err) {
+        console.warn('[OrderContext] loadOrders error:', err);
+      } finally {
+        if (showLoading) setIsLoading(false);
       }
-    } catch (err) {
-      console.warn('[OrderContext] loadOrders error:', err);
+    })();
+
+    loadPromiseRef.current = request;
+    try {
+      await request;
     } finally {
-      setIsLoading(false);
+      if (loadPromiseRef.current === request) loadPromiseRef.current = null;
     }
   }, [user, vendorRestaurantId]);
 
@@ -129,13 +148,22 @@ export function OrderProvider({ children }: { children: ReactNode }) {
           ...(filter ? { filter } : {}),
         },
         () => {
-          // Refresh on any order change
-          loadOrders();
+          // Coalesce bursts of database events and refresh silently so live
+          // updates do not repeatedly flash a full-screen loading state.
+          if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
+          realtimeRefreshTimerRef.current = setTimeout(() => {
+            realtimeRefreshTimerRef.current = null;
+            void loadOrders(false);
+          }, 300);
         }
       )
       .subscribe();
 
     return () => {
+      if (realtimeRefreshTimerRef.current) {
+        clearTimeout(realtimeRefreshTimerRef.current);
+        realtimeRefreshTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
   }, [user, vendorRestaurantId, loadOrders]);
@@ -222,6 +250,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     status: Order['status'],
     extra: Partial<Pick<Order, 'riderId' | 'riderName' | 'prepTime' | 'deliveryTime'>> = {}
   ) => {
+    const currentOrder = orders.find(order => order.id === orderId);
+    if (currentOrder && user) {
+      assertOrderTransition(user.role, currentOrder.status, status);
+    }
+
     // Optimistic update
     const optimistic = (status === 'picked_up' || status === 'assigned') && user
       ? { riderId: user.id, riderName: user.name, riderPhone: user.phone, ...extra }
@@ -235,9 +268,14 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       setActiveOrder(prev => prev ? { ...prev, ...optimistic, status } : null);
     }
 
-    await updateSupabaseOrderStatus(orderId, status);
-    await loadOrders();
-  }, [activeOrder?.id, user, loadOrders]);
+    try {
+      await updateSupabaseOrderStatus(orderId, status);
+      await loadOrders();
+    } catch (error) {
+      await loadOrders();
+      throw error;
+    }
+  }, [activeOrder?.id, user, loadOrders, orders]);
 
   const assignRider = useCallback(async (orderId: string, riderId: string, riderName: string) => {
     await updateOrderStatus(orderId, 'assigned', { riderId, riderName });

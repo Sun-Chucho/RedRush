@@ -8,7 +8,6 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/c
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { ApprovalStatusCard } from '@/components/ApprovalStatusCard';
 import { useAlert } from '@/template';
 import {
@@ -21,6 +20,7 @@ import {
   saveRiderProfileSettings,
 } from '@/services/supabaseProfileSettings';
 import { requestRoleOnSupabase } from '@/services/supabaseRoles';
+import { VerificationUploadButton } from '@/components/VerificationUploadButton';
 
 type Panel = 'bank' | 'mobileMoney' | 'vehicle' | 'identity' | 'notifications' | null;
 
@@ -170,11 +170,11 @@ export default function RiderProfile() {
       </View>
 
       <View style={styles.menuCard}>
-        <View style={styles.menuItem}>
-          <MaterialIcons name="contrast" size={20} color={Colors.primary} />
-          <Text style={styles.menuLabel}>Theme</Text>
-          <ThemeToggle showLabel />
-        </View>
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/settings')}>
+          <MaterialIcons name="settings" size={20} color={Colors.primary} />
+          <Text style={styles.menuLabel}>Settings</Text>
+          <MaterialIcons name="chevron-right" size={20} color={Colors.textMuted} />
+        </TouchableOpacity>
         {[
           { icon: 'account-balance-wallet', label: 'Bank Account', panel: 'bank' as const },
           { icon: 'phone-android', label: 'Mobile Money', panel: 'mobileMoney' as const },
@@ -201,6 +201,7 @@ export default function RiderProfile() {
       </TouchableOpacity>
 
       <SettingsModal
+        userId={user?.id}
         panel={activePanel}
         draft={draft}
         setDraft={setDraft}
@@ -215,6 +216,7 @@ export default function RiderProfile() {
 }
 
 function SettingsModal({
+  userId,
   panel,
   draft,
   setDraft,
@@ -222,6 +224,7 @@ function SettingsModal({
   onClose,
   onSave,
 }: {
+  userId?: string;
   panel: Panel;
   draft: RiderProfileSettings;
   setDraft: React.Dispatch<React.SetStateAction<RiderProfileSettings>>;
@@ -272,7 +275,9 @@ function SettingsModal({
             {panel === 'identity' ? (
               <>
                 <Field label="Government ID number" value={draft.idNumber} autoCapitalize="characters" onChangeText={idNumber => setDraft(prev => ({ ...prev, idNumber }))} />
-                <Text style={styles.dataSub}>Photo uploads are coming soon. For this release, RedRush verifies riders with ID number, vehicle type, plate number, and payout details.</Text>
+                {userId ? <VerificationUploadButton userId={userId} role="rider" kind="government-id" label="government ID" value={draft.idDocumentUrl} onUploaded={idDocumentUrl => setDraft(prev => ({ ...prev, idDocumentUrl }))} /> : null}
+                {userId ? <VerificationUploadButton userId={userId} role="rider" kind="license" label="rider licence" value={draft.licenseDocumentUrl} onUploaded={licenseDocumentUrl => setDraft(prev => ({ ...prev, licenseDocumentUrl }))} /> : null}
+                {userId ? <VerificationUploadButton userId={userId} role="rider" kind="insurance" label="insurance document (optional)" value={draft.insuranceDocumentUrl} onUploaded={insuranceDocumentUrl => setDraft(prev => ({ ...prev, insuranceDocumentUrl }))} /> : null}
               </>
             ) : null}
 

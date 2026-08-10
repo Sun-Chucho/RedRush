@@ -4,6 +4,7 @@ import type { AuthUser } from '@/contexts/AuthContext';
 import { CreateOrderInput } from './backend';
 import { isSupabaseConfigured, supabase } from './supabase';
 import { getPaymentStatusForMethod } from './payments';
+import { marketForCoordinates, SUPPORTED_MARKETS } from '@/constants/locationTiers';
 
 type OrderRow = {
   id: string;
@@ -80,8 +81,8 @@ export function shouldUseSupabaseOrders() {
 }
 
 async function getSupabaseUserId() {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id || null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id || null;
 }
 
 function toIsoDate(value: string | null | undefined, fallback = Date.now()) {
@@ -176,6 +177,24 @@ export async function createSupabaseOrder(payload: CreateOrderInput) {
   const user = authData.user;
   if (!user) return null;
 
+  const { data: atomicOrder, error: atomicError } = await supabase.rpc('create_order_atomic', {
+    p_restaurant_id: payload.restaurantId,
+    p_address: payload.address,
+    p_delivery_latitude: payload.deliveryCoords.latitude,
+    p_delivery_longitude: payload.deliveryCoords.longitude,
+    p_payment_method: payload.paymentMethod,
+    p_promo_code: payload.promoCode || null,
+    p_items: payload.items,
+  });
+
+  if (!atomicError && atomicOrder) {
+    return toOrder(atomicOrder as OrderRow);
+  }
+
+  const missingAtomicRpc = atomicError?.code === 'PGRST202' ||
+    atomicError?.message?.toLowerCase().includes('create_order_atomic');
+  if (atomicError && !missingAtomicRpc) throw atomicError;
+
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('name, phone, role')
@@ -263,6 +282,7 @@ export async function createSupabaseOrder(payload: CreateOrderInput) {
 
   const paymentProvider = payload.paymentMethod.toLowerCase().includes('cash') ? 'cash' : 'paystack';
   const ledgerPaymentStatus = paymentProvider === 'cash' ? 'collect_on_delivery' : 'pending';
+  const market = marketForCoordinates(payload.deliveryCoords.latitude, payload.deliveryCoords.longitude);
 
   const { error: paymentError } = await supabase
     .from('payments')
@@ -271,6 +291,7 @@ export async function createSupabaseOrder(payload: CreateOrderInput) {
       customer_id: user.id,
       provider: paymentProvider,
       amount: Math.max(0, subtotal - discount) + deliveryFee + serviceCharge,
+      currency: SUPPORTED_MARKETS[market].currency,
       status: ledgerPaymentStatus,
       metadata: {
         paymentMethod: payload.paymentMethod,

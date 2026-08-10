@@ -114,8 +114,8 @@ module.exports = async function handler(request, response) {
       return;
     }
 
-    if (password.length < 6) {
-      send(response, 400, { error: 'Password must be at least 6 characters.' });
+    if (password.length < 8) {
+      send(response, 400, { error: 'Password must be at least 8 characters.' });
       return;
     }
 

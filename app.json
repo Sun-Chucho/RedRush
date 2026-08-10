@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "RedRush",
+    "name": "RedRush Food Delivery",
     "slug": "onspace-app",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon.png",
+    "icon": "./assets/images/app-icon-v2.png",
     "scheme": "redrush",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/adaptive-icon-v2.png",
         "backgroundColor": "#0A0A0A"
       },
       "config": {
@@ -45,7 +45,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png",
+      "favicon": "./assets/images/favicon-v2.png",
       "backgroundColor": "#0A0A0A",
       "themeColor": "#CC0000"
     },
@@ -54,8 +54,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-logo.png",
-          "imageWidth": 200,
+          "image": "./assets/images/splash-r-v2.png",
+          "imageWidth": 280,
           "resizeMode": "contain",
           "backgroundColor": "#0A0A0A"
         }

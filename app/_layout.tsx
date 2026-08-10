@@ -1,7 +1,8 @@
-import { Stack, usePathname, useSegments } from 'expo-router';
-import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Linking, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AlertProvider } from '@/template';
+import { AlertProvider, useAlert } from '@/template';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
 import { OrderProvider } from '@/contexts/OrderContext';
@@ -12,16 +13,68 @@ import { SupportProvider } from '@/contexts/SupportContext';
 import { RestaurantProvider } from '@/contexts/RestaurantContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Colors } from '@/constants/theme';
+import { registerForPushNotifications, subscribeToNotificationResponses } from '@/services/notifications';
+import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
+
+function AuthenticatedPushRegistration() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    registerForPushNotifications(user.id).catch(() => undefined);
+  }, [user?.id]);
+
+  return null;
+}
+
+function NativeLocationBootstrap() {
+  const attempted = useRef(false);
+  const { refreshLocationCurrency } = useCurrency();
+  const { showAlert } = useAlert();
+  const showAlertRef = useRef(showAlert);
+  showAlertRef.current = showAlert;
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || attempted.current) return;
+    attempted.current = true;
+
+    const timer = setTimeout(() => {
+      refreshLocationCurrency().catch(error => {
+        showAlertRef.current(
+          'Location needed',
+          error instanceof Error ? error.message : 'RedRush could not read this device location.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+          ]
+        );
+      });
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [refreshLocationCurrency]);
+
+  return null;
+}
 
 export default function RootLayout() {
   const pathname = usePathname();
+  const router = useRouter();
   const segments = useSegments();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const topSegment = segments[0];
   const isAppGroupRoute = typeof topSegment === 'string' && topSegment.startsWith('(');
   const isPublicWebRoute = pathname === '/' || pathname === '/privacy-policy' || pathname === '/terms-of-service' || pathname === '/account-deletion' || pathname === '/support';
-  const shouldUsePhoneShell = Platform.OS === 'web' && width >= 768 && (isAppGroupRoute || !isPublicWebRoute);
-  const phoneHeight = Math.max(620, Math.min(860, height - 48));
+  const shouldUsePhoneShell = Platform.OS === 'web' && width < 768 && (isAppGroupRoute || !isPublicWebRoute);
+
+  useEffect(() => subscribeToNotificationResponses(data => {
+    if (typeof data.orderId === 'string' && data.orderId) {
+      router.push(`/order/${data.orderId}`);
+    } else if (data.type === 'support') {
+      router.push('/support');
+    }
+  }), [router]);
 
   return (
     <AlertProvider>
@@ -29,18 +82,22 @@ export default function RootLayout() {
         <ThemeProvider>
           <LanguageProvider>
             <AuthProvider>
+              <AuthenticatedPushRegistration />
               <CurrencyProvider>
+                <NativeLocationBootstrap />
                 <CartProvider>
                   <CustomerDataProvider>
                     <RestaurantProvider>
                       <SupportProvider>
                         <OrderProvider>
                           <View style={[styles.webFrame, shouldUsePhoneShell && styles.webFramePhone]}>
-                            <View style={[styles.root, shouldUsePhoneShell && styles.phoneShell, shouldUsePhoneShell && { height: phoneHeight }]}>
+                            <View style={[styles.root, shouldUsePhoneShell && styles.phoneShell]}>
                               <Stack screenOptions={{ headerShown: false }}>
                                 <Stack.Screen name="index" />
                                 <Stack.Screen name="onboarding" />
                                 <Stack.Screen name="auth" />
+                                <Stack.Screen name="forgot-password" />
+                                <Stack.Screen name="reset-password" />
                                 <Stack.Screen name="admin" />
                                 <Stack.Screen name="(customer)" />
                                 <Stack.Screen name="(vendor)" />
@@ -50,6 +107,7 @@ export default function RootLayout() {
                                 <Stack.Screen name="order/[id]" />
                                 <Stack.Screen name="checkout" />
                                 <Stack.Screen name="support" />
+                                <Stack.Screen name="settings" />
                                 <Stack.Screen name="privacy-policy" />
                                 <Stack.Screen name="terms-of-service" />
                                 <Stack.Screen name="account-deletion" />
@@ -79,9 +137,8 @@ const styles = StyleSheet.create({
   },
   webFramePhone: {
     alignItems: 'center',
-    backgroundColor: '#110B0B',
+    backgroundColor: Colors.background,
     justifyContent: 'center',
-    padding: 24,
   },
   root: { 
     flex: 1, 
@@ -90,15 +147,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 'auto',
   },
   phoneShell: {
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 34,
-    borderWidth: 1,
     maxWidth: 430,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.42,
-    shadowRadius: 36,
     width: '100%',
   },
 });

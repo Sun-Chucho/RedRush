@@ -41,25 +41,39 @@ serve(async (req) => {
       targetUserId = record.customer_id;
       title = `Order ${record.status}`;
       body = `Your order from ${record.restaurant_name} is now ${record.status}.`;
-      data = { type: 'order_status', status: record.status };
+      data = { type: 'order_status', status: record.status, orderId: record.id };
+
+      if (record.status === 'assigned' && record.rider_id) {
+        await notifyUser(
+          supabase,
+          record.rider_id,
+          'Delivery assigned',
+          `Head to ${record.restaurant_name} to collect the order.`,
+          { type: 'rider_assigned', orderId: record.id }
+        );
+      }
 
       // Also if status is 'ready' and no rider is assigned, we should dispatch it
       if (record.status === 'ready' && !record.rider_id) {
         // Dispatch algorithm using our PostGIS function
-        const { data: riders } = await supabase.rpc('find_nearest_rider', {
-           lat: record.latitude || 6.4541, // fallback to Lagos center
-           lon: record.longitude || 3.3947,
-           radius_meters: 5000 
-        });
+        if (typeof record.restaurant_latitude !== 'number' || typeof record.restaurant_longitude !== 'number') {
+          console.warn('Ready order has no restaurant GPS coordinates', record.id);
+        } else {
+          const { data: riders } = await supabase.rpc('find_nearest_rider', {
+            lat: record.restaurant_latitude,
+            lon: record.restaurant_longitude,
+            radius_meters: 15000,
+          });
 
-        if (riders && riders.length > 0) {
-           const nearestRiderId = riders[0].rider_id;
-           // We would notify this specific rider here
-           // For this demo, let's just send them a push notification
-           const { data: riderTokens } = await supabase.from('push_tokens').select('token').eq('user_id', nearestRiderId).limit(1);
-           if (riderTokens && riderTokens.length > 0) {
-              await sendExpoPush(riderTokens[0].token, "New Delivery Request!", `Pick up order from ${record.restaurant_name}`, { type: 'rider_request' });
-           }
+          if (riders && riders.length > 0) {
+            await notifyUser(
+              supabase,
+              riders[0].rider_id,
+              'New delivery request!',
+              `Pick up an order from ${record.restaurant_name}.`,
+              { type: 'rider_request', orderId: record.id }
+            );
+          }
         }
       }
     }
@@ -69,13 +83,13 @@ serve(async (req) => {
     }
 
     // Get target user push token
-    const { data: tokens } = await supabase.from('push_tokens').select('token').eq('user_id', targetUserId).limit(1);
+    const { data: tokens } = await supabase.from('push_tokens').select('token').eq('user_id', targetUserId);
     
     if (!tokens || tokens.length === 0) {
       return new Response("No push token found", { status: 200 });
     }
 
-    await sendExpoPush(tokens[0].token, title, body, data);
+    await Promise.all(tokens.map(({ token }) => sendExpoPush(token, title, body, data)));
 
     return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
   } catch (err) {
@@ -83,6 +97,18 @@ serve(async (req) => {
     return new Response(String(err), { status: 500 });
   }
 });
+
+async function notifyUser(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  title: string,
+  body: string,
+  data: Record<string, unknown>
+) {
+  const { data: tokens } = await supabase.from('push_tokens').select('token').eq('user_id', userId);
+  if (!tokens?.length) return;
+  await Promise.all(tokens.map(({ token }) => sendExpoPush(token, title, body, data)));
+}
 
 async function sendExpoPush(to: string, title: string, body: string, data: any) {
   const message = { to, sound: 'default', title, body, data };

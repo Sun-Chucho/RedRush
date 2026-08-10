@@ -122,6 +122,8 @@ export function getRiderVerificationMissingItems(settings: RiderProfileSettings)
   if (!settings.vehicleType.trim() || !settings.vehiclePlate.trim()) missing.push('Vehicle details');
   if (!settings.idNumber.trim()) missing.push('Identity details');
   if (!settings.bankAccountNumber.trim() && !settings.mobileMoneyPhone.trim()) missing.push('Payout method');
+  if (!settings.idDocumentUrl.trim()) missing.push('Government ID image');
+  if (!settings.licenseDocumentUrl.trim()) missing.push('Rider licence image');
   return missing;
 }
 
@@ -137,6 +139,7 @@ export function getVendorVerificationMissingItems(settings: VendorProfileSetting
   if (!settings.payoutAccountNumber.trim() && !settings.payoutMobileMoneyPhone.trim()) {
     missing.push('Payout method');
   }
+  if (!settings.legalDocumentUrl.trim()) missing.push('Business registration document');
   return missing;
 }
 

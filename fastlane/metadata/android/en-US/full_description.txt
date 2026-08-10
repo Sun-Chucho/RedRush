@@ -1,0 +1,21 @@
+Order food from nearby restaurants with RedRush. Browse menus, place cash-on-delivery orders, track deliveries live, and receive real-time order updates.
+
+For customers
+• Discover nearby restaurants using accurate shop locations.
+• Browse menus and add meals to your cart.
+• Place secure cash-on-delivery orders.
+• Follow every order from confirmation to delivery.
+• View the rider's progress and delivery proximity on the live map.
+• Contact support when you need help.
+
+For restaurants
+• Receive and manage incoming customer orders.
+• Update preparation and pickup status.
+• Maintain restaurant details, menu items, opening status, and location.
+
+For delivery riders
+• Find available delivery requests nearby.
+• Follow the required pickup and delivery workflow.
+• Share current location during active delivery tracking.
+
+RedRush brings customers, restaurants, and riders together in one simple food-delivery experience.

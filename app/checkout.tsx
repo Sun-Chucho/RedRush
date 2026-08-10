@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  Linking, View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
@@ -76,17 +75,9 @@ export default function CheckoutScreen() {
   };
 
   const saveCurrentDeliveryLocation = async () => {
-    const nextLocationLabel = await refreshLocationCurrency();
-    const permission = await Location.requestForegroundPermissionsAsync();
-    if (permission.status !== 'granted') {
-      throw new Error('Location permission was not granted.');
-    }
-    const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    setDeliveryCoords({
-      latitude: current.coords.latitude,
-      longitude: current.coords.longitude,
-    });
-    setAddress(nextLocationLabel || locationLabel);
+    const current = await refreshLocationCurrency();
+    setDeliveryCoords(current.coords);
+    setAddress(current.label || locationLabel);
     setSelectedAddress('');
   };
 
@@ -179,7 +170,14 @@ export default function CheckoutScreen() {
             style={styles.locationBtn}
             onPress={() => {
               saveCurrentDeliveryLocation()
-                .catch(() => showAlert('Location', 'Unable to read your current location.'));
+                .catch(error => showAlert(
+                  'Location unavailable',
+                  error instanceof Error ? error.message : 'Unable to read your current location.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+                  ]
+                ));
             }}
           >
             <MaterialIcons name="my-location" size={16} color={Colors.primary} />

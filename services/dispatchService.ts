@@ -12,16 +12,20 @@ export interface OnlineRider {
   updatedAt: string | null;
 }
 
+const RIDER_LOCATION_FRESHNESS_MS = 2 * 60 * 1000;
+
 /**
  * Fetch all currently online riders from rider_locations table
  */
 export async function getOnlineRiders(): Promise<OnlineRider[]> {
   if (!isSupabaseConfigured) return [];
 
+  const freshAfter = new Date(Date.now() - RIDER_LOCATION_FRESHNESS_MS).toISOString();
   const { data, error } = await supabase
     .from('rider_locations')
     .select('rider_id, latitude, longitude, updated_at, profiles(name)')
     .eq('is_online', true)
+    .gte('updated_at', freshAfter)
     .order('updated_at', { ascending: false });
 
   if (error) {
