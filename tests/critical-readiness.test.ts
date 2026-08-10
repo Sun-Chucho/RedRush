@@ -30,6 +30,7 @@ test('native location selects currency from GPS without requiring reverse geocod
 test('native startup explicitly requests location and reports permission failures', () => {
   const layout = read('app/_layout.tsx');
   assert.match(layout, /function NativeLocationBootstrap/);
+  assert.doesNotMatch(layout, /attempted\.current/);
   assert.match(layout, /refreshLocationCurrency\(\)\.catch/);
   assert.match(layout, /Open Settings/);
 });

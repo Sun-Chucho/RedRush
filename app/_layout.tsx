@@ -29,15 +29,13 @@ function AuthenticatedPushRegistration() {
 }
 
 function NativeLocationBootstrap() {
-  const attempted = useRef(false);
   const { refreshLocationCurrency } = useCurrency();
   const { showAlert } = useAlert();
   const showAlertRef = useRef(showAlert);
   showAlertRef.current = showAlert;
 
   useEffect(() => {
-    if (Platform.OS === 'web' || attempted.current) return;
-    attempted.current = true;
+    if (Platform.OS === 'web') return;
 
     const timer = setTimeout(() => {
       refreshLocationCurrency().catch(error => {
