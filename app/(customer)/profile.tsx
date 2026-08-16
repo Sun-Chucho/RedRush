@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomerData } from '@/hooks/useCustomerData';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -436,7 +436,7 @@ function EmptyPanel({ text }: { text: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   profileHeader: { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, backgroundColor: Colors.surfaceCard, margin: Spacing.md, borderRadius: BorderRadius.lg, ...Shadow.md },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
@@ -492,4 +492,4 @@ const styles = StyleSheet.create({
   infoBlock: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: Spacing.sm },
   infoText: { color: Colors.textSecondary, fontSize: FontSize.body, lineHeight: 22 },
   emptyPanel: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm },
-});
+}));

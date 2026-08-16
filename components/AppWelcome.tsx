@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useRouter } from 'expo-router';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { dashboardForRole } from '@/services/authRoutes';
 
@@ -69,7 +69,7 @@ export default function AppWelcome() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: {
     backgroundColor: '#0a0000',
     flex: 1,
@@ -128,4 +128,4 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     fontSize: FontSize.sm,
   },
-});
+}));

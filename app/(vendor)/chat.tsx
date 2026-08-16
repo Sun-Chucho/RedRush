@@ -10,7 +10,7 @@ import {
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, createThemedStyles, createThemedValues } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrders } from '@/hooks/useOrders';
 import { getUnreadCount } from '@/services/supabaseChat';
@@ -25,7 +25,7 @@ interface ChatThread {
   unread: number;
 }
 
-const STATUS_COLOR: Record<string, string> = {
+const STATUS_COLOR: Record<string, string> = createThemedValues(() => ({
   pending: Colors.warning,
   accepted: Colors.info,
   preparing: Colors.warning,
@@ -33,7 +33,7 @@ const STATUS_COLOR: Record<string, string> = {
   picked_up: Colors.primary,
   delivered: Colors.success,
   cancelled: Colors.error,
-};
+}));
 
 export default function VendorChatInbox() {
   const insets = useSafeAreaInsets();
@@ -190,7 +190,7 @@ export default function VendorChatInbox() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
 
   header: {
@@ -351,4 +351,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-});
+}));

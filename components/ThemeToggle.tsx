@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, ViewStyle } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { useThemeMode } from '@/contexts/ThemeContext';
 
 export function ThemeToggle({ style, showLabel = false }: { style?: ViewStyle; showLabel?: boolean }) {
@@ -31,7 +31,7 @@ export function ThemeToggle({ style, showLabel = false }: { style?: ViewStyle; s
 
 export default ThemeToggle;
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   button: {
     alignItems: 'center',
     borderRadius: BorderRadius.full,
@@ -47,4 +47,4 @@ const styles = StyleSheet.create({
     width: undefined,
   },
   label: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
-});
+}));

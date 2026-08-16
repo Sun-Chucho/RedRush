@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 import { useRestaurants } from '@/hooks/useRestaurants';
@@ -117,7 +117,7 @@ export default function AdminAnalytics() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   periodRow: { flexDirection: 'row', marginHorizontal: Spacing.md, backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.md },
@@ -157,4 +157,4 @@ const styles = StyleSheet.create({
   regionBarContainer: { flex: 1, height: 8, backgroundColor: Colors.surfaceElevated, borderRadius: 4, overflow: 'hidden' },
   regionBar: { height: '100%', backgroundColor: Colors.primary, borderRadius: 4 },
   regionPct: { color: Colors.primary, fontSize: FontSize.xs, fontWeight: FontWeight.bold, width: 30, textAlign: 'right' },
-});
+}));

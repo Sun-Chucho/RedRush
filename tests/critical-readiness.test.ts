@@ -41,6 +41,42 @@ test('theme hydration never hides the entire application', () => {
   assert.match(html, /name="theme-color"/);
 });
 
+test('theme changes rebuild screen styles without an app reload', () => {
+  const theme = read('contexts/ThemeContext.tsx');
+  const tokens = read('constants/theme.ts');
+  const settings = read('app/settings.tsx');
+
+  assert.match(theme, /setMode\(nextMode\)/);
+  assert.match(theme, /ThemeRefreshBoundary/);
+  assert.match(tokens, /themeRevision \+= 1/);
+  assert.match(tokens, /createThemedStyles/);
+  assert.match(settings, /createThemedStyles\(\(\) =>/);
+});
+
+test('image selection uses the system picker without camera or recording permissions', () => {
+  const appJson = JSON.parse(read('app.json'));
+  const imagePicker = appJson.expo.plugins.find((plugin: unknown) => (
+    Array.isArray(plugin) && plugin[0] === 'expo-image-picker'
+  ));
+
+  assert.deepEqual(imagePicker?.[1], {
+    photosPermission: false,
+    cameraPermission: false,
+    microphonePermission: false,
+  });
+  for (const permission of [
+    'android.permission.CAMERA',
+    'android.permission.RECORD_AUDIO',
+    'android.permission.READ_MEDIA_IMAGES',
+    'android.permission.READ_MEDIA_VIDEO',
+  ]) {
+    assert.equal(appJson.expo.android.blockedPermissions.includes(permission), true);
+  }
+  assert.equal('NSCameraUsageDescription' in appJson.expo.ios.infoPlist, false);
+  assert.equal('NSMicrophoneUsageDescription' in appJson.expo.ios.infoPlist, false);
+  assert.equal('NSPhotoLibraryUsageDescription' in appJson.expo.ios.infoPlist, false);
+});
+
 test('startup requests platform location without a custom permission modal', () => {
   const layout = read('app/_layout.tsx');
   assert.match(layout, /function NativeLocationBootstrap/);

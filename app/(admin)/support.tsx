@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { SupportMessage, SupportThread, useSupport } from '@/contexts/SupportContext';
 import { useAlert } from '@/template';
 import {
@@ -133,7 +133,7 @@ export default function AdminSupportScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   layout: { flex: 1, paddingHorizontal: Spacing.md, gap: Spacing.sm },
@@ -166,4 +166,4 @@ const styles = StyleSheet.create({
   emptyThreads: { alignItems: 'center', padding: Spacing.xl },
   emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.sm, textAlign: 'center' },
-});
+}));

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { withTimeout } from '@/services/asyncUtils';
 import { completeSupabaseRecoveryCallback, updateSupabasePassword } from '@/services/supabaseAuth';
 
@@ -56,7 +56,7 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { backgroundColor: Colors.background, flex: 1, justifyContent: 'center', padding: Spacing.xl },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
   body: { color: Colors.textSecondary, fontSize: FontSize.body, lineHeight: 22, marginBottom: Spacing.lg, marginTop: Spacing.sm },
@@ -66,4 +66,4 @@ const styles = StyleSheet.create({
   buttonText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   secondary: { alignItems: 'center', marginTop: Spacing.md, padding: Spacing.sm },
   secondaryText: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
-});
+}));

@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { Restaurant } from '@/constants/mockData';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -231,7 +231,7 @@ function RestaurantCard({ restaurant, wide, closedLabel, deliveryLabel, formatMo
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   contentWidth: { width: '100%', maxWidth: 1280, alignSelf: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12 },
@@ -299,4 +299,4 @@ const styles = StyleSheet.create({
   feedbackBody: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: 4, textAlign: 'center' },
   retryButton: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, marginTop: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
   retryButtonText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
-});
+}));

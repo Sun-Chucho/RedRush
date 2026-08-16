@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { requestSupabasePasswordReset } from '@/services/supabaseAuth';
 
 export default function ForgotPasswordScreen() {
@@ -60,7 +60,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { backgroundColor: Colors.background, flex: 1, justifyContent: 'center', padding: Spacing.xl },
   back: { left: Spacing.md, padding: Spacing.sm, position: 'absolute', top: Spacing.xl },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, marginTop: Spacing.md },
@@ -69,4 +69,4 @@ const styles = StyleSheet.create({
   error: { color: Colors.error, fontSize: FontSize.sm, marginTop: Spacing.sm },
   button: { alignItems: 'center', backgroundColor: Colors.primary, borderRadius: BorderRadius.full, marginTop: Spacing.md, paddingVertical: 15 },
   buttonText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-});
+}));

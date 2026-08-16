@@ -6,7 +6,7 @@ import React, { memo, useEffect, useState } from 'react';
 import { TouchableOpacity, View, Text, StyleSheet, Animated } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Shadow, createThemedStyles } from '@/constants/theme';
 import { getUnreadCount } from '@/services/supabaseChat';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -76,7 +76,7 @@ function FloatingChatButton({ orderId, bottom = 100, right = 20 }: Props) {
 
 export default memo(FloatingChatButton);
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: {
     position: 'absolute',
     zIndex: 999,
@@ -111,4 +111,4 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: FontWeight.extrabold,
   },
-});
+}));

@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, View, Text, StyleSheet, useWindowDimensions } from 'react-native';
-import { Colors, FontSize, FontWeight } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, createThemedStyles } from '@/constants/theme';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/hooks/useLanguage';
 
@@ -58,7 +58,7 @@ export default function CustomerLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   desktopScene: { backgroundColor: Colors.background, width: '100%', maxWidth: 1440, alignSelf: 'center', paddingHorizontal: 24 },
   mobileScene: { backgroundColor: Colors.background },
   sidebar: {
@@ -79,4 +79,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   badgeText: { color: '#fff', fontSize: 9, fontWeight: FontWeight.bold },
-});
+}));

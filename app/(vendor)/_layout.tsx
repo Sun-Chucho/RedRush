@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, StyleSheet, useWindowDimensions } from 'react-native';
-import { Colors, FontSize, FontWeight } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, createThemedStyles } from '@/constants/theme';
 
 export default function VendorLayout() {
   const insets = useSafeAreaInsets();
@@ -42,9 +42,9 @@ export default function VendorLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   desktopScene: { backgroundColor: Colors.background, width: '100%', maxWidth: 1440, alignSelf: 'center', paddingHorizontal: 24 },
   mobileScene: { backgroundColor: Colors.background },
   sidebar: { width: 228, height: '100%', paddingHorizontal: 12, paddingTop: 28, paddingBottom: 20, backgroundColor: Colors.surface, borderRightWidth: 1, borderRightColor: Colors.border },
   sidebarItem: { height: 56, maxHeight: 56, borderRadius: 12, marginVertical: 3 },
-});
+}));

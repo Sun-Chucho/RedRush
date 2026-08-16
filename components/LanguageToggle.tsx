@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, ViewStyle } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, BorderRadius, Spacing, createThemedStyles } from '@/constants/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export function LanguageToggle({ style }: { style?: ViewStyle }) {
@@ -17,7 +17,7 @@ export function LanguageToggle({ style }: { style?: ViewStyle }) {
 
 export default LanguageToggle;
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -30,4 +30,4 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   text: { color: Colors.text, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
-});
+}));

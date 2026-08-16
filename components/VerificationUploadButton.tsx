@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { pickAndUploadVerificationDocument, VerificationDocumentKind, VerificationRole } from '@/services/verificationDocuments';
 
 export function VerificationUploadButton({
@@ -46,10 +46,10 @@ export function VerificationUploadButton({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   wrap: { marginBottom: Spacing.sm },
   button: { alignItems: 'center', backgroundColor: Colors.surfaceCard, borderColor: Colors.border, borderRadius: BorderRadius.md, borderWidth: 1, flexDirection: 'row', gap: Spacing.sm, padding: Spacing.md },
   complete: { borderColor: Colors.success + '77' },
   label: { color: Colors.text, flex: 1, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   error: { color: Colors.error, fontSize: FontSize.xs, marginTop: 4 },
-});
+}));

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 import { useRestaurants } from '@/hooks/useRestaurants';
@@ -142,7 +142,7 @@ export default function VendorAnalytics() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   periodRow: { flexDirection: 'row', marginHorizontal: Spacing.md, backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, padding: 4, marginBottom: Spacing.md },
@@ -182,4 +182,4 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', borderRadius: 4 },
   statusCount: { width: 30, textAlign: 'right', fontSize: FontSize.sm, fontWeight: FontWeight.bold },
   emptyText: { color: Colors.textMuted, fontSize: FontSize.sm, lineHeight: 20 },
-});
+}));

@@ -6,7 +6,7 @@ import {
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useCart } from '@/hooks/useCart';
 import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -286,7 +286,7 @@ export default function CheckoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
   headerTitle: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
@@ -335,4 +335,4 @@ const styles = StyleSheet.create({
   footerTotalValue: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   placeOrderBtn: { flexDirection: 'row', backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   placeOrderText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-});
+}));

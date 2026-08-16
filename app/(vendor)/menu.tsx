@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, Switch, TextInput, 
 import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { MenuItem } from '@/constants/mockData';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useRestaurants } from '@/hooks/useRestaurants';
@@ -289,7 +289,7 @@ export default function VendorMenu() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
@@ -335,4 +335,4 @@ const styles = StyleSheet.create({
   imgPickerText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
   saveBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 14, alignItems: 'center', marginBottom: Spacing.xl },
   saveBtnText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-});
+}));

@@ -6,7 +6,7 @@ import {
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, createThemedStyles } from '@/constants/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { TranslationKey } from '@/contexts/LanguageContext';
@@ -139,7 +139,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -269,4 +269,4 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     textDecorationLine: 'underline',
   },
-});
+}));

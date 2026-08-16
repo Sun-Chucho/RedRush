@@ -3,7 +3,7 @@ import { ActivityIndicator, View, Text, ScrollView, StyleSheet, TextInput, Touch
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { requestAccountDeletion } from '@/services/accountDeletion';
 
 export default function AccountDeletionScreen() {
@@ -98,7 +98,7 @@ export default function AccountDeletionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
@@ -114,4 +114,4 @@ const styles = StyleSheet.create({
   statusText: { color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 20, marginTop: Spacing.md },
   heading: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.bold, marginTop: Spacing.lg, marginBottom: Spacing.sm },
   paragraph: { color: Colors.textSecondary, fontSize: FontSize.body, lineHeight: 24, marginBottom: Spacing.sm },
-});
+}));

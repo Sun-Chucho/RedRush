@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 
 const LANDING_LINKS = [
   { label: 'Privacy', href: '/privacy-policy' },
@@ -108,7 +108,7 @@ function Feature({ title, body }: { title: string; body: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   screen: {
     backgroundColor: '#120D0D',
     flex: 1,
@@ -288,4 +288,4 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: FontSize.xs,
   },
-});
+}));

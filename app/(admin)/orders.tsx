@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles, createThemedValues } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
 
-const STATUS_COLOR: Record<string, string> = {
+const STATUS_COLOR: Record<string, string> = createThemedValues(() => ({
   pending: Colors.warning, accepted: Colors.info, preparing: Colors.warning,
   ready: Colors.success, assigned: Colors.info, picked_up: Colors.primary, delivered: Colors.success, cancelled: Colors.error,
-};
+}));
 
 export default function AdminOrders() {
   const [filter, setFilter] = useState('All');
@@ -97,7 +97,7 @@ export default function AdminOrders() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   statsRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, gap: Spacing.xs, marginBottom: Spacing.md },
@@ -124,4 +124,4 @@ const styles = StyleSheet.create({
   remitText: { color: Colors.success, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.md },
-});
+}));

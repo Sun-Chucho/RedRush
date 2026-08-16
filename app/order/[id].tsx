@@ -7,7 +7,7 @@ import { MapView, Marker, Polyline } from '@/components/MapViewCompat';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/hooks/useAuth';
@@ -530,7 +530,7 @@ export default function OrderTrackingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   contentWidth: { width: '100%', maxWidth: 1320, alignSelf: 'center' },
   scroll: { paddingBottom: 0 },
@@ -627,4 +627,4 @@ const styles = StyleSheet.create({
   reviewBtnText: { color: Colors.gold, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
   ratedBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: Spacing.md, padding: Spacing.md, backgroundColor: Colors.success + '15', borderRadius: BorderRadius.lg, gap: Spacing.sm, marginBottom: Spacing.md },
   ratedText: { color: Colors.success, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
-});
+}));

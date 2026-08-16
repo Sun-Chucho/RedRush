@@ -7,7 +7,7 @@ import {
   TextInput, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, createThemedStyles } from '@/constants/theme';
 
 interface Props {
   visible: boolean;
@@ -193,7 +193,7 @@ function RatingModal({ visible, restaurantName, onSubmit, onDismiss }: Props) {
 
 export default memo(RatingModal);
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   overlay: {
     flex: 1,
     backgroundColor: Colors.overlay,
@@ -352,4 +352,4 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontWeight: FontWeight.bold,
   },
-});
+}));

@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { MenuItem } from '@/constants/mockData';
 import { useCart } from '@/hooks/useCart';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -311,7 +311,7 @@ function ReviewCard({ review }: { review: Review }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
   notFoundText: { color: Colors.text, fontSize: FontSize.lg },
@@ -393,4 +393,4 @@ const styles = StyleSheet.create({
   reviewSubRatings: { flexDirection: 'row', gap: Spacing.md },
   subRating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   subRatingText: { color: Colors.textMuted, fontSize: FontSize.xs },
-});
+}));

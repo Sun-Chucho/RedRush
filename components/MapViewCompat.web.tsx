@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '@/constants/theme';
+import { Colors, createThemedStyles } from '@/constants/theme';
 
 interface Region {
   latitude: number;
@@ -186,7 +186,7 @@ Polyline.displayName = 'Polyline';
 
 export default MapView;
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   wrapper: {
     backgroundColor: Colors.surfaceElevated,
     overflow: 'hidden' as any,
@@ -202,4 +202,4 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   badgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
-});
+}));

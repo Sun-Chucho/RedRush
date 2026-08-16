@@ -1,3 +1,5 @@
+import { StyleSheet } from 'react-native';
+
 // RedRush Design System Tokens
 export const DarkColors = {
   primary: '#CC0000',
@@ -47,8 +49,66 @@ export type ThemeMode = 'dark' | 'light';
 
 export const Colors = { ...DarkColors };
 
+let themeRevision = 0;
+
 export function applyThemeColors(mode: ThemeMode) {
   Object.assign(Colors, mode === 'light' ? LightColors : DarkColors);
+  themeRevision += 1;
+}
+
+/**
+ * Defers StyleSheet creation until a style is used and rebuilds it whenever
+ * the active palette changes. Regular StyleSheet.create calls capture color
+ * strings once at module load, which previously made a restart necessary for
+ * light mode to appear across already-open screens.
+ */
+export function createThemedStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(factory: () => T): T {
+  let cachedRevision = -1;
+  let cachedStyles: T;
+
+  const getStyles = () => {
+    if (cachedRevision !== themeRevision) {
+      cachedStyles = StyleSheet.create(factory()) as T;
+      cachedRevision = themeRevision;
+    }
+    return cachedStyles;
+  };
+
+  return new Proxy({} as T, {
+    get: (_target, property) => getStyles()[property as keyof T],
+    has: (_target, property) => property in getStyles(),
+    ownKeys: () => Reflect.ownKeys(getStyles()),
+    getOwnPropertyDescriptor: (_target, property) => ({
+      configurable: true,
+      enumerable: true,
+      value: getStyles()[property as keyof T],
+    }),
+  });
+}
+
+/** Defers non-StyleSheet color maps, such as status colors, in the same way. */
+export function createThemedValues<T extends object>(factory: () => T): T {
+  let cachedRevision = -1;
+  let cachedValues: T;
+
+  const getValues = () => {
+    if (cachedRevision !== themeRevision) {
+      cachedValues = factory();
+      cachedRevision = themeRevision;
+    }
+    return cachedValues;
+  };
+
+  return new Proxy({} as T, {
+    get: (_target, property) => getValues()[property as keyof T],
+    has: (_target, property) => property in getValues(),
+    ownKeys: () => Reflect.ownKeys(getValues()),
+    getOwnPropertyDescriptor: (_target, property) => ({
+      configurable: true,
+      enumerable: true,
+      value: getValues()[property as keyof T],
+    }),
+  });
 }
 
 export const Spacing = {

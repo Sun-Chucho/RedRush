@@ -7,7 +7,7 @@ import { MapView, Marker, Polyline } from '@/components/MapViewCompat';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
@@ -529,7 +529,7 @@ export default function RiderHome() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   greeting: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
@@ -591,4 +591,4 @@ const styles = StyleSheet.create({
   quickCard: { width: '47%', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: Colors.border },
   quickValue: { fontSize: FontSize.lg, fontWeight: FontWeight.extrabold },
   quickLabel: { color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'center' },
-});
+}));

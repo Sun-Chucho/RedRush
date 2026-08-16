@@ -10,7 +10,7 @@ import {
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, Shadow, createThemedStyles } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrders } from '@/hooks/useOrders';
 import {
@@ -248,7 +248,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
 
   header: {
@@ -373,4 +373,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },
-});
+}));

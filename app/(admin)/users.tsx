@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput } from 'r
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles, createThemedValues } from '@/constants/theme';
 import { UserRole } from '@/constants/mockData';
 import { useAlert } from '@/template';
 import { reviewRoleRequestOnBackend } from '@/services/backend';
@@ -29,12 +29,12 @@ type RoleRequest = {
   status: string;
 };
 
-const ROLE_COLOR: Record<string, string> = {
+const ROLE_COLOR: Record<string, string> = createThemedValues(() => ({
   customer: Colors.info,
   vendor: Colors.warning,
   rider: Colors.success,
   admin: Colors.primary,
-};
+}));
 
 export default function AdminUsers() {
   const [tab, setTab] = useState('All');
@@ -167,7 +167,7 @@ export default function AdminUsers() {
 }
 
 function createStyles() {
-  return StyleSheet.create({
+  return createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.md, marginHorizontal: Spacing.md, paddingHorizontal: Spacing.md, height: 44, marginBottom: Spacing.sm, gap: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
@@ -197,5 +197,5 @@ function createStyles() {
   statusPillText: { fontSize: 10, fontWeight: FontWeight.semibold },
   joinedText: { color: Colors.textMuted, fontSize: 10 },
   moreBtn: { padding: 4 },
-  });
+  }));
 }

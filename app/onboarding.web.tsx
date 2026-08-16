@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Href, Redirect, useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, createThemedStyles } from '@/constants/theme';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 import { TranslationKey } from '@/contexts/LanguageContext';
@@ -139,7 +139,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   logoContainer: {
     position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40,
@@ -189,4 +189,4 @@ const styles = StyleSheet.create({
   legalLinks: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.md },
   legalDot: { color: Colors.textMuted, fontSize: FontSize.sm },
   privacyText: { color: Colors.textMuted, fontSize: FontSize.sm, textDecorationLine: 'underline' },
-});
+}));

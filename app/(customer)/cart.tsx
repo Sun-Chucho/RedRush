@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useCart } from '@/hooks/useCart';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useRestaurants } from '@/hooks/useRestaurants';
@@ -109,7 +109,7 @@ export default function CartScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   contentWidth: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
   body: { flex: 1 },
@@ -147,4 +147,4 @@ const styles = StyleSheet.create({
   emptySubtitle: { color: Colors.textMuted, fontSize: FontSize.body, marginTop: Spacing.xs, textAlign: 'center' },
   browseBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 12, paddingHorizontal: 32, marginTop: Spacing.lg },
   browseBtnText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-});
+}));

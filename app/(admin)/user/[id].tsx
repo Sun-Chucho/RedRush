@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Linking, ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { supabase } from '@/services/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createVerificationDocumentUrl } from '@/services/verificationDocuments';
@@ -70,7 +70,7 @@ export default function AdminUserProfile() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.sm },
   title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.text },
@@ -80,4 +80,4 @@ const styles = StyleSheet.create({
   text: { color: Colors.text, textAlign: 'center', marginTop: Spacing.xl },
   documentButton: { alignItems: 'center', borderColor: Colors.border, borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, padding: Spacing.md },
   documentText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
-});
+}));

@@ -11,8 +11,8 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { CustomerDataProvider } from '@/contexts/CustomerDataContext';
 import { SupportProvider } from '@/contexts/SupportContext';
 import { RestaurantProvider } from '@/contexts/RestaurantContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { Colors } from '@/constants/theme';
+import { ThemeProvider, ThemeRefreshBoundary } from '@/contexts/ThemeContext';
+import { Colors, createThemedStyles } from '@/constants/theme';
 import { registerForPushNotifications, subscribeToNotificationResponses } from '@/services/notifications';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -72,31 +72,33 @@ export default function RootLayout() {
                     <RestaurantProvider>
                       <SupportProvider>
                         <OrderProvider>
-                          <View style={[styles.webFrame, shouldUsePhoneShell && styles.webFramePhone]}>
-                            <View style={[styles.root, shouldUsePhoneShell && styles.phoneShell]}>
-                              <Stack screenOptions={{ headerShown: false }}>
-                                <Stack.Screen name="index" />
-                                <Stack.Screen name="onboarding" />
-                                <Stack.Screen name="auth" />
-                                <Stack.Screen name="forgot-password" />
-                                <Stack.Screen name="reset-password" />
-                                <Stack.Screen name="admin" />
-                                <Stack.Screen name="(customer)" />
-                                <Stack.Screen name="(vendor)" />
-                                <Stack.Screen name="(rider)" />
-                                <Stack.Screen name="(admin)" />
-                                <Stack.Screen name="restaurant/[id]" />
-                                <Stack.Screen name="order/[id]" />
-                                <Stack.Screen name="checkout" />
-                                <Stack.Screen name="support" />
-                                <Stack.Screen name="settings" />
-                                <Stack.Screen name="privacy-policy" />
-                                <Stack.Screen name="terms-of-service" />
-                                <Stack.Screen name="account-deletion" />
-                                <Stack.Screen name="chat/[orderId]" />
-                              </Stack>
+                          <ThemeRefreshBoundary>
+                            <View style={[styles.webFrame, shouldUsePhoneShell && styles.webFramePhone]}>
+                              <View style={[styles.root, shouldUsePhoneShell && styles.phoneShell]}>
+                                <Stack screenOptions={{ headerShown: false }}>
+                                  <Stack.Screen name="index" />
+                                  <Stack.Screen name="onboarding" />
+                                  <Stack.Screen name="auth" />
+                                  <Stack.Screen name="forgot-password" />
+                                  <Stack.Screen name="reset-password" />
+                                  <Stack.Screen name="admin" />
+                                  <Stack.Screen name="(customer)" />
+                                  <Stack.Screen name="(vendor)" />
+                                  <Stack.Screen name="(rider)" />
+                                  <Stack.Screen name="(admin)" />
+                                  <Stack.Screen name="restaurant/[id]" />
+                                  <Stack.Screen name="order/[id]" />
+                                  <Stack.Screen name="checkout" />
+                                  <Stack.Screen name="support" />
+                                  <Stack.Screen name="settings" />
+                                  <Stack.Screen name="privacy-policy" />
+                                  <Stack.Screen name="terms-of-service" />
+                                  <Stack.Screen name="account-deletion" />
+                                  <Stack.Screen name="chat/[orderId]" />
+                                </Stack>
+                              </View>
                             </View>
-                          </View>
+                          </ThemeRefreshBoundary>
                         </OrderProvider>
                       </SupportProvider>
                     </RestaurantProvider>
@@ -111,7 +113,7 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   webFrame: { 
     flex: 1, 
     width: '100%',
@@ -132,4 +134,4 @@ const styles = StyleSheet.create({
     maxWidth: 430,
     width: '100%',
   },
-});
+}));

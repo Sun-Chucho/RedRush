@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles, createThemedValues } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAlert } from '@/template';
@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import FloatingChatButton from '@/components/FloatingChatButton';
 
 const TABS = ['All', 'Pending', 'Preparing', 'Ready', 'Completed'];
-const STATUS_COLOR: Record<string, string> = {
+const STATUS_COLOR: Record<string, string> = createThemedValues(() => ({
   pending: Colors.warning,
   accepted: Colors.info,
   preparing: Colors.warning,
@@ -21,7 +21,7 @@ const STATUS_COLOR: Record<string, string> = {
   picked_up: Colors.primary,
   delivered: Colors.success,
   cancelled: Colors.error,
-};
+}));
 
 export default function VendorOrders() {
   const [tab, setTab] = useState('All');
@@ -267,7 +267,7 @@ export default function VendorOrders() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   tabsScroll: { marginBottom: Spacing.sm },
@@ -317,4 +317,4 @@ const styles = StyleSheet.create({
   etaPreviewText: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
   saveTimeBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 15, alignItems: 'center' },
   saveTimeBtnText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
-});
+}));

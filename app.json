@@ -24,7 +24,6 @@
         "UIBackgroundModes": [
           "location"
         ],
-        "NSPhotoLibraryUsageDescription": "RedRush lets vendors and users choose images for menus, restaurant profiles, and account profiles.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -48,6 +47,7 @@
       ],
       "blockedPermissions": [
         "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
@@ -81,6 +81,14 @@
       "expo-notifications",
       "expo-localization",
       "expo-mail-composer",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": false,
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-secure-store",
       "expo-updates",
       [

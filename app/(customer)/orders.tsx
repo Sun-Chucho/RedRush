@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, useWind
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles, createThemedValues } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Order } from '@/constants/mockData';
@@ -12,7 +12,7 @@ import { TranslationKey } from '@/contexts/LanguageContext';
 import { registerForPushNotifications } from '@/services/notifications';
 import { useAuth } from '@/hooks/useAuth';
 
-const STATUS_COLORS: Record<string, string> = {
+const STATUS_COLORS: Record<string, string> = createThemedValues(() => ({
   pending: Colors.warning,
   accepted: Colors.info,
   preparing: Colors.warning,
@@ -21,7 +21,7 @@ const STATUS_COLORS: Record<string, string> = {
   picked_up: Colors.primary,
   delivered: Colors.success,
   cancelled: Colors.error,
-};
+}));
 
 const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
   pending: 'pending',
@@ -326,7 +326,7 @@ function OrderCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   contentWidth: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
   headerTitle: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
@@ -437,4 +437,4 @@ const styles = StyleSheet.create({
   totalText: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   trackRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
   trackText: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.medium, flex: 1, marginLeft: 4 },
-});
+}));

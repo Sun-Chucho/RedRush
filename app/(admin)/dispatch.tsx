@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useOrders } from '@/hooks/useOrders';
 import { fetchOnlineRiders, assignRiderToOrder, DispatchRider } from '@/services/supabaseDispatch';
 import { useAlert } from '@/template';
@@ -102,7 +102,7 @@ export default function DispatchBoard() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { flex: 1, backgroundColor: Colors.background },
   title: { color: Colors.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold, padding: Spacing.md },
   content: { flex: 1, flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md },
@@ -123,4 +123,4 @@ const styles = StyleSheet.create({
   assignBtn: { backgroundColor: Colors.primary, paddingVertical: 8, borderRadius: BorderRadius.sm, alignItems: 'center' },
   assignBtnText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
   emptyText: { color: Colors.textMuted, textAlign: 'center', marginTop: Spacing.xl },
-});
+}));

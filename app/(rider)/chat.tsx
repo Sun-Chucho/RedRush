@@ -15,7 +15,7 @@ import {
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow, createThemedStyles } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrders } from '@/hooks/useOrders';
 import {
@@ -270,7 +270,7 @@ function formatRelativeTime(isoString: string): string {
 
 // ── styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -433,4 +433,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-});
+}));

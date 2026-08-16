@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 're
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { useThemeMode } from '@/contexts/ThemeContext';
 
 export default function SettingsScreen() {
@@ -56,7 +56,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   screen: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
   backButton: { width: 42, height: 42, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceCard, borderWidth: 1, borderColor: Colors.border },
@@ -73,4 +73,4 @@ const styles = StyleSheet.create({
   settingDescription: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 3, lineHeight: 17 },
   note: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.md, paddingHorizontal: Spacing.xs },
   noteText: { flex: 1, color: Colors.textMuted, fontSize: FontSize.xs, lineHeight: 17 },
-});
+}));

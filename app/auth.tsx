@@ -19,7 +19,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Redirect, useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, createThemedStyles } from '@/constants/theme';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
 import { UserRole } from '@/constants/mockData';
@@ -296,7 +296,7 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   webStage: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1, backgroundColor: Colors.background },
   scrollView: { flex: 1, backgroundColor: Colors.background },
@@ -354,4 +354,4 @@ const styles = StyleSheet.create({
   googleBtnText: { color: '#3C4043', flexShrink: 0, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
   forgotBtn: { alignSelf: 'flex-end', paddingVertical: 2 },
   forgotText: { color: Colors.primary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
-});
+}));

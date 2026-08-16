@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Spacing, createThemedStyles } from '@/constants/theme';
 import { dashboardForRole } from '@/services/authRoutes';
 import { withTimeout } from '@/services/asyncUtils';
 import { completeSupabaseOAuthCallback } from '@/services/supabaseAuth';
@@ -51,7 +51,7 @@ export default function AuthCallbackScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles(() => ({
   container: { alignItems: 'center', backgroundColor: Colors.background, flex: 1, gap: Spacing.md, justifyContent: 'center', padding: Spacing.xl },
   title: { color: Colors.text, fontSize: FontSize.lg, fontWeight: FontWeight.bold, textAlign: 'center' },
   text: { color: Colors.textSecondary, fontSize: FontSize.body, maxWidth: 440, textAlign: 'center' },
@@ -59,4 +59,4 @@ const styles = StyleSheet.create({
   buttonText: { color: Colors.text, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   secondary: { padding: Spacing.sm },
   secondaryText: { color: Colors.primary, fontSize: FontSize.body, fontWeight: FontWeight.semibold },
-});
+}));
