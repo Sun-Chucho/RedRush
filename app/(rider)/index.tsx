@@ -12,11 +12,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useOrders } from '@/hooks/useOrders';
 import { useAlert } from '@/template';
-import { startRiderTracking, stopRiderTracking, setRiderOffline } from '@/services/riderLocation';
+import { startRiderTracking, stopRiderTracking, setRiderOffline, subscribeToOwnRiderLocation } from '@/services/riderLocation';
 import { setRiderOnlineStatus } from '@/services/dispatchService';
 import { sendRiderRequestNotification, sendRiderAssignedNotification, registerForPushNotifications } from '@/services/notifications';
 import { isCashPayment } from '@/services/payments';
-import * as Location from 'expo-location';
 import {
   emptyRiderSettings,
   getRiderVerificationMissingItems,
@@ -108,6 +107,8 @@ export default function RiderHome() {
         orderId: readyOrder.id,
         prepTime: readyOrder.prepTime,
         deliveryTime: readyOrder.deliveryTime,
+        restaurantLatitude: readyOrder.restaurantLatitude,
+        restaurantLongitude: readyOrder.restaurantLongitude,
       }
     : null;
 
@@ -124,23 +125,31 @@ export default function RiderHome() {
     return () => anim.stop();
   }, [isOnline, pulseAnim]);
 
-  // Get location on mount + register for push notifications
+  // Restore rider availability without requesting location while offline.
   useEffect(() => {
     const userId = user?.id;
     if (userId) {
       registerForPushNotifications(userId, { requestPermission: false }).catch(() => undefined);
-      loadRiderProfileSettings(userId).then(setSettings).catch(() => undefined);
+      loadRiderProfileSettings(userId).then(async loaded => {
+        setSettings(loaded);
+        if (loaded.isOnline && loaded.approvalStatus !== 'suspended') {
+          const started = await startRiderTracking(userId).catch(() => false);
+          setIsOnline(started);
+        }
+      }).catch(() => undefined);
     }
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        setLocationGranted(true);
-        const loc = await Location.getCurrentPositionAsync({});
-        setMyCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-      }
-    })();
     return () => { stopRiderTracking(); };
   }, [user?.id]);
+
+  useEffect(() => subscribeToOwnRiderLocation(coords => {
+    setLocationGranted(true);
+    setMyCoords({ latitude: coords.latitude, longitude: coords.longitude });
+  }), []);
+
+  useEffect(() => {
+    if (!isOnline || !activeDelivery || !user?.id) return;
+    startRiderTracking(user.id, { requestBackground: true }).catch(() => undefined);
+  }, [activeDelivery?.id, isOnline, user?.id]);
 
   // Notify when new ready order appears while online
   useEffect(() => {
@@ -156,7 +165,7 @@ export default function RiderHome() {
 
   const handleToggle = async (val: boolean) => {
     if (val && !profileReady) {
-      showAlert('Complete rider setup', 'Add vehicle details, a payout method, and at least one document in Profile before taking rides.');
+      showAlert('Account suspended', 'Contact support to resolve the suspension before taking deliveries.');
       setIsOnline(false);
       return;
     }
@@ -164,7 +173,7 @@ export default function RiderHome() {
     setIsOnline(val);
     if (val) {
       if (user?.id) {
-        const started = await startRiderTracking(user.id);
+        const started = await startRiderTracking(user.id, { requestBackground: !!activeDelivery });
         if (!started) {
           showAlert('Location Required', 'Grant location permission to go online and receive deliveries.');
           setIsOnline(false);
@@ -190,6 +199,7 @@ export default function RiderHome() {
     if (!request || !user?.id) return;
     try {
       await assignRider(request.orderId, user.id, user.name);
+      await startRiderTracking(user.id, { requestBackground: true }).catch(() => true);
       await sendRiderAssignedNotification(request.restaurant, request.customerAddress);
       setHasRequest(false);
       showAlert('Delivery Accepted!', `Head to ${request.restaurant} to pick up the order.`);
@@ -279,7 +289,7 @@ export default function RiderHome() {
                 : 'Online - Enable location for full tracking'
               : profileReady
                 ? 'Toggle online to start receiving orders'
-                : 'Complete rider setup in Profile before taking rides'}
+                : 'Account suspended - contact support'}
           </Text>
         </View>
         <View style={styles.statsRow}>
@@ -318,7 +328,7 @@ export default function RiderHome() {
               </View>
               <TouchableOpacity
                 style={styles.directionsBtn}
-                onPress={() => openMapsDirections(request.restaurant)}
+                onPress={() => openMapsDirections(request.restaurant, request.restaurantLatitude, request.restaurantLongitude)}
               >
                 <MaterialIcons name="directions" size={18} color={Colors.primary} />
               </TouchableOpacity>
@@ -463,7 +473,7 @@ export default function RiderHome() {
       {/* Live Map */}
       {myCoords ? <View style={styles.mapCard}>
         <MapView style={styles.map} initialRegion={mapRegion}>
-          <Marker coordinate={myCoords} title="Your Location">
+          <Marker coordinate={myCoords} title="Your Location" kind="rider">
             <View style={styles.myMarker}>
               <MaterialIcons name="delivery-dining" size={18} color={Colors.text} />
             </View>
@@ -473,13 +483,14 @@ export default function RiderHome() {
               <Marker
                 coordinate={{ latitude: readyOrder.restaurantLatitude, longitude: readyOrder.restaurantLongitude }}
                 title={request.restaurant}
+                kind="restaurant"
               />
               <Polyline
                 coordinates={[
                   myCoords,
                   { latitude: readyOrder.restaurantLatitude, longitude: readyOrder.restaurantLongitude },
                 ]}
-                strokeColor={Colors.warning}
+                strokeColor={Colors.primary}
                 strokeWidth={4}
               />
             </>

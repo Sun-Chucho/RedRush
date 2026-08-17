@@ -63,6 +63,7 @@ export default function OrderTrackingScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [roadRoute, setRoadRoute] = useState<{ latitude: number; longitude: number }[]>([]);
   const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
+  const [roadDurationMin, setRoadDurationMin] = useState<number | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const lastRouteRequest = useRef<{
     latitude: number;
@@ -140,6 +141,7 @@ export default function OrderTrackingScreen() {
     if (!hasAccurateRoute) {
       setRoadRoute([]);
       setRoadDistanceKm(null);
+      setRoadDurationMin(null);
       return undefined;
     }
 
@@ -152,8 +154,7 @@ export default function OrderTrackingScreen() {
     // Rider GPS can update every four seconds. Reusing the current road
     // polyline between meaningful movements prevents slow route requests from
     // accumulating during a long-running tracking session.
-    if (previous && now - previous.requestedAt < 15000 && movedKm < 0.15) {
-      setRoadDistanceKm(getHaversineDistanceKm(routeOrigin, routeDestination));
+    if (previous && now - previous.requestedAt < 8000 && movedKm < 0.025) {
       return undefined;
     }
 
@@ -170,15 +171,17 @@ export default function OrderTrackingScreen() {
           if (active && requestId === routeRequestId.current) {
             setRoadRoute(result?.coordinates?.length ? result.coordinates : [routeOrigin, routeDestination]);
             setRoadDistanceKm(result?.distanceKm ?? getHaversineDistanceKm(routeOrigin, routeDestination));
+            setRoadDurationMin(result?.durationMin ?? null);
           }
         })
         .catch(() => {
           if (active && requestId === routeRequestId.current) {
             setRoadRoute([routeOrigin, routeDestination]);
             setRoadDistanceKm(getHaversineDistanceKm(routeOrigin, routeDestination));
+            setRoadDurationMin(null);
           }
         });
-    }, 350);
+    }, 100);
 
     return () => {
       active = false;
@@ -258,6 +261,9 @@ export default function OrderTrackingScreen() {
     new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const mapCenter = showRiderOnMap ? route.rider : route.restaurant;
+  const visibleRoadRoute = roadRoute.length > 1
+    ? [routeOrigin, ...roadRoute.slice(1)]
+    : [routeOrigin, routeDestination];
   const totalEta = (order.prepTime || 0) + (order.deliveryTime || 0);
   const etaLabel = order.status === 'delivered'
     ? 'Delivered'
@@ -266,6 +272,9 @@ export default function OrderTrackingScreen() {
     : totalEta > 0
     ? `~${totalEta} min`
     : `ETA: ${formatTime(order.estimatedDelivery)}`;
+  const liveEtaLabel = isRiderTrackingExpected && roadDurationMin != null
+    ? `~${Math.max(1, Math.round(roadDurationMin))} min`
+    : etaLabel;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -312,12 +321,12 @@ export default function OrderTrackingScreen() {
               longitudeDelta: 0.032,
             }}
           >
-            <Marker coordinate={route.restaurant} title={order.restaurantName}>
+            <Marker coordinate={route.restaurant} title={order.restaurantName} kind="restaurant">
               <View style={styles.restaurantMarker}>
                 <MaterialIcons name="restaurant" size={16} color={Colors.text} />
               </View>
             </Marker>
-            <Marker coordinate={route.customer} title="Your location">
+            <Marker coordinate={route.customer} title="Your location" kind="customer">
               <View style={styles.customerMarker}>
                 <MaterialIcons name="home" size={16} color={Colors.text} />
               </View>
@@ -325,17 +334,17 @@ export default function OrderTrackingScreen() {
             {showRiderOnMap ? (
               <>
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                  <Marker coordinate={route.rider} title={`Rider: ${order.riderName || 'Assigned rider'}`}>
+                  <Marker coordinate={route.rider} title={`Rider: ${order.riderName || 'Assigned rider'}`} kind="rider" rotation={riderCoords?.heading}>
                     <View style={styles.riderMarker}>
                       <MaterialIcons name="delivery-dining" size={18} color={Colors.text} />
                     </View>
                   </Marker>
                 </Animated.View>
-                <Polyline coordinates={roadRoute.length > 1 ? roadRoute : [routeOrigin, routeDestination]} strokeColor={Colors.primary} strokeWidth={4} />
+                <Polyline coordinates={visibleRoadRoute} strokeColor={Colors.primary} strokeWidth={5} />
               </>
             ) : null}
             {!showRiderOnMap && order.status !== 'delivered' && order.status !== 'cancelled' ? (
-              <Polyline coordinates={roadRoute.length > 1 ? roadRoute : [route.restaurant, route.customer]} strokeColor={Colors.border} strokeWidth={3} />
+              <Polyline coordinates={roadRoute.length > 1 ? roadRoute : [route.restaurant, route.customer]} strokeColor={Colors.primary} strokeWidth={5} />
             ) : null}
           </MapView>
           <View style={styles.mapTopLeft}>
@@ -348,7 +357,7 @@ export default function OrderTrackingScreen() {
           </View>
           <View style={styles.mapEtaChip}>
             <MaterialIcons name="access-time" size={13} color={Colors.primary} />
-            <Text style={styles.mapEtaText}>{proximityKm == null ? etaLabel : `${proximityKm.toFixed(1)} km ${proximityLabel}`}</Text>
+            <Text style={styles.mapEtaText}>{proximityKm == null ? liveEtaLabel : `${liveEtaLabel} · ${proximityKm.toFixed(1)} km ${proximityLabel}`}</Text>
           </View>
         </View> : (
           <View style={[styles.locationUnavailable, isWide && styles.locationUnavailableWide]}>

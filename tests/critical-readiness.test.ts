@@ -109,7 +109,7 @@ test('slow or blocked realtime connections fall back to REST order and rider pol
   assert.match(orders, /status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT'/);
   assert.match(orders, /setInterval[\s\S]*12000/);
   assert.match(riderLocation, /status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT'/);
-  assert.match(riderLocation, /setInterval[\s\S]*6000/);
+  assert.match(riderLocation, /setInterval[\s\S]*5000/);
 });
 
 test('desktop web uses desktop width while phone web keeps the mobile shell', () => {
@@ -183,6 +183,48 @@ test('rider tracking uses a native background task and never invents customer-fa
   assert.match(orderScreen, /isRiderTrackingExpected && !!riderCoords/);
   assert.doesNotMatch(riderScreen, /3\.2 km/);
   assert.match(riderScreen, /sort\(\(a, b\) => a\.distanceKm - b\.distanceKm\)/);
+});
+
+test('vendors and riders operate before approval while withdrawals require verification', () => {
+  const restaurants = read('services/supabaseRestaurants.ts');
+  const riderScreen = read('app/(rider)/index.tsx');
+  const profileSettings = read('services/supabaseProfileSettings.ts');
+  const payoutPolicy = read('supabase/migrations/021_operations_before_payout_verification.sql');
+
+  assert.doesNotMatch(restaurants, /requireApprovedVendor|must be approved before managing/);
+  assert.doesNotMatch(riderScreen, /Complete rider setup|before taking rides/);
+  assert.match(profileSettings, /Verification is required for withdrawals, not for accepting deliveries/);
+  assert.match(payoutPolicy, /payout requests self create/);
+  assert.match(payoutPolicy, /vendor_profiles\.approval_status = 'approved'/);
+  assert.match(payoutPolicy, /rider_profiles\.approval_status = 'approved'/);
+  assert.match(payoutPolicy, /legal_document_url <> ''/);
+  assert.match(payoutPolicy, /id_document_url <> ''/);
+});
+
+test('live tracking keeps one map alive and animates a red road route', () => {
+  const tracking = read('services/riderLocation.ts');
+  const map = read('components/mapLeaflet.ts');
+  const nativeMap = read('components/MapViewCompat.native.tsx');
+  const webMap = read('components/MapViewCompat.web.tsx');
+  const order = read('app/order/[id].tsx');
+
+  assert.match(tracking, /BestForNavigation/);
+  assert.match(tracking, /requestBackground\?: boolean/);
+  assert.match(tracking, /Foreground tracking remains active/);
+  assert.match(tracking, /subscribeToOwnRiderLocation/);
+  assert.match(map, /animateMarker/);
+  assert.match(map, /REDRUSH_MAP_UPDATE/);
+  assert.match(map, /color: '#CC0000'/);
+  assert.match(nativeMap, /postMessage/);
+  assert.match(webMap, /contentWindow\?\.postMessage/);
+  assert.match(order, /rotation=\{riderCoords\?\.heading\}/);
+  assert.match(order, /strokeColor=\{Colors\.primary\} strokeWidth=\{5\}/);
+});
+
+test('customer About copy describes food delivery without implementation details', () => {
+  const profile = read('app/(customer)/profile.tsx');
+  assert.match(profile, /RedRush is a food delivery app/);
+  assert.doesNotMatch(profile, /Supabase|Expo SDK|React Native 0\.81/);
 });
 
 test('checkout is cash-only and uses restaurant pricing with atomic promo redemption', () => {

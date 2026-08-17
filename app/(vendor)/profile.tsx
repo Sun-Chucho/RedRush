@@ -133,7 +133,7 @@ export default function VendorProfile() {
 
   const handleVerificationPress = async () => {
     if (settings.approvalStatus === 'approved') {
-      showAlert('Restaurant approved', 'Your restaurant is verified and ready for live operations.');
+      showAlert('Payouts verified', 'Your restaurant can request withdrawals when payouts are enabled.');
       return;
     }
 
@@ -152,7 +152,7 @@ export default function VendorProfile() {
         'vendor',
         `Restaurant verification ready. Business: ${settings.businessName || user?.name || 'Restaurant'}, phone: ${settings.businessPhone || user?.phone || 'not set'}, address: ${settings.businessAddress || user?.address || 'not set'}.`
       );
-      showAlert('Verification submitted', 'Your restaurant details are ready for admin review.');
+      showAlert('Verification submitted', 'You can keep operating while your payout details are reviewed.');
     } catch (error) {
       showAlert('Verification', error instanceof Error ? error.message : 'Unable to submit verification.');
     } finally {
@@ -183,7 +183,7 @@ export default function VendorProfile() {
           <View style={styles.verifiedBadge}>
             <MaterialIcons name={settings.approvalStatus === 'approved' ? 'verified' : 'pending-actions'} size={14} color={settings.approvalStatus === 'approved' ? Colors.success : Colors.warning} />
             <Text style={[styles.verifiedText, { color: settings.approvalStatus === 'approved' ? Colors.success : Colors.warning }]}>
-              {settings.approvalStatus === 'approved' ? 'Verified Restaurant' : 'Pending approval'}
+              {settings.approvalStatus === 'approved' ? 'Payouts verified' : 'Payout verification pending'}
             </Text>
           </View>
         </View>

@@ -18,9 +18,9 @@ function statusDetails(status: string, missingCount: number) {
     return {
       icon: 'verified' as const,
       color: Colors.success,
-      title: 'Approved',
-      body: 'Your account is verified and ready for live operations.',
-      action: 'View details',
+      title: 'Payouts verified',
+      body: 'Your account is verified for withdrawals. You can continue operating normally.',
+      action: 'View verification',
     };
   }
 
@@ -28,20 +28,22 @@ function statusDetails(status: string, missingCount: number) {
     return {
       icon: 'error-outline' as const,
       color: Colors.error,
-      title: normalised === 'suspended' ? 'Suspended' : 'Needs attention',
-      body: 'Update your verification details and contact support for review.',
-      action: 'Fix details',
+      title: normalised === 'suspended' ? 'Account suspended' : 'Payouts need attention',
+      body: normalised === 'suspended'
+        ? 'Operations are paused. Contact support to resolve the suspension.'
+        : 'You can keep operating, but withdrawals remain locked until verification is resolved.',
+      action: normalised === 'suspended' ? 'Contact support' : 'Resolve verification',
     };
   }
 
   return {
     icon: missingCount > 0 ? 'assignment' as const : 'pending-actions' as const,
     color: missingCount > 0 ? Colors.warning : Colors.info,
-    title: missingCount > 0 ? 'Verification incomplete' : 'Pending approval',
+    title: missingCount > 0 ? 'Verify before withdrawal' : 'Payout review pending',
     body: missingCount > 0
-      ? `Complete ${missingCount} item${missingCount === 1 ? '' : 's'} before review.`
-      : 'Your details are ready. Submit or check your review status.',
-    action: missingCount > 0 ? 'Complete verification' : 'Submit for review',
+      ? `You can work now. Add ${missingCount} missing item${missingCount === 1 ? '' : 's'} before requesting a withdrawal.`
+      : 'You can work now while your payout verification is reviewed.',
+    action: missingCount > 0 ? 'Prepare for withdrawal' : 'View verification',
   };
 }
 
@@ -60,7 +62,7 @@ export function ApprovalStatusCard({ role, status, missingItems = [], onPress, c
       </View>
       <View style={styles.copy}>
         <View style={styles.titleRow}>
-          <Text style={styles.eyebrow}>{roleLabel} approval</Text>
+          <Text style={styles.eyebrow}>{roleLabel} payout verification</Text>
           <View style={[styles.pill, { backgroundColor: details.color + '18' }]}>
             <Text style={[styles.pillText, { color: details.color }]}>{details.title}</Text>
           </View>

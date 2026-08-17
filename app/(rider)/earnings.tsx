@@ -196,10 +196,10 @@ export default function RiderEarnings() {
           <Text style={styles.payoutTitle}>Estimated Delivery Earnings</Text>
         </View>
         <Text style={styles.payoutBalance}>{formatMoney(lifetimeEarnings)}</Text>
-        <Text style={styles.payoutNote}>Payout withdrawals are not available yet</Text>
+        <Text style={styles.payoutNote}>Withdrawals are coming soon. Identity and payout verification will be required.</Text>
         <TouchableOpacity style={[styles.withdrawBtn, styles.withdrawBtnDisabled]} disabled>
           <MaterialIcons name="lock-clock" size={18} color={Colors.textMuted} />
-          <Text style={styles.withdrawTextDisabled}>Mobile Money withdrawals — Coming soon</Text>
+          <Text style={styles.withdrawTextDisabled}>Withdrawals — Coming soon · Verification required</Text>
         </TouchableOpacity>
       </View>
 

@@ -383,8 +383,8 @@ export default function ProfileScreen() {
 
         {activePanel === 'aboutRedRush' ? (
           <View style={styles.infoBlock}>
-            <Text style={styles.infoText}>RedRush is a multi-role food delivery app for customers, vendors, riders, and administrators. This build uses Supabase for signed-in user profiles, orders, customer preferences, and operations data.</Text>
-            <Text style={styles.infoText}>Version 1.0.0 - Expo SDK 54 - React Native 0.81.</Text>
+            <Text style={styles.infoText}>RedRush is a food delivery app that connects you with nearby restaurants and local riders. Browse menus, order your favourite meals, follow every delivery live, and get your food brought directly to your door.</Text>
+            <Text style={styles.infoText}>Our goal is to make ordering food simple, fast, reliable, and easy to track from the restaurant to your location.</Text>
           </View>
         ) : null}
       </PanelModal>

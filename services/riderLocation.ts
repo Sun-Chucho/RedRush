@@ -21,9 +21,22 @@ export interface RiderCoords {
 const RIDER_LOCATION_TASK = 'redrush-active-delivery-location';
 let foregroundSubscription: Location.LocationSubscription | null = null;
 let activeRiderId: string | null = null;
+const ownLocationListeners = new Set<(coords: RiderCoords) => void>();
+
+function toRiderCoords(location: Location.LocationObject): RiderCoords {
+  return {
+    latitude: location.coords.latitude,
+    longitude: location.coords.longitude,
+    heading: location.coords.heading ?? undefined,
+    speed: location.coords.speed ?? undefined,
+    updatedAt: new Date(location.timestamp).toISOString(),
+  };
+}
 
 async function publishLocation(riderId: string, location: Location.LocationObject) {
   const { latitude, longitude, heading, speed } = location.coords;
+  const nextCoords = toRiderCoords(location);
+  ownLocationListeners.forEach(listener => listener(nextCoords));
   await setRiderOnlineStatus(riderId, true, {
     latitude,
     longitude,
@@ -49,7 +62,7 @@ if (!TaskManager.isTaskDefined(RIDER_LOCATION_TASK)) {
 async function startForegroundWatcher(riderId: string) {
   foregroundSubscription?.remove();
   foregroundSubscription = await Location.watchPositionAsync(
-    { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 10 },
+    { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2500, distanceInterval: 5 },
     location => {
       void publishLocation(riderId, location).catch(error => {
         console.warn('[rider-location] Foreground update failed:', error);
@@ -58,43 +71,59 @@ async function startForegroundWatcher(riderId: string) {
   );
 }
 
-/** Start native background GPS, or a foreground watcher on web. */
-export async function startRiderTracking(riderId: string): Promise<boolean> {
-  const foreground = await Location.requestForegroundPermissionsAsync();
+export function subscribeToOwnRiderLocation(onUpdate: (coords: RiderCoords) => void) {
+  ownLocationListeners.add(onUpdate);
+  return () => { ownLocationListeners.delete(onUpdate); };
+}
+
+/**
+ * Start immediate foreground GPS. Background access is requested only after a
+ * delivery is accepted, and declining it never forces the rider offline.
+ */
+export async function startRiderTracking(
+  riderId: string,
+  options: { requestBackground?: boolean } = {}
+): Promise<boolean> {
+  let foreground = await Location.getForegroundPermissionsAsync();
+  if (foreground.status !== 'granted' && foreground.canAskAgain) {
+    foreground = await Location.requestForegroundPermissionsAsync();
+  }
   if (foreground.status !== 'granted') return false;
 
   activeRiderId = riderId;
   const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
   await publishLocation(riderId, initial);
+  await startForegroundWatcher(riderId);
 
-  if (Platform.OS === 'web') {
-    await startForegroundWatcher(riderId);
+  if (Platform.OS === 'web' || !options.requestBackground) {
     return true;
   }
 
-  const background = await Location.requestBackgroundPermissionsAsync();
+  let background = await Location.getBackgroundPermissionsAsync();
+  if (background.status !== 'granted' && background.canAskAgain) {
+    background = await Location.requestBackgroundPermissionsAsync();
+  }
   if (background.status !== 'granted') {
-    activeRiderId = null;
-    await setRiderOnlineStatus(riderId, false).catch(() => undefined);
-    return false;
+    // Foreground tracking remains active. The rider can still deliver while
+    // RedRush is visible, just like navigation apps with optional background access.
+    return true;
   }
 
-  if (await Location.hasStartedLocationUpdatesAsync(RIDER_LOCATION_TASK)) {
-    await Location.stopLocationUpdatesAsync(RIDER_LOCATION_TASK);
+  if (!(await Location.hasStartedLocationUpdatesAsync(RIDER_LOCATION_TASK))) {
+    await Location.startLocationUpdatesAsync(RIDER_LOCATION_TASK, {
+      accuracy: Location.Accuracy.BestForNavigation,
+      timeInterval: 4000,
+      distanceInterval: 5,
+      pausesUpdatesAutomatically: false,
+      showsBackgroundLocationIndicator: true,
+      foregroundService: {
+        notificationTitle: 'RedRush delivery in progress',
+        notificationBody: 'Sharing your live route for this delivery',
+        notificationColor: '#CC0000',
+        killServiceOnDestroy: false,
+      },
+    });
   }
-  await Location.startLocationUpdatesAsync(RIDER_LOCATION_TASK, {
-    accuracy: Location.Accuracy.High,
-    timeInterval: 5000,
-    distanceInterval: 10,
-    pausesUpdatesAutomatically: false,
-    showsBackgroundLocationIndicator: true,
-    foregroundService: {
-      notificationTitle: 'RedRush delivery in progress',
-      notificationBody: 'Sharing your location for live order tracking',
-      notificationColor: '#CC0000',
-      killServiceOnDestroy: false,
-    },
-  });
   return true;
 }
 
@@ -119,7 +148,7 @@ export async function setRiderOffline(riderId: string): Promise<void> {
 /** Subscribe to live GPS with REST polling whenever Realtime is unavailable. */
 export function subscribeToRiderLocation(
   riderId: string,
-  onUpdate: (coords: RiderCoords) => void
+  onUpdate: (coords: RiderCoords | null) => void
 ): () => void {
   if (!isSupabaseConfigured) return () => undefined;
 
@@ -132,9 +161,19 @@ export function subscribeToRiderLocation(
 
   const emitRow = (row: {
     latitude?: number; longitude?: number; heading?: number | null;
-    speed?: number | null; updated_at?: string | null;
+    speed?: number | null; updated_at?: string | null; is_online?: boolean | null;
   }) => {
-    if (disposed || typeof row.latitude !== 'number' || typeof row.longitude !== 'number') return;
+    if (disposed) return;
+    const updatedAt = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+    const isFresh = updatedAt > 0 && Date.now() - updatedAt < 2 * 60 * 1000;
+    if (row.is_online === false || !isFresh || typeof row.latitude !== 'number' || typeof row.longitude !== 'number') {
+      const signature = `offline:${row.updated_at || ''}`;
+      if (signature !== lastSignature) {
+        lastSignature = signature;
+        onUpdate(null);
+      }
+      return;
+    }
     const signature = `${row.updated_at || ''}:${row.latitude}:${row.longitude}:${row.heading || 0}:${row.speed || 0}`;
     if (signature === lastSignature) return;
     lastSignature = signature;
@@ -149,7 +188,7 @@ export function subscribeToRiderLocation(
 
   const fetchLatest = async () => {
     const { data } = await supabase.from('rider_locations')
-      .select('latitude, longitude, heading, speed, updated_at')
+      .select('latitude, longitude, heading, speed, updated_at, is_online')
       .eq('rider_id', riderId).maybeSingle();
     if (data) emitRow(data);
   };
@@ -160,7 +199,7 @@ export function subscribeToRiderLocation(
   const startPolling = () => {
     if (fallbackPoll || disposed) return;
     void fetchLatest().catch(() => undefined);
-    fallbackPoll = setInterval(() => void fetchLatest().catch(() => undefined), 6000);
+    fallbackPoll = setInterval(() => void fetchLatest().catch(() => undefined), 5000);
   };
   const connect = () => {
     if (disposed) return;
@@ -173,7 +212,7 @@ export function subscribeToRiderLocation(
     channel = candidate;
     candidate.subscribe(status => {
       if (disposed) return;
-      if (status === 'SUBSCRIBED') { stopPolling(); return; }
+      if (status === 'SUBSCRIBED') return;
       if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT' && status !== 'CLOSED') return;
       startPolling();
       if (channel === candidate) channel = null;
@@ -182,7 +221,7 @@ export function subscribeToRiderLocation(
     });
   };
 
-  void fetchLatest().catch(() => undefined);
+  startPolling();
   connect();
   return () => {
     disposed = true;

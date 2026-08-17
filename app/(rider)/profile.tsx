@@ -79,7 +79,7 @@ export default function RiderProfile() {
 
   const handleVerificationPress = async () => {
     if (settings.approvalStatus === 'approved') {
-      showAlert('Rider approved', 'Your rider account is verified and ready for deliveries.');
+      showAlert('Payouts verified', 'Your rider account can request withdrawals when payouts are enabled.');
       return;
     }
 
@@ -100,7 +100,7 @@ export default function RiderProfile() {
         'rider',
         `Rider verification ready. Vehicle: ${settings.vehicleType || 'not set'} ${settings.vehiclePlate || ''}. ID: ${settings.idNumber || 'not set'}. Payout: ${settings.bankAccountNumber ? 'bank' : 'mobile money'}.`
       );
-      showAlert('Verification submitted', 'Your rider details are ready for admin review.');
+      showAlert('Verification submitted', 'You can keep delivering while your payout details are reviewed.');
     } catch (error) {
       showAlert('Verification', error instanceof Error ? error.message : 'Unable to submit verification.');
     } finally {
@@ -124,7 +124,7 @@ export default function RiderProfile() {
           <View style={[styles.statusPill, { borderColor: setupReady ? Colors.success : Colors.warning }]}>
             <MaterialIcons name={setupReady ? 'verified' : 'pending-actions'} size={14} color={setupReady ? Colors.success : Colors.warning} />
             <Text style={[styles.statusPillText, { color: setupReady ? Colors.success : Colors.warning }]}>
-              {setupReady ? 'Ready for deliveries' : 'Setup required'}
+              {setupReady ? 'Ready for payout review' : 'Verify before withdrawal'}
             </Text>
           </View>
         </View>

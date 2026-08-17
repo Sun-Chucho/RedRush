@@ -102,14 +102,17 @@ export async function setRiderOnlineStatus(
     return false;
   }
 
-  // Also update rider_profiles
-  const { error: profileError } = await supabase
-    .from('rider_profiles')
-    .update({ is_online: isOnline })
-    .eq('user_id', riderId);
+  // GPS updates arrive every few seconds; only mirror explicit online/offline
+  // transitions to the profile so live tracking performs one write per point.
+  if (!coords) {
+    const { error: profileError } = await supabase
+      .from('rider_profiles')
+      .update({ is_online: isOnline })
+      .eq('user_id', riderId);
 
-  if (profileError) {
-    console.warn('[dispatchService] rider profile online update error:', profileError.message);
+    if (profileError) {
+      console.warn('[dispatchService] rider profile online update error:', profileError.message);
+    }
   }
 
   return true;

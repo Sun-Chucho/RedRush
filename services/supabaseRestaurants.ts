@@ -68,23 +68,6 @@ export function shouldUseSupabaseRestaurants() {
   return isSupabaseConfigured;
 }
 
-async function requireApprovedVendor() {
-  const { data: authData } = await supabase.auth.getUser();
-  const userId = authData.user?.id;
-  if (!userId) throw new Error('Please sign in as a vendor.');
-
-  const { data, error } = await supabase
-    .from('vendor_profiles')
-    .select('approval_status')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (data?.approval_status !== 'approved') {
-    throw new Error('Your vendor account must be approved before managing live restaurant operations.');
-  }
-}
-
 function normalizeRestaurant(row: RestaurantRow, menu: MenuItem[]): Restaurant {
   const baseCategories = Array.isArray(row.categories) && row.categories.length ? row.categories : ['Meals', 'Drinks'];
   const categories = Array.from(new Set([...baseCategories, ...menu.map(item => item.category)])).filter(Boolean);
@@ -191,7 +174,6 @@ export async function ensureSupabaseVendorRestaurant(user: {
 }) {
   if (!shouldUseSupabaseRestaurants()) return null;
   if (user.role !== 'vendor') throw new Error('Only vendor accounts can manage restaurant menus.');
-  await requireApprovedVendor();
 
   const existingId = user.restaurantId || null;
   if (existingId) {
@@ -232,7 +214,6 @@ export async function updateSupabaseVendorRestaurantLocation(
   location: RestaurantLocationInput
 ) {
   if (!shouldUseSupabaseRestaurants()) return false;
-  await requireApprovedVendor();
 
   const { error } = await supabase
     .from('restaurants')
@@ -250,7 +231,6 @@ export async function updateSupabaseVendorRestaurantLocation(
 
 export async function updateSupabaseVendorRestaurantProfile(restaurantId: string, patch: RestaurantProfileUpdate) {
   if (!shouldUseSupabaseRestaurants()) return false;
-  await requireApprovedVendor();
 
   const payload: Record<string, unknown> = {};
   if (patch.name !== undefined) payload.name = patch.name;
@@ -272,7 +252,6 @@ export async function updateSupabaseVendorRestaurantProfile(restaurantId: string
 
 export async function createSupabaseMenuItem(restaurantId: string, item: MenuItemInput) {
   if (!shouldUseSupabaseRestaurants()) return false;
-  await requireApprovedVendor();
 
   const { error } = await supabase
     .from('menu_items')
@@ -284,7 +263,6 @@ export async function createSupabaseMenuItem(restaurantId: string, item: MenuIte
 
 export async function updateSupabaseMenuItem(restaurantId: string, itemId: string, item: MenuItemUpdate) {
   if (!shouldUseSupabaseRestaurants()) return false;
-  await requireApprovedVendor();
 
   const { error } = await supabase
     .from('menu_items')
@@ -298,7 +276,6 @@ export async function updateSupabaseMenuItem(restaurantId: string, itemId: strin
 
 export async function deleteSupabaseMenuItem(restaurantId: string, itemId: string) {
   if (!shouldUseSupabaseRestaurants()) return false;
-  await requireApprovedVendor();
 
   const { error } = await supabase.from('menu_items').delete().eq('id', itemId).eq('restaurant_id', restaurantId);
 

@@ -111,10 +111,12 @@ function notificationPrefs(value: unknown): NotificationPrefs {
 }
 
 export function isRiderReadyForDeliveries(settings: RiderProfileSettings) {
-  const hasVehicle = !!settings.vehicleType.trim() && !!settings.vehiclePlate.trim();
-  const hasIdentity = !!settings.idNumber.trim();
-  const hasPayout = !!settings.bankAccountNumber.trim() || !!settings.mobileMoneyPhone.trim();
-  return settings.approvalStatus === 'approved' && hasVehicle && hasIdentity && hasPayout;
+  // Verification is required for withdrawals, not for accepting deliveries.
+  return settings.approvalStatus !== 'suspended';
+}
+
+export function isRiderVerifiedForWithdrawal(settings: RiderProfileSettings) {
+  return settings.approvalStatus === 'approved' && getRiderVerificationMissingItems(settings).length === 0;
 }
 
 export function getRiderVerificationMissingItems(settings: RiderProfileSettings) {
@@ -145,6 +147,10 @@ export function getVendorVerificationMissingItems(settings: VendorProfileSetting
 
 export function isVendorProfileComplete(settings: VendorProfileSettings) {
   return getVendorVerificationMissingItems(settings).length === 0;
+}
+
+export function isVendorVerifiedForWithdrawal(settings: VendorProfileSettings) {
+  return settings.approvalStatus === 'approved' && getVendorVerificationMissingItems(settings).length === 0;
 }
 
 export async function loadRiderProfileSettings(userId: string): Promise<RiderProfileSettings> {
